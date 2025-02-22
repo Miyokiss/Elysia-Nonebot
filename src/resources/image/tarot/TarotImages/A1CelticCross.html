@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圣三角塔罗牌阵</title>
+    <style>
+        :root {
+            --card-width: 240px;
+            --triangle-height: 500px;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: url('1.jpg') center/cover fixed;
+            font-family: '华文楷体', serif;
+            color: #f0e6d6;
+            display: grid;
+            place-items: center;
+            overflow-x: hidden;
+        }
+
+        .triangle-container {
+            position: relative;
+            width: calc(var(--card-width) * 3);
+            height: var(--triangle-height);
+            margin: 50px 0;
+        }
+
+        .card {
+            position: absolute;
+            width: var(--card-width);
+            height: 800px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+            border: 2px solid #635944;
+        }
+
+        .card:hover {
+            transform: scale(1.05) rotate(-2deg);
+            z-index: 10;
+        }
+
+        /* 正三角定位 */
+        #past {
+            bottom: -180px;
+            left: -100px;
+            transform: rotate(-5deg);
+        }
+
+        #present {
+            bottom: -180px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #future {
+            bottom: -180px;
+            right: -100px;
+            transform: rotate(5deg);
+        }
+
+        .card img {
+            width: 240px;
+            height: 480px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #786642;
+        }
+
+        .card h3 {
+            margin: 0 0 10px;
+            color: #d4af37;
+            font-size: 1.8em;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .card-position {
+            color: #b89068;
+            font-size: 1.1em;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .card p {
+            line-height: 1.6;
+            font-size: 1em;
+            text-align: justify;
+            padding: 0 10px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="triangle-container">
+
+        <!-- 过去 -->
+        <div class="card" id="past">
+            <img src="{{data[0].image}}">
+            <h3>{{data[0].name}}</h3>
+            <div class="card-position">▼ 过去影响 ▼</div>
+            <p>{{data[0].meaning}}</p>
+        </div>
+        <!-- 现在 -->
+        <div class="card" id="present">
+            <img src="{{data[1].image}}" alt="现在">
+            <h3>{{data[1].name}}</h3>
+            <div class="card-position">◀ 当前状况 ▶</div>
+            <p>{{data[1].meaning}}</p>
+        </div>
+
+        <!-- 未来 -->
+        <div class="card" id="future">
+            <img src="{{data[2].image}}" alt="未来">
+            <h3>{{data[2].name}}</h3>
+            <div class="card-position">▲ 未来走向 ▲</div>
+            <p >{{data[2].meaning}}</p>
+        </div>
+    </div>
+</body>
+</html>
