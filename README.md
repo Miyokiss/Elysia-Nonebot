@@ -145,6 +145,12 @@ conda create --name chatbot python=3.11
 
 创建conda环境。
 
+之后
+
+```powershell
+conda activate chatbot
+```
+
 或者将上述 *chatbot* 更换为你喜欢的名字。
 
 <b>🚫注意：</b>机器人<b>不</b>支持<img alt="Static Badge" src="https://img.shields.io/badge/Python-3.13/+-blue">的发行版，推荐使用<img alt="Static Badge" src="https://img.shields.io/badge/Python-3.11%2F3.12-blue">
