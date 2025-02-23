@@ -99,11 +99,15 @@
     </style>
 </head>
 <body>
-    <div class="triangle-container">
 
+    <div class="triangle-container">
+                <!-- 新增标题 -->
+        <div style="text-align: center; margin-top: -40%;">
+            <h1 style="color: #d4af37; font-size: 3em; text-shadow: 2px 2px 4px rgba(113,85,85,0.5);">圣三角塔罗牌阵</h1>
+        </div>
         <!-- 过去 -->
         <div class="card" id="past">
-            <img src="{{data[0].image}}">
+            <img src="{{data[0].image}}" alt="过去">
             <h3>{{data[0].name}}</h3>
             <div class="card-position">▼ 过去影响 ▼</div>
             <p>{{data[0].meaning}}</p>
