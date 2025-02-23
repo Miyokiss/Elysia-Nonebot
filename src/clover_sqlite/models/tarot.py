@@ -127,10 +127,10 @@ class TarotExtractLog(Model):
             cards = []
             deck = []
             spread_config = {
-                4: {"name":"三角牌阵","count": 3, "positions": ["过去", "现在", "未来"]},
-                5: {"name":"六芒星牌阵","count": 6, "positions": ["现状", "挑战", "建议", "根源", "希望", "结果"]},
-                6: {"name":"凯尔特十字牌阵","count": 10,"positions": ["核心", "阻碍", "过去", "现在", "未来", "潜在", "态度", "环境", "希望", "结果"]},
-                7: {"name":"恋人牌阵","count": 5, "positions": ["自我状态", "对方状态", "关系现状", "挑战", "未来"]}
+                4: {"name":"三角牌阵","html_name":"A1CelticCross.html","count": 3, "positions": ["过去", "现在", "未来"]},
+                5: {"name":"六芒星牌阵","html_name":"A1Hexagram.html","count": 6, "positions": ["过去", "现在", "未来", "潜在", "外部", "结果"]},
+                6: {"name":"凯尔特十字牌阵","html_name":"","count": 10,"positions": ["核心", "阻碍", "过去", "现在", "未来", "潜在", "态度", "环境", "希望", "结果"]},
+                7: {"name":"恋人牌阵","html_name":"","count": 5, "positions": ["自我状态", "对方状态", "关系现状", "挑战", "未来"]}
             }
             deck = await MajorArcana.all() + await MinorArcana.all()
             # 防止重复抽牌
@@ -149,7 +149,8 @@ class TarotExtractLog(Model):
                     "orientation": orientation,
                     "position_meaning": spread_config[extract_type]["positions"][len(cards)]
                 })
-            file_path = temp_path + user_id + f"{spread_config[extract_type]['name']}{datetime.now().date()}.png"
+            file_path = temp_path + user_id + f"{spread_config[extract_type]['name']}{datetime.now().date()}.jpeg"
+            template_name = f"{spread_config[extract_type]['html_name']}"
             # 创建记录
             log = await cls.create(
                 user_id=user_id,
@@ -163,13 +164,15 @@ class TarotExtractLog(Model):
             )
             image_bytes = await template_to_pic(
                 template_path = tarots_img_path,
-                template_name="A1CelticCross.html",
+                template_name = template_name,
                 templates={"data": log.spread_data.get("cards")},
+                quality=80,
+                type="jpeg",
                 pages={
-                    "viewport": {"width": 980, "height": 900},
+                    "viewport": {"width": 1100, "height": 1200},
                     "base_url": f"file://{getcwd()}",
                 },
-                wait=2,
+                wait=10,
             )
             with open(file_path, "wb") as file:
                 file.write(image_bytes)

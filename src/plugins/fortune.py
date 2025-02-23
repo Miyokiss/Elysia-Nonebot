@@ -40,12 +40,13 @@ tarot = on_command("今日塔罗", rule=to_me(), priority=10, block=True)
 async def get_tarot(message: MessageEvent):
     #extract_type : 1大阿尔克纳牌 2小阿尔克纳牌 3 混合牌组 4三角牌阵 5六芒星牌阵 6凯尔特十字牌阵 7恋人牌阵
     value = message.get_plaintext().strip().split(" ")
-    if len(value) < 2 or len(value) > 2 or value[1] == "" or value[1] not in ["1","2","3","4"]:
+    if len(value) < 2 or len(value) > 2 or value[1] == "" or value[1] not in ["1","2","3","4","5"]:
         await tarot.finish("请输入正确的指令格式：/今日塔罗 + 数字(1-7) \n"
                            "1   大阿尔克纳牌 \n"
                            "2   小阿尔克纳牌 \n"
                            "3   混合牌组 \n"
-                           "4   三角牌阵 "
+                           "4   三角牌阵 \n"
+                           "5   六芒星牌阵 "
                            )
     result = await TarotExtractLog.tarotChoice(int(value[1]),message.get_user_id())
     if result.extract_type in [1,2,3]:
