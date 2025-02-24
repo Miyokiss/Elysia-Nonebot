@@ -3,7 +3,6 @@ import requests
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.configs.api_config import v3url, v3key, deepseek_url, deepseek_key
 import aiohttp
-import asyncio
 
 openai.api_key = deepseek_key
 openai.base_url = deepseek_url
@@ -61,7 +60,7 @@ async def silicon_flow(group_openid, content):
         "messages": messages
     }
     headers = {
-        "Authorization": "Bearer sk-lcsbvcogybhzznggjsucscrcmveeuuksecxvdkhtrlmzjmqs",
+        "Authorization": f"Bearer {deepseek_key}",
         "Content-Type": "application/json"
     }
 
