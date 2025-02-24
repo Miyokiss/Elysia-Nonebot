@@ -4,8 +4,6 @@ import requests
 from bs4 import BeautifulSoup
 from src.configs.api_config import wenku8_username, wenku8_password, proxy_api
 
-
-
 # 登录页面的URL
 login_url = 'https://www.wenku8.net/login.php?jumpurl=http%3A%2F%2Fwww.wenku8.net%2Findex.php'
 index_url = 'https://www.wenku8.net/index.php'
@@ -24,19 +22,21 @@ login_data = {
     'action': 'login'
 }
 
+
 def get_proxy(headers):
-    #proxy_url可通过多米HTTP代理网站购买后生成代理api链接，每次请求api链接都是新的ip
+    # proxy_url可通过多米HTTP代理网站购买后生成代理api链接，每次请求api链接都是新的ip
     proxy_url = proxy_api
-    aaa=requests.get(proxy_url, headers=headers).text
+    aaa = requests.get(proxy_url, headers=headers).text
     proxy_host = aaa.splitlines()[0]
-    print('代理IP为：'+proxy_host)
-    #proxy_host='117.35.254.105:22001'
-    #proxy_host='192.168.0.134:1080'
+    print('代理IP为：' + proxy_host)
+    # proxy_host='117.35.254.105:22001'
+    # proxy_host='192.168.0.134:1080'
     proxy = {
-        'http': 'http://'+proxy_host,
-        'https': 'http://'+proxy_host
+        'http': 'http://' + proxy_host,
+        'https': 'http://' + proxy_host
     }
     return proxy
+
 
 async def login():
     # 发送登录请求
@@ -99,7 +99,8 @@ async def get_books():
     # print(orders[7].text)
     with open(getcwd() + "/src/clover_lightnovel/output1.html", 'w', encoding='utf-8') as file:
         file.write(head + str(orders[7]).replace('(<a href="https://www.wenku8.net/zt/sugoi/2025.php"', '').replace(
-            'target="_blank">查看 这本轻小说真厉害！2025 TOP榜单</a>)', '') + str(orders[8]) + str(orders[9]) + str(orders[10]))
+            'target="_blank">查看 这本轻小说真厉害！2025 TOP榜单</a>)', '') + str(orders[8]) + str(orders[9]) + str(
+            orders[10]))
 
 
 if __name__ == '__main__':
