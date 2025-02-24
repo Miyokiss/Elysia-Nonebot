@@ -2,6 +2,8 @@ import openai
 import requests
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.configs.api_config import v3url, v3key, deepseek_url, deepseek_key
+import aiohttp
+import asyncio
 
 openai.api_key = deepseek_key
 openai.base_url = deepseek_url
@@ -46,6 +48,29 @@ async def deepseek_chat(group_openid,content):
         stream=False
     )
     reply_content = completion.choices[0].message.content
+    await GroupChatRole.save_chat_history(group_openid, {"role": "assistant", "content": reply_content})
+    return reply_content
+
+async def silicon_flow(group_openid, content):
+    await GroupChatRole.save_chat_history(group_openid, {"role": "user", "content": content})
+    messages = await GroupChatRole.get_chat_history(group_openid)
+    url = "https://api.siliconflow.cn/v1/chat/completions"
+    payload = {
+        "model": "Pro/deepseek-ai/DeepSeek-V3",
+        "stream": False,
+        "messages": messages
+    }
+    headers = {
+        "Authorization": "Bearer sk-lcsbvcogybhzznggjsucscrcmveeuuksecxvdkhtrlmzjmqs",
+        "Content-Type": "application/json"
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload, headers=headers) as response:
+            result = await response.json()
+            print(result)
+            reply_content = result["choices"][0]["message"]["content"]
+
     await GroupChatRole.save_chat_history(group_openid, {"role": "assistant", "content": reply_content})
     return reply_content
 
