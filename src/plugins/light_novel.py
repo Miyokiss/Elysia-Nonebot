@@ -1,5 +1,7 @@
-from datetime import datetime
+from datetime import datetime, time
 from pathlib import Path
+
+import requests.exceptions
 from nonebot.rule import to_me
 from nonebot.plugin import on_command
 from nonebot.adapters.qq import  MessageSegment
@@ -15,6 +17,12 @@ async def get_ln():
     file = Path() / light_novel_path / f"{now.date()}.png"
     if not os.path.exists(file):
         await light_novel.send("正在为您整理最新轻小说咨询哦，请稍等🥳")
-    await get_ln_image()
+    try:
+        await get_ln_image()
+    except requests.exceptions.InvalidURL as e:
+        print("\033[32m" + str(time.strftime("%m-%d %H:%M:%S")) +
+              "\033[0m [" + "\033[31;1mFAILED\033[0m" + "]" +
+              "\033[31;1m requests.exceptions.InvalidURL \033[0m" + str(e))
+        await light_novel.finish("获取信息失败了，请重试。")
     now = datetime.now().date()
     await light_novel.finish(MessageSegment.file_image(Path(light_novel_path+f"{now}.png")))
