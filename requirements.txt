@@ -35,3 +35,4 @@ openai
 typing_extensions
 psutil
 Beautifulsoup4
+aiohttp
