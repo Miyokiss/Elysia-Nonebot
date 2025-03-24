@@ -230,6 +230,7 @@ QQ_BOTS="
 分别在id、token、secret处填写你的机器人ID，机器人Token和Apple Secret，需从[QQ开放平台](https://q.qq.com/)获取。
 
 <br>
+
 #### 📄 需要替换的文件
 
 首先找到 [**src/configs/api_config_example.py**](src/configs/api_config_example.py) 文件，并根据需要替换以下配置项：
