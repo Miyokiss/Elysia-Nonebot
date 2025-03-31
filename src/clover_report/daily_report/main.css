@@ -28,7 +28,7 @@ body {
 .wrapper {
   /* height: 1885px; */
   width: 578px;
-  background-color: #45667d;
+  background-color: #ffbdca;
   position: relative;
   padding: 15px;
   /* box-sizing: border-box; */
@@ -37,7 +37,7 @@ body {
 .main {
   /* height: 1860px; */
   width: 555px;
-  background-color: #edf8ff;
+  background-color: #ffeded;
   position: relative;
   border-radius: 10px;
   padding: 10px;
@@ -53,12 +53,12 @@ body {
 
 .top-title {
   position: relative;
-  width: 322px;
+  width: 245px;
 }
 
 .zx-title {
   font-family: "SSFangTangTi";
-  color: #45667d;
+  color: #ffbdca;
   font-size: 72px;
   position: absolute;
   top: -73px;
@@ -66,7 +66,7 @@ body {
 }
 
 .zx-tip {
-  color: #45667d;
+  color: #ffbdca;
   font-family: "Noto Sans SC B";
   font-size: 33px;
   position: absolute;
@@ -75,18 +75,18 @@ body {
 }
 
 .top-date {
-  background-color: #c1e0ef;
+  background-color: #f6e4e4;
   border-radius: 10px;
   height: 108px;
   width: 120px;
   margin-top: 30px;
   /* margin-left: 67px; */
   position: relative;
-  box-shadow: 4px 4px 8px rgb(181, 223, 240);
+  box-shadow: 4px 4px 8px rgb(254, 220, 220);
 }
 
 .top-date-week {
-  color: #45667d;
+  color: #ffbdca;
   font-size: 35px;
   font-family: "Noto Sans SC B";
   position: absolute;
@@ -95,10 +95,10 @@ body {
 }
 
 .top-date-date {
-  color: #45667d;
+  color: #ffbdca;
   font-family: "Noto Sans SC B";
   font-size: 12px;
-  background-color: #a0d7ec;
+  background-color: #ffeaea;
   margin-top: 50px;
   height: 25px;
   display: flex;
@@ -108,7 +108,7 @@ body {
 
 .top-date-cn {
   font-family: "Noto Sans SC B";
-  color: #45667d;
+  color: #ffbdca;
   font-size: 15px;
   display: flex;
   align-items: center;
@@ -128,19 +128,19 @@ body {
   height: 240px;
   padding: 15px 10px;
   border-radius: 10px;
-  border: #45667d 3px solid;
+  border: #ffbdca 3px solid;
   width: 157px;
   position: relative;
 }
 
 .moyu-title {
-  border: #45667d 2px solid;
+  border: #ffbdca 2px solid;
   position: absolute;
-  background-color: #ebf6fd;
+  background-color: #fad5d5;
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  color: #45667d;
+  color: #ffbdca;
   padding: 5px 10px;
   font-size: 14px;
   font-family: "Noto Sans SC B";
@@ -169,8 +169,8 @@ body {
 }
 
 .moyu-day-name {
-  color: #45667d;
-  background-color: #daf8ff;
+  color: #ffbdca;
+  background-color: #ffdada;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -179,7 +179,7 @@ body {
 
 .bili-border {
   font-family: "Noto Sans SC";
-  border: #45667d 3px solid;
+  border: #ffbdca 3px solid;
   height: 240px;
   margin-left: 15px;
   padding: 15px 10px 15px 40px;
@@ -198,7 +198,7 @@ body {
 }
 
 .hot-text {
-  background-color: #b5deef;
+  background-color: #efb5b5;
   height: 17px;
   width: 17px;
   color: white;
@@ -210,14 +210,14 @@ body {
 }
 
 .two-border {
-  border: #45667d 3px solid;
+  border: #ffbdca 3px solid;
   width: 512px;
   height: 370px;
   border-radius: 10px;
   position: relative;
   padding: 17px;
   font-family: "Noto Sans SC";
-  background-color: #edf8ff;
+  background-color: #ffeded;
 }
 
 .two-border-border  {
@@ -249,7 +249,7 @@ body {
 }
 
 .three-border {
-  border: #45667d 3px solid;
+  border: #ffbdca 3px solid;
   width: 552px;
   border-radius: 10px;
   position: relative;
@@ -257,13 +257,13 @@ body {
   padding: 17px;
   font-family: "Noto Sans SC";
   margin-top: 46px;
-  background-color: #edf8ff;
+  background-color: #ffeded;
   font-size: 15px;
   box-sizing: border-box;
 }
 
 .four-border {
-  border: #45667d 3px solid;
+  border: #ffbdca 3px solid;
   width: 512px;
   border-radius: 10px;
   position: relative;
@@ -271,12 +271,12 @@ body {
   padding: 17px;
   font-family: "Noto Sans SC";
   margin-top: 46px;
-  background-color: #edf8ff;
+  background-color: #ffeded;
   font-size: 15px;
 }
 
 .five-border {
-  border: #45667d 3px solid;
+  border: #ffbdca 3px solid;
   width: 520px;
   border-radius: 10px;
   position: relative;
@@ -285,9 +285,9 @@ body {
   font-family: "Noto Sans SC";
   margin-top: 46px;
   font-size: 19px;
-  color: #45667d;
+  color: #ffbdca;
   font-weight: 600;
-  background-color: #edf8ff;
+  background-color: #ffeded;
 }
 
 .normal-text {

@@ -10,6 +10,9 @@ from Crypto.Cipher import AES
 from graiax import silkcoder
 import src.clover_music.cloud_music.agent as agent
 from src.clover_image.delete_file import delete_file
+from nonebot import logger
+
+__name__ = "clover_music | cloud_music | cloud_music"
 
 
 requests.packages.urllib3.disable_warnings()
@@ -86,7 +89,7 @@ async def netease_cloud_music_is_login(session):
         try:
             loginurl = session.post(f'https://music.163.com/weapi/w/nuser/account/get?csrf_token={csrf_token}',data={'params': login_params(None), 'encSecKey': login_encSecKey()}, headers=headers).json()
             if loginurl['account'] is not None:
-                return session, True,loginurl['account']['id']
+                return session, True
             else:
                 return session, False,None
         except BaseException:
@@ -168,8 +171,8 @@ async def netease_music_search(keyword,session):
             singer = first_song["artists"][0]["name"]
             song_id = first_song["id"]
             song_url = f"https://music.163.com/song?id={song_id}"
-            print(f"搜索结果：{song_name} - {singer}")
-            print(f"歌曲链接：{song_url}")
+            logger.info(f"搜索结果：{song_name} - {singer}")
+            logger.info(f"歌曲链接：{song_url}")
             return song_id,song_name,singer,song_url
     return None, None, None, None
 
@@ -180,7 +183,7 @@ async def netease_music_search(keyword,session):
 #     download_url = f"http://music.163.com/song/media/outer/url?br=999000&id={song_id}.mp3"
 #     response = session.get(download_url, headers=headers)
 #     if response.status_code == 200:
-#         print(f"正在下载 {song_name} - {singer} 歌曲...")
+#         logger.info(f"正在下载 {song_name} - {singer} 歌曲...")
 #         file_path = os.path.join(save_path, f"{song_name}-{singer}.mp3")
 #         file_name = os.path.basename(f"{song_name}-{singer}.mp3")
 #         with open(file_path, "wb") as f:

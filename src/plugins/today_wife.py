@@ -10,6 +10,9 @@ from src.clover_sqlite.models.user import UserList
 today_group_wife = on_command("群老婆", rule=to_me(), priority=10)
 @today_group_wife.handle()
 async def handle_function(message: MessageEvent):
+      if not hasattr(message, 'group_openid'):
+        await today_group_wife.finish("暂未在当前场景下开放此功能。")
+
       member_openid = message.get_user_id()
 
       user_id = await UserList.get_user_id(member_openid,message.group_id)

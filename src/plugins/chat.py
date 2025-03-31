@@ -4,6 +4,7 @@ from nonebot.plugin import on_command
 from nonebot.adapters.qq import MessageEvent
 from src.clover_sqlite.models.chat import ChatRole, GroupChatRole
 from src.configs.api_config import admin_password
+from src.clover_sqlite.models.chat import MODE_OFF,MODE_AI
 
 
 t1 = on_command("管理员注册", rule=to_me(), priority=10, block=True)
@@ -32,18 +33,21 @@ async def handle_function(message: MessageEvent):
     # 判断是否为管理员
     if not await GroupChatRole.get_admin_list(group_openid, member_openid):
         await t3.finish("您没有权限使用此功能。")
-    else:
-        status = await GroupChatRole.is_on(group_openid)
-        if not status and content == "/开启ai":
-            await GroupChatRole.ai_switch(group_openid)
-            await t3.finish("成功开启语言模型对话功能。一起来聊天吧~")
-        elif status and content == "/开启ai":
-            await t3.finish("当前群已开启ai聊天。请勿重复开启")
-        elif status and content == "/关闭ai":
-            await GroupChatRole.ai_switch(group_openid)
+        return
+    current_mode = await GroupChatRole.is_on(group_openid)
+    if content == "/开启ai":
+        if current_mode == MODE_AI:
+            await t3.finish("当前群已开启AI聊天，请勿重复开启。")
+        else:
+            await GroupChatRole.ai_mode(group_openid, MODE_AI)
+            await t3.finish("成功开启语言模型对话功能，一起来聊天吧~")
+    
+    elif content == "/关闭ai":
+        if current_mode == MODE_OFF:
+            await t3.finish("当前群已关闭AI聊天，请勿重复关闭。")
+        else:
+            await GroupChatRole.ai_mode(group_openid, MODE_OFF)
             await t3.finish("成功关闭语言模型对话功能。")
-        elif not status and content == "/关闭ai":
-            await t3.finish("当前群已关闭ai聊天,请勿重复关闭。")
 
 
 tt = on_command("角色列表", rule=to_me(), priority=10, block=True)

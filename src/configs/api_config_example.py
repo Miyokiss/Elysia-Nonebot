@@ -1,5 +1,5 @@
-app_id="<KEY>"
-bot_account= "<KEY>"
+app_id="" # 上线前 配置 正确 Bot_ID 号
+bot_account= "" # 上线前 配置 正确 QQ 号
 
 """
 图床配置
@@ -27,6 +27,9 @@ v3key= "<KEY>"
 # DeepSeek相关配置
 deepseek_url= "https://api.deepseek.com"
 deepseek_key= "<KEY>"
+# 阿里百炼API相关配置
+ALI_KEY= "<KEY>"
+ALI_BLAPP_ID= "<ID>"
 
 #硅基流动
 silicon_flow_key = "<KEY>"

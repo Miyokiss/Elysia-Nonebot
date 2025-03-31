@@ -12,7 +12,7 @@ repository = on_command("repo", rule=to_me(), priority=10, block=True)
 @repository.handle()
 async def github_repo():
 
-    content = "三叶草bot仓库地址\n一起来搭个机器人吧😆"
+    content = "爱莉bot由三叶草bot修改而来：三叶草bot仓库地址\n一起来搭个机器人吧😆"
     msg = Message([
         MessageSegment.file_image(Path("src/resources/image/github_repo/SanYeCao-Nonebot3.png")),
         MessageSegment.text(content),
@@ -38,8 +38,7 @@ async def get_platform_info():
                "\n[CPU占用]: " + str(cpu_usage) + "%" +
                "\n\n[物理内存]: " + str(format(memory / (1024 ** 3), ".1f")) + "GB" +
                "\n[内存占用]: " + str(memory_usage) + "%"
-               "\n\n[Python版本]: " + python_version +
-               "\n\n[Bot源码]: 请发送 /repo \n[联系我们]: cloverta@petalmail·com")
+               "\n\n[Python版本]: " + python_version)
     await platform_info.finish(content)
 
 

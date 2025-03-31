@@ -3,6 +3,12 @@ node_modules
 .venv
 .xml
 .idea
+.env
+chat_bot
+runtime
+bot.pid
+Elsyia
+gpt_sovits_v2_api.py
 chat_bot.db
 chat_bot.db-wal
 chat_bot.db-shm
@@ -19,7 +25,6 @@ bili.cookie
 /bili.cookie
 /src/configs/api_config.py
 /src/resources/temp
-/update_remote_code.py
 /src/resources/image/report/*
 /src/resources/image/lightnovel/*
 /wenku8.cookie
