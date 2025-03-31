@@ -3,7 +3,7 @@ import uuid
 import requests
 from nonebot import logger
 from datetime import datetime
-from configs.tts import gpt_sovits_v2_api
+from src.configs.tts import gpt_sovits_v2_api
 from src.providers.tts.base import TTSProviderBase
 
 __name__ = "GPT_SoVITS_V2"
