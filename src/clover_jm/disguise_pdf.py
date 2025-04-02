@@ -1,5 +1,7 @@
 import os
+import asyncio
 import zipfile
+from pathlib import Path
 from PIL import Image
 from natsort import natsorted
 from nonebot import logger
@@ -81,6 +83,9 @@ async def batch_convert_subfolders(base_dir,output_dir):
             success += 1
 
 async def zip_pdf(pdf_path, zip_path):
+    """
+    压缩单文件
+    """
     try:
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             arcname = os.path.basename(pdf_path)
@@ -90,9 +95,46 @@ async def zip_pdf(pdf_path, zip_path):
 
 
 async def merge_files(jpg_path, zip_path, output_path):
+    """
+    将PDF伪装成图片
+    """
     try:
         with open(jpg_path, 'rb') as jpg_file, open(zip_path, 'rb') as zip_file, open(output_path,'wb') as output_file:
             output_file.write(jpg_file.read())
             output_file.write(zip_file.read())
     except Exception as e:
         print(f"合并文件时出错: {e}")
+
+async def folder_zip(folder_path, jm_zip_path):
+    """
+    异步压缩整个文件夹到指定路径
+    :param folder_path: 需要压缩的文件夹路径
+    :param jm_zip_path: 输出的zip文件路径
+    :return: 压缩成功返回True，否则返回False
+    """
+    try:
+        Path(jm_zip_path).parent.mkdir(parents=True, exist_ok=True)
+
+        def sync_zip():
+            with zipfile.ZipFile(jm_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+
+                for root, dirs, files in os.walk(folder_path):
+
+                    relative_path = Path(root).relative_to(folder_path)
+
+                    for dir_name in dirs:
+                        abs_dir = os.path.join(root, dir_name)
+                        zipf.write(abs_dir, arcname=str(relative_path / dir_name))
+
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = str(relative_path / file)
+                        zipf.write(file_path, arcname=arcname)
+
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, sync_zip)
+        print(f"成功压缩文件夹到: {jm_zip_path}")
+        return True
+    except Exception as e:
+        print(f"压缩文件夹失败: {str(e)}")
+        return False
