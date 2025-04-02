@@ -7,7 +7,7 @@ node_modules
 chat_bot
 runtime
 bot.pid
-Elsyia
+Elysia
 gpt_sovits_v2_api.py
 chat_bot.db
 chat_bot.db-wal
