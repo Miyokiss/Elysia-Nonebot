@@ -2,7 +2,9 @@ import os
 import zipfile
 from PIL import Image
 from natsort import natsorted
+from nonebot import logger
 
+__name__ = "cliver_jm | disguise_pdf"
 
 async def webp_to_pdf(input_folder, output_pdf):
     """
@@ -15,8 +17,8 @@ async def webp_to_pdf(input_folder, output_pdf):
     )
 
     if not webp_files:
-        print("未找到WebP图片")
-        # raise ValueError("未找到WebP图片")
+        logger.error("未找到WebP图片")
+        return False
 
     images = []
     for webp_file in webp_files:
@@ -30,22 +32,53 @@ async def webp_to_pdf(input_folder, output_pdf):
             else:
                 images.append(img.convert('RGB'))
         except Exception as e:
-            print(f"处理失败 {webp_file}: {e}")
+            logger.error(f"处理失败 {webp_file}: {e}")
 
     if not images:
-        print("无有效图片")
-        # raise ValueError("无有效图片")
+        logger.error("无有效图片")
 
     images[0].save(
         output_pdf,
         save_all=True,
         append_images=images[1:],
         optimize=True,
-        quality=85
+        quality=80
     )
-    return output_pdf
+    return True
 
+async def batch_convert_subfolders(base_dir,output_dir):
+    """
+    批量转换指定目录下所有子文件夹中的WebP图片为独立PDF
+    :param base_dir: 要扫描的根目录，默认当前目录
+    :param output_dir: PDF输出目录
+    """
+    subfolders = [
+        f for f in os.listdir(base_dir)
+        if os.path.isdir(os.path.join(base_dir, f))
+           and not f.startswith('.')
+           and f != os.path.basename(output_dir)
+    ]
 
+    if not subfolders:
+        print("未找到有效子文件夹")
+        return
+
+    tasks = []
+    for folder in subfolders:
+        input_path = os.path.join(base_dir, folder)
+        output_pdf = os.path.join(output_dir, f"{folder}.pdf")
+        tasks.append(
+            webp_to_pdf(input_path, output_pdf)
+        )
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    success = 0
+    for folder, result in zip(subfolders, results):
+        if isinstance(result, Exception):
+            print(f"转换失败 [{folder}]: {str(result)}")
+        else:
+            print(f"成功转换: {folder} -> {result}")
+            success += 1
 
 async def zip_pdf(pdf_path, zip_path):
     try:
