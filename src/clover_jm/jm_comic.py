@@ -3,7 +3,7 @@ import uuid
 import jmcomic
 from nonebot import logger
 from datetime import datetime
-from src.configs.api_config import qrserver_url,qrserver_size
+from src.configs.api_config import qrserver_url,qrserver_size,anonfile_download_url
 from src.clover_jm.disguise_pdf import *
 from concurrent.futures import ThreadPoolExecutor
 from src.configs.path_config import jm_path,jm_config_path
@@ -80,7 +80,7 @@ async def download_jm_qr(album_id: str| None):
         await delete_folder(folder_path)
         return {
             "msg":"获取成功~！码上下载！~",
-            "qr_code": f"{qrserver_url}?size={qrserver_size}&data={file_code}"
+            "qr_code": f"{qrserver_url}?size={qrserver_size}&data={anonfile_download_url}{file_code}"
         }
     else:
         await delete_folder(pdf_path)
