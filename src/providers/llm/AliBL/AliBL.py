@@ -2,7 +2,7 @@ from http import HTTPStatus
 from dashscope import Application
 from src.clover_sqlite.models.chat import GroupChatRole
 from nonebot import logger
-from src.configs.api_config import ALI_KEY,ALI_BLAPP_ID
+from src.configs.api_config import ALI_KEY,ALI_BLAPP_ID,ALI_MEMORY_ID,ALI_MEMORY_ENABLE
 
 __name__ = "AliBL API"
 
@@ -17,8 +17,9 @@ async def Ali_BL_Api(group_openid, content):
         "messages": messages
     }
     
-    #call_params["memory_id"] = 
-    #call_params["prompt"] = content
+    if ALI_MEMORY_ENABLE:
+        call_params["memory_id"] = ALI_MEMORY_ID
+        call_params["prompt"] = content
     responses = Application.call(**call_params)
     if responses.status_code != HTTPStatus.OK:
         logger.error(

@@ -39,9 +39,13 @@ menu = ["/今日运势","/今日塔罗",
         "/奶龙","我喜欢你", "❤",
         "/重启","/repo", "/info", "/help", "/test"]
 
-send_menu = ["/menu","/今日运势","/今日塔罗","/图","/随机图","搜番","/日报","/点歌","/摸摸头","/群老婆","/待办","/天气",
-             "/待办查询", "/新建待办", "/删除待办" ,"/cf","/B站搜索", "/BV搜索", "/喜报", "/悲报","/鲁迅说",
-             "/轻小说","/本季新番","/新番观察","/下季新番","/绝对色感","/jm"]
+# send_menu = ["/menu","/今日运势","/今日塔罗","/图","/随机图","搜番","/日报","/点歌","/摸摸头","/群老婆","/待办","/天气",
+#              "/待办查询", "/新建待办", "/删除待办" ,"/cf","/B站搜索", "/BV搜索", "/喜报", "/悲报","/鲁迅说",
+#              "/轻小说","/本季新番","/新番观察","/下季新番","/绝对色感","/jm"]
+
+send_menu = ["/help","/今日运势","/今日塔罗","/图","/随机图","搜番","/日报","/点歌","/摸摸头","/群老婆","/待办","/天气",
+             "/待办查询", "/新建待办", "/删除待办" ,"/B站搜索", "/BV搜索", "/喜报", "/悲报","/鲁迅说",
+             "/轻小说","/本季新番","/新番观察","/下季新番","/绝对色感"]
 
 async def check_value_in_menu(message: MessageEvent) -> bool:
     value = message.get_plaintext().strip().split(" ")
@@ -73,6 +77,7 @@ async def handle_function(message: MessageEvent):
         msg = await ai_chat.deepseek_chat(group_openid,content)
         await check.finish(msg)
     if status==2:
+        # 调用大模型
         text = await Ali_BL_Api(group_openid,content)
         # tts 调用 配置
         tts = TTSProvider()
@@ -114,11 +119,11 @@ text_list = [
     "【妖精爱莉回复】难道是新指令吗？哎呀，一脸茫然呢♪ " + "\n" + "哎呀，一脸茫然呢♪",
 ]
 
-async def Transcoding(file_path : str ,output_filename : str):
+async def Transcoding(file_path : str ,output_filename : str)->str:
     """
-    转码处理语音文件
-    :param file_path: 输入文件路径
+    ### 转码处理语音文件 \n
     :param output_filename: 输出文件名
+    :param file_path: 输入文件路径
     :return: output_silk_path 转码后的文件路径
     """
     # 转码处理语音文件

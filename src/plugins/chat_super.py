@@ -28,7 +28,7 @@ async def handle_function(message: MessageEvent):
         elif content == "/妖精爱莉":
             if current_mode == MODE_ELYSIA:
                 await GroupChatRole.ai_mode(group_openid, MODE_OFF)
-                await Elysia_super.finish("成功关闭超级爱莉对话~")
+                await Elysia_super.finish("成功关闭爱莉希雅对话~")
             else:
                 await Elysia_super.finish("当前群已开启妖精爱莉聊天~")
 

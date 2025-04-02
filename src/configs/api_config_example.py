@@ -30,6 +30,9 @@ deepseek_key= "<KEY>"
 # 阿里百炼API相关配置
 ALI_KEY= "<KEY>"
 ALI_BLAPP_ID= "<ID>"
+# 是否开启记忆功能
+ALI_MEMORY_ENABLE= False
+ALI_MEMORY_ID= "<Memory ID>"
 
 #硅基流动
 silicon_flow_key = "<KEY>"

@@ -4,6 +4,11 @@ from src.configs.path_config import jm_path
 from src.clover_image.delete_file import delete_file_batch,delete_folder
 
 async def download_jm(album_id: str| None):
+    """
+    下载jm本并打包隐藏于jpg中
+    :param album_id: jm本的id
+    :return: 文件路径
+    """
 
     album_detail,downloader = jmcomic.download_album(album_id)
 
