@@ -12,7 +12,6 @@ jm = on_command("jm", rule=to_me(), priority=10, block=False)
 
 async def handle_email_download(album_id: str, email: str):
     """处理邮箱发送逻辑"""
-    logger.debug(f"开始发送文件到邮箱，ID: {album_id}, 邮箱: {email}")
     if not validate_email(email):
         await jm.finish("邮箱格式不正确！")
     await jm.send("正在发送中，请稍等~")
@@ -21,7 +20,6 @@ async def handle_email_download(album_id: str, email: str):
 
 async def handle_qrcode_download(album_id: str):
     """处理二维码发送载逻辑"""
-    logger.debug(f"开始二维码逻辑，ID: {album_id}")
     await jm.send("正在下载中，请稍等~")
     msgs = await download_jm_qr(album_id=album_id)
     if "qr_code" not in msgs:
@@ -34,16 +32,14 @@ async def handle_qrcode_download(album_id: str):
 
 @jm.handle()
 async def handle_function(message: MessageEvent):
-    values = message.get_plaintext().replace("/jm", "").split(" ")
-
+    values = message.get_plaintext().replace("/jm", "").split()
     try:
-        if len(values) == 2:
-            await handle_qrcode_download(values[1])
-        elif len(values) == 3:
-            await handle_email_download(values[1], values[2])
-        else:
-            logger.debug("输入格式不正确")
+        if len(values) == 0 or not all(values[1:len(values)]):
             await jm.finish("请输入正确的格式 /jm+id 或 /jm+id+邮箱号")
+        elif len(values) == 1:
+            await handle_qrcode_download(values[0])
+        elif len(values) == 2:
+            await handle_email_download(values[0], values[1])
     except Exception as e:
         if isinstance(e, FinishedException):
             return
