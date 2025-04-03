@@ -6,7 +6,7 @@ from src.configs.api_config import qrserver_url,qrserver_size,anonfile_download_
 from src.clover_jm.disguise_pdf import *
 from concurrent.futures import ThreadPoolExecutor
 from src.configs.path_config import jm_path,jm_config_path
-from src.providers.cloud_file_api import anonfile
+from src.clover_providers.cloud_file_api import anonfile
 from src.clover_image.delete_file import delete_folder,delete_file
 from src.clover_email.send_email import send_email_by_google,send_email_by_qq
 
