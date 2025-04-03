@@ -1,7 +1,6 @@
 import yaml
 import uuid
 import jmcomic
-from nonebot import logger
 from datetime import datetime
 from src.configs.api_config import qrserver_url,qrserver_size,anonfile_download_url
 from src.clover_jm.disguise_pdf import *
@@ -24,9 +23,11 @@ async def download_jm_Pemail(album_id: str| None,receiver_email: str| None):
     # 还原配置文件
     await recover_jm_config(source_path)
     #调用JM下载api
-    album_detail,downloader = await asyncio.get_event_loop().run_in_executor(jm_executor,jmcomic.download_album,album_id,option)
-    if album_detail.title is None:
-        return "下载失败,请检查JM ID 是否正确"
+    try:
+        album_detail,downloader = await asyncio.get_event_loop().run_in_executor(jm_executor,jmcomic.download_album,album_id,option)
+    except Exception as e:
+        logger.error(f"下载失败 :{e}")
+        return "下载失败,请重试"
     # 创建变量
     folder_path = f"{jm_path}{receiver_email}"
     zip_path = f"{jm_path}{album_detail.title}.zip"
@@ -56,7 +57,6 @@ async def download_jm_qr(album_id: str| None):
     await recover_jm_config(source_path)
     #调用JM下载api
     album_detail,downloader = await asyncio.get_event_loop().run_in_executor(jm_executor,jmcomic.download_album,album_id,option)
-    logger.debug(f"JM下载api调用成功,返回————>{album_detail}")
     if album_detail.title is None:
         return {
             "msg":"下载失败,请检查JM ID 是否正确"
