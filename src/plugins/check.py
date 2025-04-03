@@ -110,6 +110,7 @@ async def handle_function(message: MessageEvent):
            logger.error(f"check：Exception | 删除临时文件失败：{e}")
     else:
         await check.finish(message=Message(random.choice(text_list)))
+    await check.finish()
 
 text_list = [
     "【妖精爱莉回复】哎呀，亲爱的舰长♪ 没识别到什么呢？"+"\n"+"让我来猜猜看是不是你心中那点小秘密呀？",
