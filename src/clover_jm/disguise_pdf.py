@@ -4,7 +4,9 @@ import zipfile
 from pathlib import Path
 from PIL import Image
 from natsort import natsorted
+from nonebot import logger
 
+__name__ = "cliver_jm | disguise_pdf"
 
 async def webp_to_pdf(input_folder, output_pdf):
     """
@@ -17,7 +19,8 @@ async def webp_to_pdf(input_folder, output_pdf):
     )
 
     if not webp_files:
-        print("未找到WebP图片")
+        logger.error("未找到WebP图片")
+        return False
 
     images = []
     for webp_file in webp_files:
@@ -31,10 +34,10 @@ async def webp_to_pdf(input_folder, output_pdf):
             else:
                 images.append(img.convert('RGB'))
         except Exception as e:
-            print(f"处理失败 {webp_file}: {e}")
+            logger.error(f"处理失败 {webp_file}: {e}")
 
     if not images:
-        print("无有效图片")
+        logger.error("无有效图片")
 
     images[0].save(
         output_pdf,
@@ -43,6 +46,7 @@ async def webp_to_pdf(input_folder, output_pdf):
         optimize=True,
         quality=80
     )
+    return True
 
 async def batch_convert_subfolders(base_dir,output_dir):
     """

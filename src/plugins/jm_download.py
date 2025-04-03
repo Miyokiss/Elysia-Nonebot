@@ -1,23 +1,54 @@
 import re
+from nonebot import logger
 from nonebot.rule import to_me
 from nonebot.plugin import on_command
-from nonebot.adapters.qq import MessageEvent
-from src.clover_jm.jm_comic import download_jm
+from nonebot.adapters.qq import MessageEvent, MessageSegment,Message
+from src.clover_jm.jm_comic import download_jm_qr, download_jm_Pemail
+from nonebot.exception import FinishedException
 
-jm = on_command("jm", rule=to_me(), priority=10,block=False)
+__name__ = "JM_Download"
+
+jm = on_command("jm", rule=to_me(), priority=10, block=False)
+
+async def handle_email_download(album_id: str, email: str):
+    """处理邮箱发送逻辑"""
+    logger.debug(f"开始发送文件到邮箱，ID: {album_id}, 邮箱: {email}")
+    if not validate_email(email):
+        await jm.finish("邮箱格式不正确！")
+    await jm.send("正在发送中，请稍等~")
+    msg = await download_jm_Pemail(album_id=album_id, receiver_email=email)
+    await jm.finish(msg)
+
+async def handle_qrcode_download(album_id: str):
+    """处理二维码发送载逻辑"""
+    logger.debug(f"开始二维码逻辑，ID: {album_id}")
+    await jm.send("正在下载中，请稍等~")
+    msgs = await download_jm_qr(album_id=album_id)
+    if "qr_code" not in msgs:
+        await jm.finish(msgs["msg"])
+    msg = Message([
+        MessageSegment.text(msgs["msg"]),
+        MessageSegment.image(msgs["qr_code"])
+    ])
+    await jm.finish(msg)
+
 @jm.handle()
 async def handle_function(message: MessageEvent):
-
     values = message.get_plaintext().replace("/jm", "").split(" ")
-    if len(values) != 3:
-        await jm.finish("请输入正确的格式 /jm+id+邮箱号")
-    else:
-        if not validate_email(values[2]):
-            await jm.finish("邮箱格式不正确！")
 
-        await jm.send("正在发送中，请稍等~")
-        msg = await download_jm(album_id = values[1],receiver_email = values[2])
-        await jm.finish(msg)
+    try:
+        if len(values) == 2:
+            await handle_qrcode_download(values[1])
+        elif len(values) == 3:
+            await handle_email_download(values[1], values[2])
+        else:
+            logger.debug("输入格式不正确")
+            await jm.finish("请输入正确的格式 /jm+id 或 /jm+id+邮箱号")
+    except Exception as e:
+        if isinstance(e, FinishedException):
+            return
+        logger.error(f"处理请求时发生错误: {e}")
+        await jm.finish("处理请求时发生错误，请稍后重试")
 
 def validate_email(email: str) -> bool:
     """验证邮箱格式是否合法"""

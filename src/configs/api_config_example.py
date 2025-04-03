@@ -53,3 +53,14 @@ wenku8_password = "<passwd>"
 多米HTTP代理api
 """
 proxy_api = "<KEY>"
+
+"""
+二维码生成 API 参数
+"""
+qrserver_url = "https://api.qrserver.com/v1/create-qr-code/"
+qrserver_size= "200x200"
+
+"""
+anonfile API 参数
+"""
+anonfile_download_url = "https://anonfile.io/api/download/"
