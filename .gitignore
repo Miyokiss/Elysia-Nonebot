@@ -18,6 +18,7 @@ bili.cookie
 *.mp4
 /bili.cookie
 /src/configs/api_config.py
+/src/configs/jm_config.yml
 /src/resources/temp
 /update_remote_code.py
 /src/resources/image/report/*
