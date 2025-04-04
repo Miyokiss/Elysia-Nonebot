@@ -24,6 +24,7 @@ bili.cookie
 *.mp4
 /bili.cookie
 /src/configs/api_config.py
+/src/configs/jm_config.yml
 /src/resources/temp
 /src/resources/image/report/*
 /src/resources/image/lightnovel/*
