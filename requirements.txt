@@ -41,3 +41,7 @@ typing_extensions
 psutil
 Beautifulsoup4
 aiohttp
+pydantic
+matplotlib
+httpx
+crypto

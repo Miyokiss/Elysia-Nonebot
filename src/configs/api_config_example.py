@@ -53,3 +53,9 @@ wenku8_password = "<passwd>"
 多米HTTP代理api
 """
 proxy_api = "<KEY>"
+
+"""
+CodeForces API
+"""
+codeforces_key = "<KEY>"
+codeforces_secret = "<KEY>"

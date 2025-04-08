@@ -10,6 +10,9 @@ os.makedirs(image_local_qq_image_path, exist_ok=True)
 # 个人图片路径
 image_local_path= path+"/image/MaoYuNa"
 os.makedirs(image_local_path, exist_ok=True)
+# cf ratings路径
+rating_path = path+'/image/cf_ratings'
+os.makedirs(rating_path, exist_ok=True)
 # 塔罗牌图片路径
 tarots_img_path = path+'/image/tarot/TarotImages/'
 os.makedirs(tarots_img_path, exist_ok=True)
