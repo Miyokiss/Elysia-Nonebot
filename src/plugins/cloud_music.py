@@ -29,32 +29,25 @@ async def handle_function(msg: MessageEvent):
     session, status,user_id = await netease_cloud_music_is_login(session)
     if not status:
         await music.send("登录失效，请联系管理员进行登录")
-        current_time = time.time()
         # 检查缓存是否有效（二维码有效期5分钟)
-        if unikey_cache['unikey'] and current_time < unikey_cache['expires']:
+        if unikey_cache['unikey'] and time.time() < unikey_cache['expires']:
             unikey = unikey_cache['unikey']
         else:
             # 获取新 unikey 并设置过期时间
             unikey = await get_qr_key(session)
             unikey_cache.update({
                 'unikey': unikey,
-                'expires': current_time + 300  # 大约是5分钟有效期 失效时间会有几秒误差
+                'expires': time.time() + 300  # 大约是5分钟有效期 失效时间会有几秒误差
             })
             qr_path = await create_qr_code(unikey)
             """是否要发送到QQ上面登录 """
             # await clover_music.send(MessageSegment.file_image(Path(path)))
             """是否要发送到QQ上面登录 """
-            while True:
+            for _ in range(60):  # 限制最大等待时间5分钟（300秒/5秒间隔）
                 code = await check_qr_code(unikey, session)
-                if '801' in str(code):
-                    print('二维码未失效，请扫码！')
-                elif '802' in str(code):
-                    print('已扫码，请确认！')
-                elif '803' in str(code):
-                    print('已确认，登入成功！')
-                    break
-                else:
-                    print('二维码失效，请重获取！')
+                if code in (803,): break  # 成功状态
+                if code not in (801, 802):
+                    print('二维码失效' if code == 800 else f'异常状态码：{code}')
                     break
                 await asyncio.sleep(5)
         with open('cloud_music_cookies.cookie', 'wb') as f:
