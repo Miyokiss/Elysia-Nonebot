@@ -3,6 +3,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from email.mime.text import MIMEText
 import aiosmtplib
+from nonebot import logger
 from src.configs.api_config import google_smtp_server,google_email,google_password
 from src.configs.api_config import qq_smtp_server,qq_email,qq_password
 
@@ -123,7 +124,7 @@ async def send_email_by_google(receiver_email: str, file_path: str):
     try:
         # 验证文件存在性
         if not os.path.isfile(file_path):
-            print(f"文件不存在：{file_path}")
+            logger.error(f"文件不存在：{file_path}")
             return False
 
         # 添加单个文件附件
@@ -145,11 +146,10 @@ async def send_email_by_google(receiver_email: str, file_path: str):
         ) as server:
             await server.login(google_email, google_password)
             await server.send_message(msg)
-            print("文件邮件发送成功！")
             return True
 
     except Exception as e:
-        print(f"邮件发送失败: {str(e)}")
+        logger.error(f"邮件发送失败：{e}")
         return False
 
 async def send_email_by_qq(receiver_email: str, file_path: str):
@@ -162,7 +162,7 @@ async def send_email_by_qq(receiver_email: str, file_path: str):
 
     try:
         if not os.path.exists(file_path):
-            print(f"文件不存在：{file_path}")
+            logger.error(f"文件不存在：{file_path}")
             return False
 
         # 添加附件
@@ -187,5 +187,5 @@ async def send_email_by_qq(receiver_email: str, file_path: str):
             print("QQ文件邮件发送成功！")
             return True
     except Exception as e:
-        print(f"QQ邮件发送失败: {str(e)}")
+        logger.error(f"QQ邮件发送失败：{e}")
         return False
