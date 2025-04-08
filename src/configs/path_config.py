@@ -11,7 +11,7 @@ os.makedirs(image_local_qq_image_path, exist_ok=True)
 image_local_path= path+"/image/MaoYuNa"
 os.makedirs(image_local_path, exist_ok=True)
 # cf ratings路径
-rating_path = path+'/image/cf_ratings'
+rating_path = path+'/image/cf_ratings/'
 os.makedirs(rating_path, exist_ok=True)
 # 塔罗牌图片路径
 tarots_img_path = path+'/image/tarot/TarotImages/'
