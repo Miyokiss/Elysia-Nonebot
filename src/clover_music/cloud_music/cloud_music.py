@@ -62,7 +62,7 @@ def get_music(id):
 """
 save_path = os.getcwd()+'/src/clover_music/netease_music'
 os.makedirs(save_path, exist_ok=True)
-qrcode_path = os.getcwd()+'/src/clover_music'
+qrcode_path = os.getcwd()+'/src/clover_music/'
 
 
 # 判断cookie是否有效
@@ -112,8 +112,6 @@ async def get_qr_key(session):
     else:
         return None
 
-# 创建 QRCode 对象
-qr = qrcode.QRCode(  version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4, )
 # 生成二维码
 async def create_qr_code(unikey):
     """
@@ -124,14 +122,12 @@ async def create_qr_code(unikey):
     Returns:
 
     """
-    # 添加数据
-    png_url = f"http://music.163.com/login?codekey={unikey}"
-    qr.add_data(png_url)
-    img = qr.make_image()
-    a = BytesIO()
-    img.save(a, 'png')
-    img.save(os.path.join(qrcode_path, 'qrcode.png'))
-    return  qrcode_path + '/qrcode.png'
+    qr = qrcode.QRCode(version=1,error_correction=qrcode.constants.ERROR_CORRECT_L,box_size=10,border=4)
+    qr.add_data(f"https://music.163.com/login?codekey={unikey}")
+    #保存二维码
+    img_path = os.path.join(qrcode_path, 'qrcode.png')
+    qr.make_image().save(img_path)
+    return img_path
 
 # 检查二维码状态是否被扫描
 async def check_qr_code(unikey,session):
