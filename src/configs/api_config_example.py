@@ -64,3 +64,9 @@ qrserver_size= "200x200"
 anonfile API 参数
 """
 anonfile_download_url = "https://anonfile.io/api/download/"
+
+"""
+CodeForces API
+"""
+codeforces_key = "<KEY>"
+codeforces_secret = "<KEY>"
