@@ -4,6 +4,7 @@ from pathlib import Path
 from nonebot import on_command
 from nonebot.rule import to_me
 from nonebot.adapters.qq import   MessageSegment,MessageEvent
+from nonebot.adapters.qq import   MessageSegment,MessageEvent
 from src.clover_music.cloud_music.cloud_music import *
 from src.clover_image.delete_file import delete_file
 from nonebot import logger
@@ -28,7 +29,7 @@ async def handle_function(msg: MessageEvent):
             pickle.dump(session.cookies, f)
     # 读取 cookie
     session.cookies = pickle.load(open('cloud_music_cookies.cookie', 'rb'))
-    session, status = await netease_cloud_music_is_login(session)
+    session, status,user_id = await netease_cloud_music_is_login(session)
     if not status:
         await music.send("登录失效，请联系管理员进行登录")
         # 检查缓存是否有效（二维码有效期5分钟)
