@@ -79,5 +79,6 @@ async def handle_function(msg: MessageEvent):
 
     except Exception as e:
         if isinstance(e, FinishedException):
-            logger.error(f"处理点歌请求时发生错误: {e}")
-            await music.finish("处理点歌请求时发生错误，请稍后重试。这绝对不是我的错，绝对不是！")
+            raise
+        logger.error(f"处理点歌请求时发生错误: {e}")
+        await music.finish("处理点歌请求时发生错误，请稍后重试。这绝对不是我的错，绝对不是！")
