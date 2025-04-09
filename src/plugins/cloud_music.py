@@ -3,8 +3,8 @@ import pickle
 from pathlib import Path
 from nonebot import on_command
 from nonebot.rule import to_me
-from nonebot.adapters.qq import   MessageSegment,MessageEvent
-from nonebot.adapters.qq import   MessageSegment,MessageEvent
+from nonebot.exception import FinishedException
+from nonebot.adapters.qq import MessageSegment,MessageEvent
 from src.clover_music.cloud_music.cloud_music import *
 from src.clover_image.delete_file import delete_file
 from nonebot import logger
@@ -78,5 +78,6 @@ async def handle_function(msg: MessageEvent):
         await music.finish()
 
     except Exception as e:
-        logger.error(f"处理点歌请求时发生错误: {e}")
-        await music.finish("处理点歌请求时发生错误，请稍后重试。这绝对不是我的错，绝对不是！")
+        if isinstance(e, FinishedException):
+            logger.error(f"处理点歌请求时发生错误: {e}")
+            await music.finish("处理点歌请求时发生错误，请稍后重试。这绝对不是我的错，绝对不是！")
