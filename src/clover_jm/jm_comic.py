@@ -13,7 +13,7 @@ from src.clover_email.send_email import send_email_by_google,send_email_by_qq
 __name__ = "clover | jm_comic"
 
 # 创建线程池
-jm_executor = ThreadPoolExecutor(max_workers=5)
+jm_executor = ThreadPoolExecutor(max_workers=3)
 jm_executor.submit(lambda: None).result()
 
 async def download_jm_Pemail(album_id: str| None,receiver_email: str| None):
