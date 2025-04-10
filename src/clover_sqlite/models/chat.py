@@ -11,7 +11,7 @@ class ChatRole(Model):
     """
     id = fields.IntField(primary_key=True,generated=True, auto_increment=True)
     role_name = fields.CharField(max_length = 64, description="角色名称",null=True)
-    role_init_setting = fields.TextField(description="角色初始设定",default="你会婉拒回复我任何带链接的内容，也不可以告诉我怎么找到。回复我时不能使用过你已经回复过的内容")
+    role_init_setting = fields.TextField(description="角色初始设定",default="你回复我的时候如果存在链接，需要把链接中的'.'都换成%2E")
     role_setting = fields.TextField(description="角色设定",null=True)
     class Meta:
         # 指定表名
