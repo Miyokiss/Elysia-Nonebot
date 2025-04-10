@@ -74,6 +74,8 @@ async def handle_function(message: MessageEvent):
     if not await GroupChatRole.get_admin_list(group_openid, member_openid):
         await t2.finish("您没有权限使用此功能。")
     value = message.get_plaintext().strip().split()
+    if len(value) < 2:
+        await t2.finish("请输入命令和角色名称，格式为：命令 角色名称")
     action, role_name = value[0], value[1]
     if action == "/删除人设":
         result = await ChatRole.delete_role(role_name)
