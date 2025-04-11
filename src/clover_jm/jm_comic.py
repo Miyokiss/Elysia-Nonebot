@@ -16,18 +16,9 @@ __name__ = "clover | jm_comic"
 jm_executor = ThreadPoolExecutor(max_workers=5)
 jm_executor.submit(lambda: None).result()
 
-async def download_jm_Pemail(album_id: str| None,receiver_email: str| None):
-    # 修改配置文件的下载路径
-    source_path = await get_jm_config(receiver_email)
-    option = jmcomic.JmOption.from_file(jm_config_path)
-    # 还原配置文件
-    await recover_jm_config(source_path)
-    #调用JM下载api
-    try:
-        album_detail,downloader = await asyncio.get_event_loop().run_in_executor(jm_executor,jmcomic.download_album,album_id,option)
-    except Exception as e:
-        logger.error(f"下载失败 :{e}")
-        return "下载失败,请重试"
+async def jm_email(album_id: str| None,receiver_email: str| None):
+
+    album_detail,downloader = await download_jm(album_id = album_id,file_name = None,receiver_email = receiver_email)
     # 创建变量
     folder_path = f"{jm_path}{receiver_email}"
     zip_path = f"{jm_path}{album_detail.title}.zip"
@@ -48,46 +39,53 @@ async def download_jm_Pemail(album_id: str| None,receiver_email: str| None):
         await delete_file(zip_path)
         return "发送邮件失败，请重试!"
 
-async def download_jm_qr(album_id: str| None):
-    # 修改配置文件的下载路径
+async def jm_qr(album_id: str| None):
+
     file_name = f"JM-{album_id}-{datetime.now().date()}@{uuid.uuid4().hex}"
-    source_path = await get_jm_config(file_name)
-    option = jmcomic.JmOption.from_file(jm_config_path)
-    # 还原配置文件
-    await recover_jm_config(source_path)
-    #调用JM下载api
-    album_detail,downloader = await asyncio.get_event_loop().run_in_executor(jm_executor,jmcomic.download_album,album_id,option)
-    if album_detail.title is None:
-        return {
-            "msg":"下载失败,请检查JM ID 是否正确"
-        }
+    album_detail,downloader = await download_jm(album_id = album_id,file_name = file_name,receiver_email = None)
     # 创建变量
-    folder_path = f"{jm_path}{album_detail.title}"
-    pdf_path = f"{jm_path}{file_name}.pdf"
-    # 转为pdf
-    pdf_status = await webp_to_pdf(folder_path,pdf_path)
-    if not pdf_status:
+    folder_path = f"{jm_path}{file_name}"
+    zip_path = f"{jm_path}{file_name}{album_detail.title}.zip"
+    # 压缩文件
+    zip_status = await folder_zip(file_name,zip_path)
+    if not zip_status:
         await delete_folder(folder_path)
-        return {
-            "msg":"PDF转换失败"
-        }
+        return "压缩文件失败"
+
     # 发送文件
-    send_status = await anonfile.upload_file(pdf_path)
-    if send_status["success"]== "true":
+    send_status = await anonfile.upload_file(zip_path)
+    if send_status["success"]:
         file_code=send_status["code"]
         # 删除文件
-        await delete_folder(pdf_path)
         await delete_folder(folder_path)
+        await delete_file(zip_path)
         return {
             "msg":"获取成功~！码上下载！~",
             "qr_code": f"{qrserver_url}?size={qrserver_size}&data={file_code}"
         }
     else:
-        await delete_folder(pdf_path)
         await delete_folder(folder_path)
+        await delete_file(zip_path)
         return {
             "msg":"发送失败,请重试!"
         }
+
+async def download_jm(album_id: str| None,file_name :str | None,receiver_email: str| None):
+    # 修改配置文件的下载路径
+    if not receiver_email:
+        source_path = await get_jm_config(file_name)
+    else:
+        source_path = await get_jm_config(receiver_email)
+
+    option = jmcomic.JmOption.from_file(jm_config_path)
+    # 还原配置文件
+    await recover_jm_config(source_path)
+    # 调用JM下载api
+    try:
+        return  await asyncio.get_event_loop().run_in_executor(jm_executor, jmcomic.download_album,album_id, option)
+    except Exception as e:
+        logger.error(f"下载失败 :{e}")
+        return "下载失败,请重试"
 
 async def get_jm_config(file_name: str):
 
