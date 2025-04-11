@@ -3,7 +3,7 @@ from nonebot import logger
 from nonebot.rule import to_me
 from nonebot.plugin import on_command
 from nonebot.adapters.qq import MessageEvent, MessageSegment,Message
-from src.clover_jm.jm_comic import download_jm_qr, download_jm_Pemail
+from src.clover_jm.jm_comic import jm_qr, jm_email
 from nonebot.exception import FinishedException
 
 __name__ = "JM_Download"
@@ -15,13 +15,13 @@ async def handle_email_download(album_id: str, email: str):
     if not validate_email(email):
         await jm.finish("邮箱格式不正确！")
     await jm.send("正在发送中，请稍等~")
-    msg = await download_jm_Pemail(album_id=album_id, receiver_email=email)
+    msg = await jm_email(album_id=album_id, receiver_email=email)
     await jm.finish(msg)
 
 async def handle_qrcode_download(album_id: str):
     """处理二维码发送载逻辑"""
     await jm.send("正在下载中，请稍等~")
-    msgs = await download_jm_qr(album_id=album_id)
+    msgs = await jm_qr(album_id=album_id)
     if "qr_code" not in msgs:
         await jm.finish(msgs["msg"])
     msg = Message([
