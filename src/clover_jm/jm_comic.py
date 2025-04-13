@@ -45,9 +45,9 @@ async def jm_qr(album_id: str| None):
     album_detail,downloader = await download_jm(album_id = album_id,file_name = file_name,receiver_email = None)
     # 创建变量
     folder_path = f"{jm_path}{file_name}"
-    zip_path = f"{jm_path}{file_name}{album_detail.title}.zip"
+    zip_path = f"{folder_path}{album_detail.title}.zip"
     # 压缩文件
-    zip_status = await folder_zip(file_name,zip_path)
+    zip_status = await folder_zip(folder_path,zip_path)
     if not zip_status:
         await delete_folder(folder_path)
         return "压缩文件失败"
@@ -58,14 +58,12 @@ async def jm_qr(album_id: str| None):
         file_code=send_status["code"]
         # 删除文件
         await delete_folder(folder_path)
-        await delete_file(zip_path)
         return {
             "msg":"获取成功~！码上下载！~",
             "qr_code": f"{qrserver_url}?size={qrserver_size}&data={anonfile_download_url}{file_code}"
         }
     else:
         await delete_folder(folder_path)
-        await delete_file(zip_path)
         return {
             "msg":"发送失败,请重试!"
         }
