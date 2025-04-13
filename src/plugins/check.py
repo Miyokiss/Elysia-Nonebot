@@ -11,7 +11,7 @@ from src.clover_openai import ai_chat
 from nonebot.plugin import on_command, on_keyword
 from src.clover_sqlite.models.user import UserList
 from src.clover_image.delete_file import delete_file
-from src.providers.llm.AliBL.AliBL import Ali_BL_Api
+from src.providers.llm.AliBL.base import on_bl_chat
 from nonebot.adapters.qq import Message, MessageEvent
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
@@ -39,85 +39,75 @@ menu = ["/今日运势","/今日塔罗",
         "/奶龙","我喜欢你", "❤",
         "/重启","/repo", "/info", "/help", "/test"]
 
-# send_menu = ["/menu","/今日运势","/今日塔罗","/图","/随机图","搜番","/日报","/点歌","/摸摸头","/群老婆","/待办","/天气",
-#              "/待办查询", "/新建待办", "/删除待办" ,"/cf","/B站搜索", "/BV搜索", "/喜报", "/悲报","/鲁迅说",
-#              "/轻小说","/本季新番","/新番观察","/下季新番","/绝对色感","/jm"]
-
 send_menu = ["/help","/今日运势","/今日塔罗","/图","/随机图","搜番","/日报","/点歌","/摸摸头","/群老婆","/待办","/天气",
              "/待办查询", "/新建待办", "/删除待办" ,"/B站搜索", "/BV搜索", "/喜报", "/悲报","/鲁迅说",
              "/轻小说","/本季新番","/新番观察","/下季新番","/绝对色感"]
 
 async def check_value_in_menu(message: MessageEvent) -> bool:
     value = message.get_plaintext().strip().split(" ")
-    if hasattr(message, "group_openid"): # 是否有属性group_openid，即是否为群聊消息
-        group_id = message.group_openid
-    else:
-        group_id = "C2C" # 非群聊消息，存为c2c
-    #缓存用户id
-    await UserList.insert_user(message.author.id,group_id)
-    if value[0] in menu or value[0].isdigit() or value[0] == "#":
-        return False
-    else:
-        return True
-
+    group_id = message.group_openid if hasattr(message, "group_openid") else "C2C"
+    await UserList.insert_user(message.author.id, group_id)
+    return value[0] not in menu and not value[0].isdigit() and value[0] != "#"
 
 check = on_message(rule=to_me() & Rule(check_value_in_menu), priority=10)
+
 @check.handle()
 async def handle_function(message: MessageEvent):
-    if hasattr(message, "group_openid"):
-        group_openid = message.group_openid
-    else:
-        group_openid = "C2C"
-
-    member_openid, content = message.author.id, message.get_plaintext()
+    group_openid = message.group_openid if hasattr(message, "group_openid") else "C2C"
     status = await GroupChatRole.is_on(group_openid)
     logger.debug(f"check | status ——————> {status}")
-    # 这里配置 AI 调用
-    if status==1:
-        msg = await ai_chat.deepseek_chat(group_openid,content)
+
+    if status == 1:
+        msg = await ai_chat.deepseek_chat(group_openid, message.get_plaintext())
         await check.finish(msg)
-    if status==2:
-        # 调用大模型
-        text = await Ali_BL_Api(group_openid,content)
-        # tts 调用 配置
-        tts = TTSProvider()
-        try:
-            # 生成语音文件
-            result = await asyncio.wait_for(tts.to_tts(text), timeout=10)
-            if result is None:
-                raise Exception("TTS 生成失败，结果为空")
-            file_path = result["file_path"]
-            file_name = result["file_name"]
-            logger.debug(f"check:result | 生成语音文件：\n路径={file_path} \n文件名={file_name}")
-
-            # 转码
-            output_silk_path = await asyncio.wait_for(Transcoding(file_path, file_name), timeout=10)
-            logger.debug(f"check:output_silk_path | output_silk_path：{output_silk_path}")
-
-            # 发送语音文件
-            await check.send(MessageSegment.file_audio(Path(output_silk_path)))
-
-        except asyncio.TimeoutError:
-            logger.error("check：asyncio.TimeoutError | TTS 生成/转换超时！")
-        except Exception as e:
-            logger.error(f"check：Exception | TTS 失败：{e}")
-        try:
-           if file_path:
-               await delete_file(file_path)
-           if output_silk_path:
-               await delete_file(output_silk_path)
-        except Exception as e:
-           logger.error(f"check：Exception | 删除临时文件失败：{e}")
+    elif status == 2:
+        await handle_tts_response(message)
     else:
         await check.finish(message=Message(random.choice(text_list)))
-    await check.finish()
+
+async def handle_tts_response(message: MessageEvent):
+    """AI Chat TTS 响应"""
+    user_id = message.get_user_id()
+    content = message.get_plaintext()
+    if not content:
+        await check.finish(message=Message(random.choice(text_list)))
+
+    text = await on_bl_chat(user_id, content)
+    tts = TTSProvider()
+    
+    try:
+        result = await asyncio.wait_for(tts.to_tts(text), timeout=10)
+        if not result:
+            raise Exception("TTS 生成失败，结果为空")
+
+        file_path = result["file_path"]
+        file_name = result["file_name"]
+        logger.debug(f"check:result | 生成语音文件：\n路径={file_path} \n文件名={file_name}")
+
+        output_silk_path = await asyncio.wait_for(Transcoding(file_path, file_name), timeout=10)
+        logger.debug(f"check:output_silk_path | output_silk_path：{output_silk_path}")
+
+        await check.send(MessageSegment.file_audio(Path(output_silk_path)))
+        await cleanup_files(file_path, output_silk_path)
+    except asyncio.TimeoutError:
+        logger.error("check：asyncio.TimeoutError | TTS 生成/转换超时！")
+    except Exception as e:
+        logger.error(f"check：Exception | TTS 失败：{e}")
+
+async def cleanup_files(*files):
+    for file in files:
+        if file:
+            try:
+                await delete_file(file)
+            except Exception as e:
+                logger.error(f"check：Exception | 删除临时文件失败：{e}")
 
 text_list = [
-    "【妖精爱莉回复】哎呀，亲爱的舰长♪ 没识别到什么呢？"+"\n"+"让我来猜猜看是不是你心中那点小秘密呀？",
-    "【妖精爱莉回复】亲爱的舰长，别一头雾水啦♪" + "\n" + " 我这么可爱，怎么会让我猜不透呢？",
-    "【妖精爱莉回复】亲爱的舰长，是啥意思呀？完全没搞懂呢♪ " + "\n" + "不过没关系，我们一起慢慢探索，总能找到答案的哦！",
-    "【妖精爱莉回复】哎呀，亲爱的舰长，是特殊信号吗？我也听不懂呢♪ " + "\n" + "下个明确指令吧！♪ 我会像星辰一样指引你，让你的每一步都充满光彩和信心哦！",
-    "【妖精爱莉回复】难道是新指令吗？哎呀，一脸茫然呢♪ " + "\n" + "哎呀，一脸茫然呢♪",
+    "【妖精爱莉回复】哎呀，亲爱的舰长♪ 没识别到什么呢？\n让我来猜猜看是不是你心中那点小秘密呀？",
+    "【妖精爱莉回复】亲爱的舰长，别一头雾水啦♪\n 我这么可爱，怎么会让我猜不透呢？",
+    "【妖精爱莉回复】亲爱的舰长，是啥意思呀？完全没搞懂呢♪ \n不过没关系，我们一起慢慢探索，总能找到答案的哦！",
+    "【妖精爱莉回复】哎呀，亲爱的舰长，是特殊信号吗？我也听不懂呢♪ \n下个明确指令吧！♪ 我会像星辰一样指引你，让你的每一步都充满光彩和信心哦！",
+    "【妖精爱莉回复】难道是新指令吗？哎呀，一脸茫然呢♪ \n哎呀，一脸茫然呢♪",
 ]
 
 async def Transcoding(file_path : str ,output_filename : str)->str:
@@ -134,13 +124,17 @@ async def Transcoding(file_path : str ,output_filename : str)->str:
     return output_silk_path
 
 
-get_menu = on_command("help", rule=to_me(), priority=10, block=True)
-@get_menu.handle()
-async def send_menu_list():
-    content = "\n"
-    for command in send_menu:
-        content += command + "\n"
-    await get_menu.finish(content)
+get_help = on_command("help", rule=to_me(), priority=10, block=True)
+@get_help.handle()
+async def send_help_list():
+    text = """
+嗨~想我了吗？不论何时何地，爱莉希雅都会回应你的期待！
+我可以做什么？
+1、想要点歌给群友吗？快来点一首你喜欢的歌，和大家一起分享音乐的快乐吧♪
+2、每日运势仅供娱乐，记得相信科学哦，不过偶尔看看也无妨，对吧？
+3、想知道天气吗？随时可以和我说，我会回应你的期待♪
+"""
+    await get_help.finish(MessageSegment.text(text))
 
 restart = on_command("重启", rule=to_me(), priority=10, block=True)
 @restart.handle()

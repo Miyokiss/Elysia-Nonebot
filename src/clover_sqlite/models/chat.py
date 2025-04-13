@@ -108,7 +108,6 @@ class GroupChatRole(Model):
     is_on_chat = fields.IntField(default=0,description="ai聊天模式ID")
     role_name = fields.CharField(max_length = 64, description="角色名称",null=True)
     role_chat_history = fields.JSONField(description="角色聊天上下文",null=True)
-    role_super_chat_history = fields.JSONField(description="超级聊天上下文",null=True)
     class Meta:
         # 指定表名
         table = "group_chat_role"
@@ -256,55 +255,3 @@ class GroupChatRole(Model):
         """
         history = await cls.filter(group_id=group_id).first()
         return  history.role_chat_history
-    
-    # 超级聊天相关function
-    @classmethod
-    async def get_super_chat_history(cls, group_id: str | None)-> JSONField[Any]:
-        """
-        获取并维护指定群组的超级聊天历史记录（保留最近3条对话）
-
-        Args:
-            group_id: 群组ID，为None时返回空列表
-
-        Returns:
-            List[Dict]: 聊天历史记录列表
-
-        Raises:
-            ValueError: 当group_id为None时抛出
-        """
-        if not group_id:
-            raise ValueError("group_id cannot be None")
-        
-        MAX_HISTORY = 6
-        
-        history = await cls.filter(group_id=group_id).first()
-        if not history:
-            return []
-        
-        history_list = history.role_super_chat_history
-        
-        # 维护列表长度
-        if len(history_list) > MAX_HISTORY+1:
-            # 删除旧记录，保留最后 MAX_HISTORY 条
-            new_history = history_list[-MAX_HISTORY:]
-            history.role_super_chat_history = new_history
-            await history.save()  # 持久化到数据库
-            logger.debug(f"get_super_chat_history | Trimmed history to {MAX_HISTORY} items for group {group_id}")
-        
-        return history_list
-    
-    @classmethod
-    async def save_super_chat_history(cls, group_id: str | None,content: dict[str, str | Any] | None):
-        """
-        保存聊天上下文
-
-        :param group_id: 群聊的ID。
-        :param content: 要保存的内容。
-        """
-        history = await cls.filter(group_id=group_id).first()
-        if history.role_super_chat_history is None:
-            history.role_super_chat_history = [content]
-            await history.save()
-        else:
-            history.role_super_chat_history.append(content)
-            await history.save()

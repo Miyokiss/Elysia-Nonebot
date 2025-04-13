@@ -40,3 +40,4 @@ Elysia
 runtime
 /src/configs/tts
 bot.pid
+.vscode/launch.json
