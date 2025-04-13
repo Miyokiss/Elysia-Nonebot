@@ -511,6 +511,7 @@ SanYeCao-Nonebot:.
       - 其他视频文件。
 
 <br>
+
 ### 📦三、插件
   - 插件的目录位于src/plugins中<br>
   - 插件的配置文件位于src/configs中<br>
@@ -616,7 +617,7 @@ admin_password = "123456"  # 默认注册管理员密码
 
 注册成为管理员之后，你的 `member_openid` 将会被保存至 `chatbot.db` 下的 `admin_list` 表中。
 
-希望这些优化后的说明能更好地帮助您！如果有任何进一步的需求或修改，请告诉我。
+
 
 
 
