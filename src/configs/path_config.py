@@ -8,7 +8,7 @@ path = os.getcwd()+'/src/resources'
 image_local_qq_image_path =  path+'/image/qq_image'
 os.makedirs(image_local_qq_image_path, exist_ok=True)
 # 本地图片路径
-image_local_path= path+"/image/Elsyia"
+image_local_path= path+"/image/Elysia"
 os.makedirs(image_local_path, exist_ok=True)
 # 塔罗牌图片路径
 tarots_img_path = path+'/image/tarot/TarotImages/'
