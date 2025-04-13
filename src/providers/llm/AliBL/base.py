@@ -91,7 +91,7 @@ async def on_bl_new_session_id(user_id: str) -> Optional[list[Dict[str, str]]]:
             user_id=user_id,
             is_session_id=is_session_id
         )
-        return {"code":"True","msg":r_msg}
+        return {"code":True,"msg":r_msg}
 
 async def on_bl_new_memory_id(user_id: str) -> Optional[str]:
     """处理新记忆"""
