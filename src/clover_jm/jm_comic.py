@@ -2,11 +2,11 @@ import yaml
 import uuid
 import jmcomic
 from datetime import datetime
-from src.configs.api_config import qrserver_url,qrserver_size,anonfile_download_url
+from src.configs.api_config import qrserver_url,qrserver_size
 from src.clover_jm.disguise_pdf import *
 from concurrent.futures import ThreadPoolExecutor
 from src.configs.path_config import jm_path,jm_config_path
-from src.clover_providers.cloud_file_api import anonfile
+from src.clover_providers.cloud_file_api.kukufile import Kukufile
 from src.clover_image.delete_file import delete_folder,delete_file
 from src.clover_email.send_email import send_email_by_google,send_email_by_qq
 
@@ -45,7 +45,8 @@ async def jm_qr(album_id: str| None):
     album_detail,downloader = await download_jm(album_id = album_id,file_name = file_name,receiver_email = None)
     # 创建变量
     folder_path = f"{jm_path}{file_name}"
-    zip_path = f"{folder_path}{album_detail.title}.zip"
+    zip_name = f"{album_detail.title}.zip"
+    zip_path = f"{folder_path}{zip_name}"
     # 压缩文件
     zip_status = await folder_zip(folder_path,zip_path)
     if not zip_status:
@@ -53,19 +54,20 @@ async def jm_qr(album_id: str| None):
         return "压缩文件失败"
 
     # 发送文件
-    send_status = await anonfile.upload_file(zip_path)
-    if send_status["success"]:
-        file_code=send_status["code"]
+    send_status = await Kukufile.upload_file(zip_path,zip_name)
+    logger.debug(f"send_status: {send_status}")
+    if send_status[0] == "OK":
         # 删除文件
         await delete_folder(folder_path)
         return {
             "msg":"获取成功~！码上下载！~",
-            "qr_code": f"{qrserver_url}?size={qrserver_size}&data={anonfile_download_url}{file_code}"
+            "qr_code": f"{qrserver_url}?size={qrserver_size}&data={send_status[1]}"
         }
     else:
+        logger.error(f"上传出错API返回: {send_status}")
         await delete_folder(folder_path)
         return {
-            "msg":"发送失败,请重试!"
+            "msg":"上传出错API,请重试!"
         }
 
 async def download_jm(album_id: str| None,file_name :str | None,receiver_email: str| None):
