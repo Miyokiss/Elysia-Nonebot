@@ -51,7 +51,7 @@ class Kukufile:
             print(f"Upload Error: {str(e)}")
             task['status'] = 'error'
     async def upload_file(file_path, file_name: str = None):
-        """上传文件的静态方法\n
+        """上传文件\n
         :param file_path: 上传文件绝对路径\n
         :param file_name: 显示文件名\n
         """
