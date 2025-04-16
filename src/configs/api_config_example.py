@@ -61,11 +61,6 @@ qrserver_url = "https://api.qrserver.com/v1/create-qr-code/"
 qrserver_size= "200x200"
 
 """
-anonfile API 参数
-"""
-anonfile_download_url = "https://anonfile.io/api/download/"
-
-"""
 CodeForces API
 """
 codeforces_key = "<KEY>"
