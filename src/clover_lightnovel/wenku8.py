@@ -98,8 +98,8 @@ async def get_books():
     """
     # print(orders[7].text)
     with open(getcwd() + "/src/clover_lightnovel/output1.html", 'w', encoding='utf-8') as file:
-        file.write(head + str(orders[7]).replace('(<a href="https://www.wenku8.net/zt/sugoi/2025.php"', '').replace(
-            'target="_blank">查看 这本轻小说真厉害！2025 TOP榜单</a>)', '') + str(orders[8]) + str(orders[9]) + str(
+        file.write(head + str(orders[7]).replace("2025年春季新番原作抢先看！(", "2025年春季新番原作抢先看！").replace(
+            'target="_blank">查看 这本轻小说真厉害！2025 TOP榜单</a>)', '></a>') + str(orders[8]) + str(orders[9]) + str(
             orders[10]))
 
 
