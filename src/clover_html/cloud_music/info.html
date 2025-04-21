@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="cn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歌曲信息</title>
+</head>
+<link rel="stylesheet" href="./info.css">
+<body>
+    <div class="wrapper">
+        <div class="box">
+            <h1>{{data.song_name}}</h1>
+            <div class="content">
+                <div class="content_img">
+                    <img src="{{data.song_imgurl}}" alt="封面" class="cover">
+                </div>
+                <div class="content_list">
+                    <p>歌曲名：{{data.song_name}}{{data.song_alias}}</p>
+                    <p>歌手/作者：{{data.song_artists}}</p>
+                    <p>时长：{{data.song_playTime}}</p>
+                </div>
+            <div class="bottom">
+                <div class="bottom_left">
+                    <p>你可以发送：/点歌 歌曲名 搜索歌曲</p>
+                    <p>例如：/点歌 True-黄龄</p>
+                </div>
+                <div class="bottom_right">
+                    <p>By Elysia Bot</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

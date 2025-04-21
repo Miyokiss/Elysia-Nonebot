@@ -1,0 +1,120 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: "SSFangTangTi";
+}
+
+@font-face {
+    font-family: "SSFangTangTi";
+    src: url("../res/font/SSFangTangTi.ttf");
+}
+
+@font-face {
+    font-family: "Noto Sans SC B";
+    src: url("../res/font/NotoSansSC-Bold.otf") format("opentype");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+.wrapper {
+    width: 580px;
+    background-color: #ffbdca;
+    padding: 15px;
+    box-sizing: border-box;
+}
+
+.box {
+    width: 550px;
+    background-color: #ffeded;
+    border-radius: 10px;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.main {
+    position: relative;
+}
+
+h1 {
+    width: 200px;
+    margin: 0 auto;
+    border-radius: 10px;
+    border: #ffbdca 3px solid;
+    box-shadow: 4px 4px 8px rgb(254, 220, 220);
+    color: #ffbdca;
+    text-align: center;
+}
+
+.top {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0;
+    margin: 10px 0 -13px;
+}
+
+.top div {
+    font-family: "Noto Sans SC B";
+}
+
+.top div p {
+    margin: 0;
+    padding: 3px 6px;
+    border-radius: 10px;
+    border: #ffbdca 1.5px solid;
+    color: #ffbdca;
+    background-color: #ffeded;
+    text-align: center;
+}
+
+.lists {
+    font-family: "Noto Sans SC B";
+    padding: 12px 0 10px;
+    border-radius: 10px;
+    border: #ffbdca 2px solid;
+    box-shadow: 4px 4px 8px rgb(254, 220, 220);
+}
+
+.list-item {
+    display: flex;
+    justify-content: space-around;
+    padding: 5px 0;
+    text-align: center;
+    border-bottom: #ffbdca 1px solid;
+}
+
+.list-item div {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 33%;
+}
+
+.list-item div:nth-child(1) {
+    width: 25% !important;
+}
+
+.bottom {
+    display: flex;
+    margin-top: 10px;
+}
+
+.bottom-left {
+    width: 70%;
+}
+
+.bottom-right {
+    position: relative;
+    width: 30%;
+}
+
+.bottom p {
+    margin: 0;
+}
+
+.bottom-right p {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+}

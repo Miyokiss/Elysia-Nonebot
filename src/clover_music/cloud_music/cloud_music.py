@@ -143,10 +143,10 @@ async def netease_music_search(keyword,session):
     """
     歌曲搜索
     Args:
-        keyword:
-        session:
-
+        keyword: 搜索关键字
+        session: requests会话对象
     Returns:
+        song_lists: 搜索结果列表
 
     """
     url = "http://music.163.com/api/search/get"
@@ -161,16 +161,37 @@ async def netease_music_search(keyword,session):
     data = response.json()
     if "result" in data and "songs" in data["result"]:
         songs = data["result"]["songs"]
-        if songs:
-            first_song = songs[0]  # 获取第一首歌曲
-            song_name = first_song["name"]
-            singer = first_song["artists"][0]["name"]
-            song_id = first_song["id"]
-            song_url = f"https://music.163.com/song?id={song_id}"
-            logger.info(f"搜索结果：{song_name} - {singer}")
-            logger.info(f"歌曲链接：{song_url}")
-            return song_id,song_name,singer,song_url
-    return None, None, None, None
+        song_lists = [
+            {
+                "index": idx,
+                "song_id": song["id"],
+                "song_name": song['name'],
+                "song_artists_name": song['artists'][0]['name'],
+            } for idx, song in enumerate(songs, start=1)
+            ]
+        logger.debug(f"搜索结果：{song_lists}")
+        return song_lists
+    return None
+async def netease_music_info(id: str):
+    """
+    获取歌曲信息
+    Args:
+        id: 歌曲id
+    Returns: 歌曲信息
+    returns: None 如果没有找到或其他返回None
+    """
+    headers = {
+    'content-type':'application/x-www-form-urlencoded'
+    }
+    result = get_music(id)
+    data = {'params': result['encText'], 'encSecKey': result['encSecKey']}
+
+    response = requests.request("POST", "https://music.163.com/weapi/song/detail", headers=headers,data=data)
+    if response.status_code == 200:
+        response = response.json()
+        if response['songs']:
+            return response['songs']
+    return None
 
 #仅限于免费歌曲
 # def netease_music_download(song_id,song_name,singer,session):

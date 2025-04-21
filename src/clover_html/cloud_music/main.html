@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="cn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歌曲信息</title>
+</head>
+<link rel="stylesheet" href="./main.css">
+<body>
+    <div class="wrapper">
+        <div class="box">
+            <h1>歌曲列表</h1>
+            <div class="top">
+                <div><p>序号</p></div>
+                <div><p>歌曲名</p></div>
+                <div><p>歌手/作者</p></div>
+            </div>
+            <div class="lists">
+                {% for song_lists in data.song_lists %}
+                <div class="list-item">
+                    <div class="list-item-index">{{song_lists["index"]}}</div>
+                    <div class="list-item-name">{{song_lists["song_name"]}}</div>
+                    <div class="list-item-singer">{{song_lists["song_artists_name"]}}</div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="bottom">
+                <div class="bottom-left">
+                    <p>你可以发送：/点歌 歌曲名 序号 择歌曲</p>
+                    <p>例如：/点歌 True-黄龄 1</p>
+                </div>
+                <div class="bottom-right">
+                    <p>By Elysia Bot</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

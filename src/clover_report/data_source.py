@@ -128,7 +128,7 @@ class Report:
             browser = await p.chromium.launch()
 
         image_bytes = await template_to_pic(
-            template_path=getcwd() + "/src/clover_report/daily_report",
+            template_path=getcwd() + "/src/clover_html/daily_report",
             template_name="main.html",
             templates={"data": data},
             pages={
