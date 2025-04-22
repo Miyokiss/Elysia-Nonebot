@@ -111,6 +111,4 @@ async def handle_function(msg: MessageEvent) -> None:
         r_msg = "未知错误，请稍后再试。"
         if hasattr(e, 'message'):
             r_msg = e.message
-        else:
-            r_msg = "未知错误，请稍后再试。"
         await music.finish(f"处理点歌请求时发生错误：{r_msg}。这绝对不是我的错，绝对不是！")
