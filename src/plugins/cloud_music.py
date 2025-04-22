@@ -76,20 +76,22 @@ async def handle_function(msg: MessageEvent) -> None:
         temp_file = os.path.join(temp_path, f"{datetime.now().date()}_{keyword}_{uuid.uuid4().hex}.png")
 
         if len(values) == 1:
-            await netease_music_search_info_img(keyword, session, temp_file)
+            r_search_info_img = await netease_music_search_info_img(keyword, session, temp_file)
+            if r_search_info_img is None:
+                await music.finish("\n没有找到歌曲，或检索到的歌曲为付费/无版权喔qwq\n这绝对不是我的错，绝对不是！")
             await music.send(MessageSegment.file_image(Path(temp_file)))
-
-        if len(values) == 2:
+        elif len(values) == 2:
             idx = values[1]
             if not idx.isdigit() or int(idx) < 1 or int(idx) > 10:
                 await music.finish("\n序号必须是数字且在1-10范围内喔qwq")
-            song_id, song_name, singer = await netease_music_info_img(keyword, session, idx, temp_file)
-            
-            if song_id is None:
-                await music.finish("\n没有找到歌曲，或检索到的歌曲均为付费喔qwq\n这绝对不是我的错，绝对不是！")
+            music_info = await netease_music_info_img(keyword, session, idx, temp_file)
+            if music_info is None:
+                await music.finish("\n没有找到歌曲，或检索到的歌曲为付费/无版权喔qwq\n这绝对不是我的错，绝对不是！")
+            song_id = music_info['song_id']
+            song_name = music_info['song_name']
+            singer = music_info['song_artists']
             await music.send(MessageSegment.file_image(Path(temp_file)))
             output_silk_path = await netease_music_download(song_id, song_name, singer, session)
-            
             if output_silk_path == -1:
                 await music.send("歌曲音频获取失败：登录信息失效。")
             elif output_silk_path is None:
@@ -97,15 +99,18 @@ async def handle_function(msg: MessageEvent) -> None:
             else:
                 await music.send(MessageSegment.file_audio(Path(output_silk_path)))
                 await delete_file(output_silk_path)
+        else:
+            await music.finish("\n输入有误，请检查格式或歌曲名称里是否有空格喔qwq")
 
         await delete_file(temp_file)
         await music.finish()
-
-    except FinishedException:
-        raise
     except Exception as e:
+        if isinstance(e, FinishedException):
+            return
         logger.error(f"处理点歌请求时发生错误: {e}")
-        r_msg = e.message
-        if r_msg == None:
+        r_msg = "未知错误，请稍后再试。"
+        if hasattr(e, 'message'):
+            r_msg = e.message
+        else:
             r_msg = "未知错误，请稍后再试。"
         await music.finish(f"处理点歌请求时发生错误：{r_msg}。这绝对不是我的错，绝对不是！")

@@ -17,12 +17,18 @@ async def save_img(data: bytes ,temp_file: str) -> None:
      """
     with open(temp_file, "wb") as file:
         file.write(data)
-async def netease_music_search_info_img(keyword,session,temp_file) -> bytes:
-        """获取数据"""
+async def netease_music_search_info_img(keyword,session,temp_file):
+        """获取数据
+        :param keyword: 搜索关键字
+        :param session: requests会话对象
+        :param temp_file: 临时文件路径
+        :return: True 如果没有找到或其他返回None"""
         if os.path.exists(temp_file):
             with open(temp_file,"rb") as image_file:
                 return image_file.read()
         song_lists = await netease_music_search(keyword, session)
+        if song_lists is None:
+            return None
         data = {
              "song_lists": song_lists,
         }
@@ -35,14 +41,14 @@ async def netease_music_search_info_img(keyword,session,temp_file) -> bytes:
             template_name="main.html",
             templates={"data": data},
             pages={
-                "viewport": {"width": 580, "height": 530},
+                "viewport": {"width": 580, "height": 1},
                 "base_url": f"file://{getcwd()}",
             },
             wait=2,
         )
         await save_img(image_bytes,temp_file)
         await browser.close()
-        return image_bytes
+        return True
 
 async def netease_music_info_img(keyword,session,idx,temp_file: str):
         """
@@ -59,6 +65,8 @@ async def netease_music_info_img(keyword,session,idx,temp_file: str):
         :return: None 如果没有找到或其他返回None
         """
         song_lists = await netease_music_search(keyword, session)
+        if song_lists is None:
+            return None
         song_id = None
         for i in range(len(song_lists)):
             s_list = song_lists[i]
@@ -103,11 +111,16 @@ async def netease_music_info_img(keyword,session,idx,temp_file: str):
             template_name="info.html",
             templates={"data": data},
             pages={
-                "viewport": {"width": 580, "height": 530},
+                "viewport": {"width": 580, "height": 1},
                 "base_url": f"file://{getcwd()}",
             },
             wait=2,
         )
         await save_img(image_bytes, temp_file)
         await browser.close()
-        return song_id,song_name,song_artists
+        r_msg = {
+            "song_id": song_id,
+            "song_name": song_name,
+            "song_artists": song_artists,
+        }
+        return r_msg
