@@ -44,8 +44,8 @@ os.makedirs(video_path, exist_ok=True)
 #jm配置文件路径
 jm_config_path = os.getcwd()+'/src/configs/jm_config.yml'
 
-# 语音路径
-AUDIO_TEMP_PATH = path+'/aduio/'
+# 音频路径
+AUDIO_PATH = path+'/aduio/'
 os.makedirs(video_path, exist_ok=True)
 # # 文本路径
 # TEXT_PATH = Path() / "src" / "resources" / "text"

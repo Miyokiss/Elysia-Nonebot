@@ -16,7 +16,7 @@ from nonebot.adapters.qq import Message, MessageEvent
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
 from nonebot.adapters.qq import   MessageSegment,MessageEvent
-from src.configs.path_config import AUDIO_TEMP_PATH
+from src.configs.path_config import AUDIO_PATH
 
 menu = ["/今日运势","/今日塔罗",
         "/图","/随机图",
@@ -36,7 +36,7 @@ menu = ["/今日运势","/今日塔罗",
         "/绝对色感",
         "/jm",
         "/爱莉希雅","妖精爱莉",
-        "/奶龙","我喜欢你", "❤",
+        "/奶龙","我喜欢你", "❤","小丑",
         "/重启","/repo", "/info", "/help", "/test"]
 
 send_menu = ["/help","/今日运势","/今日塔罗","/图","/随机图","搜番","/日报","/点歌","/摸摸头","/群老婆","/待办","/天气",
@@ -118,7 +118,7 @@ async def Transcoding(file_path : str ,output_filename : str)->str:
     :return: output_silk_path 转码后的文件路径
     """
     # 转码处理语音文件
-    output_silk_path = os.path.join(AUDIO_TEMP_PATH, os.path.splitext(output_filename)[0] + ".silk")
+    output_silk_path = os.path.join(AUDIO_PATH, os.path.splitext(output_filename)[0] + ".silk")
     # 使用 graiax-silkcoder 进行转换
     silkcoder.encode(file_path, output_silk_path, rate=32000, tencent=True, ios_adaptive=True)
     return output_silk_path
@@ -157,3 +157,8 @@ test = on_command("test", rule=to_me(), priority=10, block=True)
 @test.handle()
 async def bot_on_ready():
     await test.finish("\n 测测你的")
+
+joker = on_keyword("小丑", rule=to_me(), priority=2, block=True)
+@joker.handle()
+async def bot_on_joker():
+    await joker.finish(MessageSegment.file_audio(Path(AUDIO_PATH, "小丑.silk")))
