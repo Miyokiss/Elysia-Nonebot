@@ -135,7 +135,7 @@ async def send_help_list():
 3、想知道天气吗？随时可以和我说，我会回应你的期待♪
 
 Q：遇到BUG/问题/提建议？
-A：发送至开发者邮箱：miyokiss@miyo.wiki
+A：联系开发者QQ或邮箱：3522766049
 """
     await get_help.finish(MessageSegment.text(text))
 
