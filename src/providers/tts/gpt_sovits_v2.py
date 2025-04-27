@@ -23,13 +23,14 @@ class TTSProvider(TTSProviderBase):
         self.batch_size = config.get("batch_size", 1)
         self.batch_threshold = config.get("batch_threshold", 0.75)
         self.split_bucket = config.get("split_bucket", True)
-        self.return_fragment = config.get("return_fragment", False)
         self.speed_factor = config.get("speed_factor", 1.0)
         self.streaming_mode = config.get("streaming_mode", False)
         self.seed = config.get("seed", -1)
         self.parallel_infer = config.get("parallel_infer", True)
         self.repetition_penalty = config.get("repetition_penalty", 1.35)
         self.aux_ref_audio_paths = config.get("aux_ref_audio_paths", [])
+        self.sample_steps = config.get("sample_steps", 32)
+        self.super_sampling = config.get("super_sampling", False)
 
     def generate_fileinfo(self, extension=".wav"):
         """
@@ -62,12 +63,13 @@ class TTSProvider(TTSProviderBase):
             "batch_size": self.batch_size,
             "batch_threshold": self.batch_threshold,
             "split_bucket": self.split_bucket,
-            "return_fragment": self.return_fragment,
             "speed_factor": self.speed_factor,
             "streaming_mode": self.streaming_mode,
             "seed": self.seed,
             "parallel_infer": self.parallel_infer,
-            "repetition_penalty": self.repetition_penalty
+            "repetition_penalty": self.repetition_penalty,
+            "sample_steps": self.sample_steps,
+            "super_sampling": self.super_sampling,
         }
 
         resp = requests.post(self.url, json=request_json)

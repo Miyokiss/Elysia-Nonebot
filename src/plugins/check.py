@@ -133,6 +133,9 @@ async def send_help_list():
 1、想要点歌给群友吗？快来点一首你喜欢的歌，和大家一起分享音乐的快乐吧♪
 2、每日运势仅供娱乐，记得相信科学哦，不过偶尔看看也无妨，对吧？
 3、想知道天气吗？随时可以和我说，我会回应你的期待♪
+
+Q：遇到BUG/问题/提建议？
+A：发送至开发者邮箱：miyokiss@miyo.wiki
 """
     await get_help.finish(MessageSegment.text(text))
 

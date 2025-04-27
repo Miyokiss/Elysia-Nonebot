@@ -14,12 +14,13 @@ def get_config():
                 'text_split_method': "cut0",
                 'batch_size': 1,
                 'batch_threshold': 0.75,
-                'split_bucket': 'true',
-                'return_fragment': 'false',
+                'split_bucket': True,
                 'speed_factor': 1.0,
-                'streaming_mode': 'false',
+                'streaming_mode': False,
                 'seed': -1,
-                'parallel_infer': 'true',
+                'parallel_infer': True,
                 'repetition_penalty': 1.35,
+                'sample_steps': 32,
+                'super_sampling': False,
                 'aux_ref_audio_paths': []
             }
