@@ -70,7 +70,7 @@ async def handle_tts_response(message: MessageEvent):
     user_id = message.get_user_id()
     content = message.get_plaintext()
     if not content:
-        await check.finish(message=Message(random.choice(text_list)))
+        content = "空内容"
 
     text = await on_bl_chat(user_id, content)
     tts = TTSProvider()
