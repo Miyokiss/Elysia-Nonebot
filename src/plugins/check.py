@@ -36,7 +36,7 @@ menu = ["/今日运势","/今日塔罗",
         "/绝对色感",
         "/jm",
         "/爱莉希雅","妖精爱莉",
-        "/奶龙","我喜欢你", "❤","小丑",
+        "/奶龙","我喜欢你", "❤","/joker",
         "/重启","/repo", "/info", "/help", "/test"]
 
 send_menu = ["/help","/今日运势","/今日塔罗","/图","/随机图","搜番","/日报","/点歌","/摸摸头","/群老婆","/待办","/天气",
@@ -161,7 +161,7 @@ test = on_command("test", rule=to_me(), priority=10, block=True)
 async def bot_on_ready():
     await test.finish("\n 测测你的")
 
-joker = on_keyword("小丑", rule=to_me(), priority=2, block=True)
+joker = on_command("joker", rule=to_me(), priority=2, block=True)
 @joker.handle()
 async def bot_on_joker():
-    await joker.finish(MessageSegment.file_audio(Path(AUDIO_PATH, "小丑.silk")))
+    await joker.finish(MessageSegment.file_audio(Path(AUDIO_PATH, "joker.silk")))
