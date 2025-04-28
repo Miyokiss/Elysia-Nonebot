@@ -61,16 +61,14 @@ async def handle_function(msg: MessageEvent) -> None:
     try:
         values = msg.get_plaintext().removeprefix("/点歌").strip().split()
         session = requests.session()
-        session, status, user_id = await login(session)
+        # session, status, user_id = await login(session)
         
-        if not status:
-            await music.send("登录失效，请联系管理员进行登录")
-            await handle_qr_login(session)
-            return
+        # if not status:
+        #     await music.send("登录失效，请联系管理员进行登录")
+        #     await handle_qr_login(session)
 
         if not values or not all(values):
             await music.finish("\n请输入“/点歌+歌曲名”喔🎶")
-            return
 
         keyword = values[0]
         temp_file = os.path.join(temp_path, f"{datetime.now().date()}_{keyword}_{uuid.uuid4().hex}.png")
