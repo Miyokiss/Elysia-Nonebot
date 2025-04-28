@@ -16,7 +16,7 @@ from nonebot.adapters.qq import Message, MessageEvent
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
 from nonebot.adapters.qq import   MessageSegment,MessageEvent
-from src.configs.path_config import AUDIO_PATH
+from src.configs.path_config import AUDIO_PATH,image_local_qq_image_path
 
 menu = ["/今日运势","/今日塔罗",
         "/图","/随机图",
@@ -135,9 +135,12 @@ async def send_help_list():
 3、想知道天气吗？随时可以和我说，我会回应你的期待♪
 
 Q：遇到BUG/问题/提建议？
-A：联系开发者QQ或邮箱：3522766049
-"""
-    await get_help.finish(MessageSegment.text(text))
+A：欢迎加入群聊反馈还能体验新内容！"""
+    msg = Message([
+        MessageSegment.text(text),
+        MessageSegment.file_image(Path(image_local_qq_image_path+f"/QQ.jpg"))
+    ])
+    await get_help.finish(msg)
 
 restart = on_command("重启", rule=to_me(), priority=10, block=True)
 @restart.handle()
