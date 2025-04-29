@@ -7,11 +7,14 @@ from nonebot.rule import to_me
 from nonebot.adapters.qq import   MessageSegment,MessageEvent, Message
 import src.clover_videos.billibili.biliVideos as biliVideos
 from src.configs.path_config import video_path
+from nonebot import logger
 
 bili_vid = on_command("B站搜索",rule=to_me(), priority=10)
 @bili_vid.handle()
 async def get_bili_vid_info(message: MessageEvent):
     content = message.get_plaintext().replace("/B站搜索", "").strip()
+    if content == "":
+        await bili_vid.finish("请输入搜索内容\n指令格式：\n/B站搜索 搜索内容")
     response = biliVideos.get_video_info(content)
     if response['code'] != 0:
         bili_vid.finish(response['message'])
@@ -45,7 +48,11 @@ bili_bv_search = on_command("BV搜索", rule=to_me(), priority=10)
 @bili_bv_search.handle()
 async def get_video_file(message: MessageEvent):
     keyword = message.get_plaintext().replace("/BV搜索", "").strip().split()
+    if len(keyword) == 0:
+        await bili_bv_search.finish("请输入BV号\n指令格式：\n/BV搜索 BV号\n/BV搜索 BV号 分P序号(数字)")
     P_num, pages, vid_title, vid_author, vid_pic = biliVideos.get_video_pages_info(keyword[0])
+    if P_num is None:
+        await bili_bv_search.finish("获取视频信息失败，请检查BV号是否正确。")
     if len(keyword) == 1:
 
         if P_num > 1:

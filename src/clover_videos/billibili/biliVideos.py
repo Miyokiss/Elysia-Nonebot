@@ -1,6 +1,6 @@
 import os
 import pickle
-
+from nonebot import logger
 import ffmpeg
 import requests
 import hashlib
@@ -8,6 +8,8 @@ import urllib.parse
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from src.configs.path_config import video_path
+
+__name__ = "clover_videos | biliVideos"
 
 chrome_options = Options()
 chrome_options.add_argument("--headless")
@@ -87,6 +89,9 @@ def get_video_info_bv(keyword):
     session = requests.session()
     session.get("https://www.bilibili.com/", headers=headers)
     response = session.get(url + query, headers=headers).json()
+    if response['code'] != 0:
+        logger.error(f"获取视频信息失败，状态码：{response['code']}  message:{response['message']}")
+        return None
     return response
 
 def get_video_pages_info(keyword):
@@ -103,6 +108,8 @@ def get_video_pages_info(keyword):
         vid_pic: 视频封面URL->str
     """
     response = get_video_info_bv(keyword)
+    if response is None:
+        return None, None, None, None, None
     vid_pages_info_list = response['data']['pages']
     vid_title = response['data']['title']
     vid_author = response['data']['owner']['name']
