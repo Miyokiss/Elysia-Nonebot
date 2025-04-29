@@ -63,36 +63,41 @@ async def handle_function(message: MessageEvent):
     elif status == 2:
         await handle_tts_response(message)
     else:
-        await check.finish(message=Message(random.choice(text_list)))
+        # await check.finish(message=Message(random.choice(text_list)))
+        await handle_tts_response(message) # 暂时开放
 
 async def handle_tts_response(message: MessageEvent):
     """AI Chat TTS 响应"""
     user_id = message.get_user_id()
-    content = message.get_plaintext()
-    if not content:
-        content = "空内容"
+    content = message.get_plaintext() or "空内容"
 
-    text = await on_bl_chat(user_id, content)
-    tts = TTSProvider()
-    
-    try:
-        result = await asyncio.wait_for(tts.to_tts(text), timeout=10)
-        if not result:
-            raise Exception("TTS 生成失败，结果为空")
+    async def _tts_task():
+        text = await on_bl_chat(user_id, content)
+        tts = TTSProvider()
+        
+        try:
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(
+                None, 
+                lambda: asyncio.run(tts.to_tts(text))
+            )
+            if not result:
+                raise Exception("TTS 生成失败，结果为空")
 
-        file_path = result["file_path"]
-        file_name = result["file_name"]
-        logger.debug(f"check:result | 生成语音文件：\n路径={file_path} \n文件名={file_name}")
+            file_path = result["file_path"]
+            file_name = result["file_name"]
+            logger.debug(f"生成语音文件：{file_path}")
 
-        output_silk_path = await asyncio.wait_for(Transcoding(file_path, file_name), timeout=10)
-        logger.debug(f"check:output_silk_path | output_silk_path：{output_silk_path}")
+            # 转码使用异步等待
+            output_silk_path = await Transcoding(file_path, file_name)
+            await check.send(MessageSegment.file_audio(Path(output_silk_path)))
+            await cleanup_files(file_path, output_silk_path)
+            
+        except Exception as e:
+            logger.error(f"TTS处理失败：{str(e)}")
 
-        await check.send(MessageSegment.file_audio(Path(output_silk_path)))
-        await cleanup_files(file_path, output_silk_path)
-    except asyncio.TimeoutError:
-        logger.error("check：asyncio.TimeoutError | TTS 生成/转换超时！")
-    except Exception as e:
-        logger.error(f"check：Exception | TTS 失败：{e}")
+    # 创建后台任务不阻塞当前处理
+    asyncio.create_task(_tts_task())
 
 async def cleanup_files(*files):
     for file in files:
@@ -110,18 +115,14 @@ text_list = [
     "【妖精爱莉回复】难道是新指令吗？哎呀，一脸茫然呢♪ \n哎呀，一脸茫然呢♪",
 ]
 
-async def Transcoding(file_path : str ,output_filename : str)->str:
-    """
-    ### 转码处理语音文件 \n
-    :param output_filename: 输出文件名
-    :param file_path: 输入文件路径
-    :return: output_silk_path 转码后的文件路径
-    """
-    # 转码处理语音文件
-    output_silk_path = os.path.join(AUDIO_PATH, os.path.splitext(output_filename)[0] + ".silk")
-    # 使用 graiax-silkcoder 进行转换
-    silkcoder.encode(file_path, output_silk_path, rate=32000, tencent=True, ios_adaptive=True)
-    return output_silk_path
+async def Transcoding(file_path: str, output_filename: str) -> str:
+    loop = asyncio.get_running_loop()
+    output_silk_path = Path(AUDIO_PATH) / f"{Path(output_filename).stem}.silk"
+    await loop.run_in_executor(
+        None, 
+        lambda: silkcoder.encode(file_path, output_silk_path, rate=32000, tencent=True)
+    )
+    return str(output_silk_path)
 
 
 get_help = on_command("help", rule=to_me(), priority=10, block=True)
