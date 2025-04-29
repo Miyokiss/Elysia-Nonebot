@@ -13,7 +13,7 @@
         <div class="main">
             <div class="top-border">
                 <div class="zx-img">
-                    <img src="./res/image/no_bg.png" alt="ZhenXun" class="zx-img">
+                    <img src="../res/image/no_bg.png" alt="ZhenXun" class="zx-img">
                 </div>
                 <div class="top-title">
                     <p class="zx-title">日报</p>
@@ -27,7 +27,7 @@
             </div>
             <div class="one-border">
                 <div class="moyu-border">
-                    <div class="moyu-title"><img src="./res/icon/fish.png" class="title-img">摸鱼日历</div>
+                    <div class="moyu-title"><img src="../res/icon/fish.png" class="title-img">摸鱼日历</div>
                     {% for fes in data.data_festival %}
                     <p class="moyu-inner">距离<span class="moyu-day-name">{{fes[1]}}</span>还剩<span
                             class="moyu-day">{{fes[0]}}</span>天
@@ -35,7 +35,7 @@
                     {% endfor %}
                 </div>
                 <div class="bili-border">
-                    <div class="moyu-title" style="left: 128px;"><img src="./res/icon/bilibili.png"
+                    <div class="moyu-title" style="left: 128px;"><img src="../res/icon/bilibili.png"
                             class="title-img">B站热点</div>
                     {% for s in data.data_bili %}
                     <p class="bili-text"><span class="hot-text">热</span>{{s}}</p>
@@ -43,7 +43,7 @@
                 </div>
             </div>
             <div class="two-border">
-                <div class="moyu-title" style="left: -3px;"><img src="./res/icon/bgm.png" class="title-img">今日新番</div>
+                <div class="moyu-title" style="left: -3px;"><img src="../res/icon/bgm.png" class="title-img">今日新番</div>
                 <div class="two-border-border">
                     {% for s in data.data_anime %}
                     <div class="anime-border">
@@ -54,7 +54,7 @@
                 </div>
             </div>
             <div class="three-border">
-                <div class="moyu-title" style="left: -3px;"><img src="./res/icon/60.png" class="title-img">60S读世界</div>
+                <div class="moyu-title" style="left: -3px;"><img src="../res/icon/60.png" class="title-img">60S读世界</div>
                 <ul style="line-height: 30px; line-height: 25px; margin-left: -25px;">
                     {% for s in data.data_six %}
                     {% if data.full_show %}
@@ -66,7 +66,7 @@
                 </ul>
             </div>
             <div class="four-border">
-                <div class="moyu-title" style="left: -3px;"><img src="./res/icon/it.png" class="title-img">IT资讯</div>
+                <div class="moyu-title" style="left: -3px;"><img src="../res/icon/it.png" class="title-img">IT资讯</div>
                 <ul style="line-height: 30px; line-height: 25px; margin-left: -25px;">
                     {% for s in data.data_it %}
                     {% if data.full_show %}
