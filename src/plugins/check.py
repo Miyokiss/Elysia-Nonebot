@@ -7,6 +7,7 @@ from nonebot import logger
 from graiax import silkcoder
 from nonebot import  on_message
 from nonebot.rule import Rule, to_me
+from nonebot.exception import FinishedException
 from src.clover_openai import ai_chat
 from nonebot.plugin import on_command, on_keyword
 from src.clover_sqlite.models.user import UserList
@@ -16,7 +17,7 @@ from nonebot.adapters.qq import Message, MessageEvent
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
 from nonebot.adapters.qq import   MessageSegment,MessageEvent
-from src.configs.path_config import AUDIO_PATH,image_local_qq_image_path
+from src.configs.path_config import temp_path,image_local_qq_image_path
 
 menu = ["/今日运势","/今日塔罗",
         "/图","/随机图",
@@ -56,16 +57,47 @@ async def handle_function(message: MessageEvent):
     group_openid = message.group_openid if hasattr(message, "group_openid") else "C2C"
     status = await GroupChatRole.is_on(group_openid)
     logger.debug(f"check | status ——————> {status}")
-
-    if status == 1:
+    if status == 0:
+        await handle_Elysia_response(message)
+    elif status == 1:
         msg = await ai_chat.deepseek_chat(group_openid, message.get_plaintext())
         await check.finish(msg)
     elif status == 2:
         await handle_tts_response(message)
     else:
-        # await check.finish(message=Message(random.choice(text_list)))
-        await handle_tts_response(message) # 暂时开放
+        await check.finish(random.choice(text_list))
+text_list = [
+    "【妖精爱莉回复】哎呀，亲爱的舰长♪ 没识别到什么呢？\n让我来猜猜看是不是你心中那点小秘密呀？",
+    "【妖精爱莉回复】亲爱的舰长，别一头雾水啦♪\n 我这么可爱，怎么会让我猜不透呢？",
+    "【妖精爱莉回复】亲爱的舰长，是啥意思呀？完全没搞懂呢♪ \n不过没关系，我们一起慢慢探索，总能找到答案的哦！",
+    "【妖精爱莉回复】哎呀，亲爱的舰长，是特殊信号吗？我也听不懂呢♪ \n下个明确指令吧！♪ 我会像星辰一样指引你，让你的每一步都充满光彩和信心哦！",
+    "【妖精爱莉回复】难道是新指令吗？哎呀，一脸茫然呢♪ \n哎呀，一脸茫然呢♪",
+]
 
+async def handle_Elysia_response(message: MessageEvent):
+    """Elysia Chat 响应"""
+    user_id = message.get_user_id()
+    content = message.get_plaintext() or "空内容"
+
+    async def _Elysia_Chat_task():
+        try:
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(
+                None, 
+                lambda: asyncio.run(on_bl_chat(user_id, content))
+            )
+            if not result:
+                raise Exception("生成失败，结果为空")
+            result = result + "\n\n" + "以上内容由AI生成-该功能正在测试中：\n你可以通过指令：\n/爱莉希雅 新的对话 \n创建新的对话\n/爱莉希雅 新的记忆\n创建新的记忆"
+            await check.finish(result)
+            
+        except Exception as e:
+            if isinstance(e, FinishedException):
+                return
+            logger.error(f"Elysia Chat 处理失败：{str(e)}")
+
+    # 创建后台任务不阻塞当前处理
+    asyncio.create_task(_Elysia_Chat_task())
 async def handle_tts_response(message: MessageEvent):
     """AI Chat TTS 响应"""
     user_id = message.get_user_id()
@@ -92,8 +124,11 @@ async def handle_tts_response(message: MessageEvent):
             output_silk_path = await Transcoding(file_path, file_name)
             await check.send(MessageSegment.file_audio(Path(output_silk_path)))
             await cleanup_files(file_path, output_silk_path)
+            await check.finish()
             
         except Exception as e:
+            if isinstance(e, FinishedException):
+                return
             logger.error(f"TTS处理失败：{str(e)}")
 
     # 创建后台任务不阻塞当前处理
@@ -107,17 +142,9 @@ async def cleanup_files(*files):
             except Exception as e:
                 logger.error(f"check：Exception | 删除临时文件失败：{e}")
 
-text_list = [
-    "【妖精爱莉回复】哎呀，亲爱的舰长♪ 没识别到什么呢？\n让我来猜猜看是不是你心中那点小秘密呀？",
-    "【妖精爱莉回复】亲爱的舰长，别一头雾水啦♪\n 我这么可爱，怎么会让我猜不透呢？",
-    "【妖精爱莉回复】亲爱的舰长，是啥意思呀？完全没搞懂呢♪ \n不过没关系，我们一起慢慢探索，总能找到答案的哦！",
-    "【妖精爱莉回复】哎呀，亲爱的舰长，是特殊信号吗？我也听不懂呢♪ \n下个明确指令吧！♪ 我会像星辰一样指引你，让你的每一步都充满光彩和信心哦！",
-    "【妖精爱莉回复】难道是新指令吗？哎呀，一脸茫然呢♪ \n哎呀，一脸茫然呢♪",
-]
-
 async def Transcoding(file_path: str, output_filename: str) -> str:
     loop = asyncio.get_running_loop()
-    output_silk_path = Path(AUDIO_PATH) / f"{Path(output_filename).stem}.silk"
+    output_silk_path = Path(temp_path) / f"{Path(output_filename).stem}.silk"
     await loop.run_in_executor(
         None, 
         lambda: silkcoder.encode(file_path, output_silk_path, rate=32000, tencent=True)

@@ -1,9 +1,9 @@
-from src.configs.path_config import AUDIO_PATH
+from src.configs.path_config import temp_path
 
 def get_config():
     return{
                 'url': "your_api_url",
-                'output_dir': AUDIO_PATH,
+                'output_dir': temp_path,
                 'text_lang': "auto",
                 'ref_audio_path': "参考音频.wav",
                 'prompt_text': "参考音频文本",
