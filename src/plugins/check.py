@@ -57,10 +57,19 @@ async def handle_function(message: MessageEvent):
     group_openid = message.group_openid if hasattr(message, "group_openid") else "C2C"
     status = await GroupChatRole.is_on(group_openid)
     logger.debug(f"check | status ——————> {status}")
-    if status == 0:
-        await handle_Elysia_response(message)
+
+    content = message.get_plaintext() or "空内容"
+
+    if content.startswith("/"):
+        r_msg = f"收到内容：{content}\n{random.choice(text_list)}"
+        await check.finish(r_msg)
+    elif status == 0:
+        try:
+            await asyncio.wait_for(handle_Elysia_response(message), timeout=30)
+        except asyncio.TimeoutError:
+            await check.finish("响应超时，请稍后再试")
     elif status == 1:
-        msg = await ai_chat.deepseek_chat(group_openid, message.get_plaintext())
+        msg = await ai_chat.deepseek_chat(group_openid, content)
         await check.finish(msg)
     elif status == 2:
         await handle_tts_response(message)
@@ -88,7 +97,7 @@ async def handle_Elysia_response(message: MessageEvent):
             )
             if not result:
                 raise Exception("生成失败，结果为空")
-            result = result + "\n\n" + "以上内容由AI生成-该功能正在测试中：\n你可以通过指令：\n/爱莉希雅 新的对话 \n创建新的对话\n/爱莉希雅 新的记忆\n创建新的记忆"
+            result = result + "\n\n" + "以上内容由AI生成-该功能正在测试中：\n你可以通过指令：\n1、/爱莉希雅 新的对话 \n用途：创建新的对话\n2、/爱莉希雅 新的记忆\n用途：创建新的记忆"
             await check.finish(result)
             
         except Exception as e:
@@ -108,11 +117,7 @@ async def handle_tts_response(message: MessageEvent):
         tts = TTSProvider()
         
         try:
-            loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(
-                None, 
-                lambda: asyncio.run(tts.to_tts(text))
-            )
+            result = await tts.to_tts(text)
             if not result:
                 raise Exception("TTS 生成失败，结果为空")
 
@@ -166,7 +171,7 @@ Q：遇到BUG/问题/提建议？
 A：欢迎加入群聊反馈还能体验新内容！"""
     msg = Message([
         MessageSegment.text(text),
-        MessageSegment.file_image(Path(image_local_qq_image_path+f"/QQ.jpg"))
+        MessageSegment.file_image((Path(image_local_qq_image_path) / "QQ.jpg"))
     ])
     await get_help.finish(msg)
 
