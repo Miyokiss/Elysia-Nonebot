@@ -49,7 +49,7 @@ async def handle_function(msg: MessageEvent):
             """是否要发送到QQ上面登录 """
             for _ in range(60):  # 限制最大等待时间5分钟（300秒/5秒间隔）
                 code = await check_qr_code(unikey, session)
-                if code in (803,): break  # 成功状态
+                if code in (803, 8821): break  # 成功状态
                 if code not in (801, 802):
                     print('二维码失效' if code == 800 else f'异常状态码：{code}')
                     break
