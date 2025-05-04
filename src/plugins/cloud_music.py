@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from nonebot import on_command
 from nonebot.rule import to_me
-from nonebot.adapters.qq import   MessageSegment,MessageEvent
+from nonebot.adapters.qq import   MessageSegment,MessageEvent, Message
 from src.clover_music.cloud_music.cloud_music import *
 from src.clover_image.delete_file import delete_file
 
@@ -28,7 +28,11 @@ async def handle_function(msg: MessageEvent):
     session.cookies = pickle.load(open('cloud_music_cookies.cookie', 'rb'))
     session, status,user_id = await netease_cloud_music_is_login(session)
     if not status:
-        await music.send("登录失效，请联系管理员进行登录")
+        msg = Message([
+            MessageSegment.file_image(Path("src/resources/image/github_repo/ERROR.jpg")),
+            MessageSegment.text("登录失效，请联系管理员进行登录"),
+        ])
+        await music.send(msg)
         # 检查缓存是否有效（二维码有效期5分钟)
         if unikey_cache['unikey'] and time.time() < unikey_cache['expires']:
             unikey = unikey_cache['unikey']
