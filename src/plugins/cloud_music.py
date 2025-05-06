@@ -71,7 +71,7 @@ async def handle_function(msg: MessageEvent) -> None:
             await music.finish("\n请输入“/点歌+歌曲名”喔🎶")
 
         keyword = values[0]
-        temp_file = os.path.join(temp_path, f"{datetime.now().date()}_{keyword}_{uuid.uuid4().hex}.png")
+        temp_file = os.path.join(temp_path, f"{datetime.now().date()}_{uuid.uuid4().hex}.png")
 
         if len(values) == 1:
             r_search_info_img = await netease_music_search_info_img(keyword, session, temp_file)
@@ -86,10 +86,8 @@ async def handle_function(msg: MessageEvent) -> None:
             if music_info is None:
                 await music.finish("\n没有找到歌曲，或检索到的歌曲为付费/无版权喔qwq\n这绝对不是我的错，绝对不是！")
             song_id = music_info['song_id']
-            song_name = music_info['song_name']
-            singer = music_info['song_artists']
             await music.send(MessageSegment.file_image(Path(temp_file)))
-            output_silk_path = await netease_music_download(song_id, song_name, singer, session)
+            output_silk_path = await netease_music_download(song_id, session)
             if output_silk_path == -1:
                 await music.send("歌曲音频获取失败：检索到的歌曲为付费（在努力恢复，待后续更新）")
             elif output_silk_path is None:

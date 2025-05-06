@@ -213,7 +213,7 @@ async def netease_music_info(id: str):
 #         return None
 
 #所有歌曲都可以下载
-async def netease_music_download(song_id, song_name, singer, session):
+async def netease_music_download(song_id, session):
     """
     歌曲下载
     Args:
@@ -240,8 +240,8 @@ async def netease_music_download(song_id, song_name, singer, session):
     try:
         response = requests.get(url, stream=True)
         if response.status_code == 200:
-            file_path = os.path.join(save_path, f"{song_name}-{singer}.wav")
-            file_name = os.path.basename(f"{song_name}-{singer}.wav")
+            file_path = os.path.join(save_path, f"{song_id}.wav")
+            file_name = os.path.basename(f"{song_id}.wav")
 
             with open(file_path, "wb") as file:
                 for chunk in response.iter_content(chunk_size=8192):
