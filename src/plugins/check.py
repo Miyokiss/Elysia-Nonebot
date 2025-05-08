@@ -13,11 +13,11 @@ from nonebot.plugin import on_command, on_keyword
 from src.clover_sqlite.models.user import UserList
 from src.clover_image.delete_file import delete_file
 from src.providers.llm.AliBL.base import on_bl_chat
-from nonebot.adapters.qq import Message, MessageEvent
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
-from nonebot.adapters.qq import   MessageSegment,MessageEvent
+from nonebot.adapters.qq import MessageSegment,MessageEvent,Message
 from src.configs.path_config import temp_path,image_local_qq_image_path
+from src.providers.llm.elysiacmd  import has_elysia_command_regex,elysia_command
 
 menu = ["/今日运势","/今日塔罗",
         "/图","/随机图",
@@ -97,13 +97,40 @@ async def handle_Elysia_response(message: MessageEvent):
             )
             if not result:
                 raise Exception("生成失败，结果为空")
-            result = result + "\n\n" + "以上内容由AI生成-该功能正在测试中：\n你可以通过指令：\n1、/爱莉希雅 新的对话 \n用途：创建新的对话\n2、/爱莉希雅 新的记忆\n用途：创建新的记忆"
-            await check.finish(result)
+            result = result + "\n\n" + "文本内容由AI生成-该功能正在测试中：\n你可以通过指令：\n1、/爱莉希雅 新的对话 \n用途：创建新的对话\n2、/爱莉希雅 新的记忆\n用途：创建新的记忆"
+            if has_elysia_command_regex(result):
+                r_msg = await elysia_command(result)
+                logger.debug(f"Elysia Chat R Data：{r_msg}")
+                txt = r_msg.get("txt") or None
+                img = r_msg.get("img") or None
+                audio = r_msg.get("audio") or None
+                if txt is not None:
+                    logger.debug(f"Elysia txt：{txt}")
+                    if img is not None:
+                        logger.debug(f"Elysia img：{img}")
+                        msg = Message([
+                            MessageSegment.file_image(Path(img)),
+                            MessageSegment.text(txt)
+                        ])
+                        await check.send(msg)
+                        await cleanup_files(img)
+                    else:
+                        await check.send(txt)
+                if audio is not None: 
+                    await check.send(MessageSegment.file_audio(Path(audio)))
+                    await cleanup_files(audio)
+            else:
+                await check.send(result)
+            await check.finish()
             
         except Exception as e:
             if isinstance(e, FinishedException):
                 return
+            r_msg = "未知错误，请稍后再试"
+            if hasattr(e, 'message'):
+                r_msg = e.message
             logger.error(f"Elysia Chat 处理失败：{str(e)}")
+            await check.finish(f"Elysia Chat 处理失败：{r_msg}")
 
     # 创建后台任务不阻塞当前处理
     asyncio.create_task(_Elysia_Chat_task())

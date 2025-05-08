@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Tuple, Optional
 from src.clover_music.cloud_music.data_base import netease_music_search_info_img,netease_music_info_img
+from src.clover_music.cloud_music.cloud_music import netease_music_download
 from src.configs.path_config import temp_path
 from nonebot import on_command
 from nonebot.rule import to_me

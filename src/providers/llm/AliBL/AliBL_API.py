@@ -55,7 +55,7 @@ class AliBLAPI:
     @staticmethod
     async def Post_Ali_BL_chat_Api(
         session_id : str = None,
-        content : str ="现在我们开始聊天吧！-注意核心人设、交互准则、语言模型注意、非文本表达、实时数据融合、记忆锚点、情景应对库- 不要回复代码、特殊字符、括号、颜字文、动作描述词",
+        content : str =  "空内容",
         memory_id : str = None) -> list:
         """调用阿里百炼API进行聊天"""
         # 构造调用参数
