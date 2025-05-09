@@ -184,7 +184,7 @@ pip install -r requirements.txt
 - **安装注意**：
   - 勾选 `Add to PATH` 选项（自动配置环境变量）
   - 完成安装后重启终端使配置生效
-验证 Node.js 版本
+  验证 Node.js 版本
 #### 2. 验证安装结果
 ```powershell
 npm -v
