@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import httpx
 import qrcode
 import base64
 import codecs
@@ -8,6 +9,8 @@ import requests
 from io import BytesIO
 from Crypto.Cipher import AES
 from graiax import silkcoder
+from nonebot import get_driver
+from typing import Optional
 import src.clover_music.cloud_music.agent as agent
 from src.clover_image.delete_file import delete_file
 
@@ -15,6 +18,27 @@ from src.clover_image.delete_file import delete_file
 requests.packages.urllib3.disable_warnings()
 headers = {'User-Agent': agent.get_user_agents(), 'Referer': 'https://music.163.com/'}
 
+# 在 cloud_music.py 文件顶部添加
+
+
+# 全局异步客户端
+async_client: Optional[httpx.AsyncClient] = None
+
+# 机器人启动时初始化
+@get_driver().on_startup
+async def init_netease_client():
+    global async_client
+    async_client = httpx.AsyncClient(
+        verify=False,
+        timeout=30.0,
+        limits=httpx.Limits(max_connections=100)
+    )
+
+# 机器人关闭时清理
+@get_driver().on_shutdown
+async def close_netease_client():
+    if async_client:
+        await async_client.aclose()
 
 # 解密params和encSecKey值
 def keys(key):
@@ -233,3 +257,62 @@ async def netease_music_download(song_id, song_name, singer, session):
             return None
     except requests.RequestException as e:
         return None
+
+
+async def music_search(keyword):
+    """
+    第三方歌曲搜索
+    Args:
+        keyword:
+    Returns:
+
+    """
+    url = "https://api.kxzjoker.cn/api/163_search"
+    params = {
+        "name": keyword,
+        "limit": 10,
+    }
+
+    response = await async_client.get(url,params=params)
+    result = response.json()
+    song_id = result["data"][0]["id"]
+    song_name = result["data"][0]["name"]
+    singer = result["data"][0]["artists"][0]["name"]
+    return song_id,song_name,singer
+
+async def music_download(song_id, song_name, singer):
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    try:
+        headers = {
+            "Referer": "https://kxzjoker.cn/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            "Origin": "https://kxzjoker.cn"
+        }
+
+        # 构造请求URL
+        url = f'https://api.kxzjoker.cn/api/163_music?ids={song_id}&level=lossless&type=down'
+
+        # 异步流式下载
+        async with async_client.stream("GET",url,headers=headers,follow_redirects=True) as response:
+            response.raise_for_status()
+
+            file_path = os.path.join(save_path, f"{song_name}-{singer}.wav")
+            file_name = os.path.basename(f"{song_name}-{singer}.wav")
+
+            with open(file_path, "wb") as f:
+                async for chunk in response.aiter_bytes(chunk_size=8192):
+                    f.write(chunk)
+
+            output_silk_path = os.path.join(save_path, os.path.splitext(file_name)[0] + ".silk")
+            # 使用 graiax-silkcoder 进行转换
+            silkcoder.encode(file_path, output_silk_path, rate=32000, tencent=True, ios_adaptive=True)
+            # 删除临时文件
+            await delete_file(file_path)
+            return output_silk_path
+
+    except httpx.HTTPStatusError as e:
+        print(f"❌ HTTP错误 {e.response.status_code}")
+    except Exception as e:
+        print(f"❌ 下载失败：{str(e)}")
+    return None
