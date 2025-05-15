@@ -1,7 +1,18 @@
+import os
+import uuid
+from os import getcwd
+from pathlib import Path
+from datetime import datetime
+from nonebot.log import logger
 from nonebot.rule import to_me
-from nonebot.plugin import on_command
 from nonebot.adapters import Message
+from nonebot.plugin import on_command
 from nonebot.params import CommandArg
+from src.configs.path_config import temp_path
+from nonebot.adapters.qq import MessageSegment
+from playwright.async_api import async_playwright
+from src.clover_image.delete_file import delete_file
+from nonebot_plugin_htmlrender import template_to_pic
 
 weather = on_command("天气", rule=to_me(), aliases={"weather", "查天气"}, priority=10)
 
@@ -9,10 +20,15 @@ weather = on_command("天气", rule=to_me(), aliases={"weather", "查天气"}, p
 async def handle_function(args: Message = CommandArg()):
 
     # 提取参数纯文本作为地名，并判断是否有效
-    if location := args.extract_plain_text():
-        # 调用天气查询API获取天气数据
-        weather_data = format_weather(location)
-        await weather.finish(weather_data)
+    if city_encoded := args.extract_plain_text():
+        temp_file = os.path.join(temp_path, f"weather_{datetime.now().date()}_{uuid.uuid4().hex}.png")
+        r_weather = await weather_info_img(city_encoded, temp_file)
+        if r_weather is True:
+            await weather.send(MessageSegment.file_image(Path(temp_file)))
+            await delete_file(temp_file)
+            await weather.finish()
+        else:
+            await weather.finish(f"获取天气信息失败：{r_weather}")
     else:
         await weather.finish("请输入地名")
 
@@ -38,23 +54,40 @@ def get_weather(location):
     else:
         return {"error": "请求失败，状态码: " + str(response.status_code)}
 
+async def weather_info_img(city_encoded,temp_file):
+        """获取数据
+        :param keyword: 搜索关键字
+        :param session: requests会话对象
+        :param temp_file: 临时文件路径
+        :return: True 如果没有找到或其他返回None"""
+        
+        if os.path.exists(temp_file):
+            with open(temp_file,"rb") as image_file:
+                return image_file.read()
+        weather_data = get_weather(city_encoded)
+        if 'error' in weather_data:
+            return weather_data['error']
+        else:
+            if weather_data is None:
+                return None
+            data = {
+                 "weather_data": weather_data,
+            }
+            logger.debug(f"data：{data}")
+            async with async_playwright() as p:
+                browser = await p.chromium.launch()
 
-# 调用函数并处理返回的天气数据
-def format_weather(location):
-    # 假设这里你已经有了城市的URL编码，这里用'%E9%87%8D%E5%BA%86'作为示例
-    city_encoded = location  # 重庆的URL编码
-    weather_data = get_weather(city_encoded)
-
-    # 检查是否返回了错误
-    if 'error' in weather_data:
-        return weather_data['error']
-    else:
-        # 实时天气
-        realtime_weather = weather_data['realtime']
-        result = "\n" + location.rstrip("市").rstrip("县").rstrip("区") + f"实时天气:" + "\n" +  f"{realtime_weather['info']}, 温度: {realtime_weather['temperature']}℃, 湿度: {realtime_weather['humidity']}%, 风向: {realtime_weather['direct']}, 风力: {realtime_weather['power']}级, AQI: {realtime_weather['aqi']}"
-        # 未来几天的天气
-        result = result + "\n" + "未来几天的天气:🌤⛈️☔️"
-        for day in weather_data['future']:
-            result = result + "\n" + f"日期: {day['date']}, 天气: {day['weather']}, 温度: {day['temperature']}, 风向: {day['direct']}"
-        return result
-
+            image_bytes = await template_to_pic(
+                template_path=getcwd() + "/src/clover_html/weather",
+                template_name="main.html",
+                templates={"data": data},
+                pages={
+                    "viewport": {"width": 1346, "height": 1},
+                    "base_url": f"file://{getcwd()}",
+                },
+                wait=2,
+            )
+            with open(temp_file, "wb") as file:
+                file.write(image_bytes)
+            await browser.close()
+            return True
