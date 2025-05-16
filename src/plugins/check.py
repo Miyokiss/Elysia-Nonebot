@@ -16,7 +16,7 @@ from src.providers.llm.AliBL.base import on_bl_chat
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
 from nonebot.adapters.qq import MessageSegment,MessageEvent,Message
-from src.configs.path_config import temp_path,image_local_qq_image_path
+from src.configs.path_config import temp_path,image_local_qq_image_path,AUDIO_PATH
 from src.providers.llm.elysiacmd  import has_elysia_command_regex,elysia_command
 
 menu = ["/今日运势","/今日塔罗",
