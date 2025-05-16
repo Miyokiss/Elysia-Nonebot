@@ -76,11 +76,7 @@ async def elysia_command(result)-> list:
             }
         song_id = music_info['song_id']
         output_silk_path = await music_download(song_id)
-        if output_silk_path == -1:
-            return{
-                "txt": "歌曲音频获取失败：检索到的歌曲为付费（在努力恢复，待后续更新）"
-            }
-        elif output_silk_path is None:
+        if output_silk_path is None:
             return{
                 "txt": "歌曲音频获取失败了Σヽ(ﾟД ﾟ; )ﾉ，请重试。"
             }
