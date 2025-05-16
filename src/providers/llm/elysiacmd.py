@@ -7,7 +7,7 @@ from datetime import datetime
 from nonebot import logger
 from typing import List, Optional
 from src.configs.path_config import temp_path
-from src.clover_music.cloud_music.cloud_music import netease_music_download
+from src.clover_music.cloud_music.cloud_music import music_download
 from src.clover_music.cloud_music.data_base import netease_music_info_img
 
 __name__ = "Elysia_cmd"
@@ -51,12 +51,11 @@ async def elysia_command(result)-> list:
         result: 包含命令的原始字符串
         
     Returns:
-        包含响应内容的字典，可能包含 txt/img/audio 字段
+        包含响应内容的字典
     """
     Edata = get_all_elysia_commands(result)
     logger.debug(f"Elysia Chat CMD Data：{Edata}")
 
-    # 删除 Elysia 命令
     r_result = re.sub(COMMAND_PATTERN, "", result).strip()
     logger.debug(f"Elysia Chat Result：{r_result}")
 
@@ -76,7 +75,7 @@ async def elysia_command(result)-> list:
                 "txt": "\n没有找到歌曲，或检索到的歌曲为付费/无版权喔qwq\n这绝对不是我的错，绝对不是！",
             }
         song_id = music_info['song_id']
-        output_silk_path = await netease_music_download(song_id, session)
+        output_silk_path = await music_download(song_id)
         if output_silk_path == -1:
             return{
                 "txt": "歌曲音频获取失败：检索到的歌曲为付费（在努力恢复，待后续更新）"
