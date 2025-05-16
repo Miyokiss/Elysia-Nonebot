@@ -25,7 +25,7 @@
         }
     </script>
     <style>
-        @font-face {
+    @font-face {
         font-family: "SSFangTangTi";
         src: url("../res/font/SSFangTangTi.ttf");
     }
@@ -48,7 +48,7 @@
                 background-color: theme('colors.transparentBg');
             }
             .weather-icon {
-                @apply text-6xl md:text-7xl lg:text-8xl mb-4 transition-transform duration-500 hover:scale-110;
+                @apply text-6xl md:text-7xl lg:text-8xl mb-4 transition-transform duration-500;
             }
             .forecast-day {
                 @apply rounded-xl p-4 shadow-md transition-all duration-300;
@@ -57,36 +57,11 @@
             .gradient-bg {
                 background: #ffbdca;
             }
+            .weather-info-box {
+                @apply bg-secondary/80 rounded-lg p-3;
+            }
         }
     </style>
-    <script>
-        function setWeatherIcon(class_id, weatherInfo) {
-            document.addEventListener('DOMContentLoaded', function() {
-                weatherIcon = document.getElementById(class_id);
-
-                if (weatherInfo.includes('雨') || weatherInfo.includes('雷')) {
-                    // 雨天
-                    weatherIcon.classList.add('fa-cloud-rain', 'text-blue-400');
-                } else if (weatherInfo.includes('云') && !weatherInfo.includes('晴')) {
-                    // 多云
-                    weatherIcon.classList.add('fa-cloud', 'text-gray-300');
-                } else if (weatherInfo.includes('阴')) {
-                    // 阴天
-                    weatherIcon.classList.add('fa-cloud-meatball', 'text-gray-200');
-                } else if (weatherInfo.includes('雪')) {
-                    // 雪天
-                    weatherIcon.classList.add('fa-snowflake', 'text-blue-200');
-                } else if (weatherInfo.includes('雾') || weatherInfo.includes('霾')) {
-                    // 雾天/霾天
-                    weatherIcon.classList.add('fa-smog', 'text-gray-300');
-                } else {
-                    weatherIcon.classList.add('fa-sun', 'text-yellow-500');
-                }
-            });
-        }
-
-        setWeatherIcon('weather-icon', '{{data.weather_data.realtime.info}}');
-    </script>
 </head>
 <body class="min-h-screen gradient-bg font-sans text-gray-800">
     <div class="container mx-auto px-4 py-8 max-w-6xl">
@@ -102,29 +77,29 @@
                 <div class="mb-6 md:mb-0 text-center md:text-left">
                     <h2 class="text-2xl md:text-3xl font-bold mb-2" style="font-family: 'SSFangTangTi';">{{data.weather_data.city}}实时天气</h2>
                     <div class="flex items-center justify-center md:justify-start mb-4">
-                        <i id="weather-icon" class="fa-solid weather-icon"></i>
+                        <i id="weather-icon" class="fa-solid weather-icon" data-weather="{{data.weather_data.realtime.info}}"></i>
                         <div class="ml-4">
                             <p class="text-xl md:text-2xl font-semibold">{{data.weather_data.realtime.info}}</p>
                             <p class="text-3xl md:text-5xl font-bold">{{data.weather_data.realtime.temperature}}°C</p>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                        <div class="bg-secondary/80 rounded-lg p-3">
+                        <div class="weather-info-box">
                             <i class="fa-solid fa-tint text-blue-500 mb-1"></i>
                             <p class="font-medium">湿度</p>
                             <p>{{data.weather_data.realtime.humidity}}%</p>
                         </div>
-                        <div class="bg-secondary/80 rounded-lg p-3">
+                        <div class="weather-info-box">
                             <i class="fa-solid fa-location-arrow text-green-500 mb-1"></i>
                             <p class="font-medium">风向</p>
                             <p>{{data.weather_data.realtime.direct}}</p>
                         </div>
-                        <div class="bg-secondary/80 rounded-lg p-3">
+                        <div class="weather-info-box">
                             <i class="fa-solid fa-wind text-gray-500 mb-1"></i>
                             <p class="font-medium">风力</p>
                             <p>{{data.weather_data.realtime.power}}</p>
                         </div>
-                        <div class="bg-secondary/80 rounded-lg p-3">
+                        <div class="weather-info-box">
                             <i class="fa-solid fa-smog text-yellow-600 mb-1"></i>
                             <p class="font-medium">AQI</p>
                             <p>{{data.weather_data.realtime.aqi}}</p>
@@ -143,15 +118,12 @@
                 <div class="forecast-day">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="font-semibold">{{data.date}}</h3>
-                        <i id="weather-icon-{{data.date}}" class="fa-solid"></i>
-                        <script>
-                            setWeatherIcon('weather-icon-{{data.date}}', '{{data.weather}}');
-                        </script>
+                        <i id="weather-icon" class="fa-solid" data-weather="{{data.weather}}"></i>
                     </div>
                     <p class="font-medium">{{data.weather}}</p>
                     <p class="font-medium text-sm text-gray-600">{{data.temperature}}°C</p>
                     <p class="text-sm text-sm text-gray-600">{{data.direct}}</p>
-                </div>               
+                </div>
                 {% endfor %}
             </div>
         </section>
@@ -161,5 +133,36 @@
             <p>© 2025 {{data.weather_data.city}}天气显示 By Elysia Bot | 数据更新于: {{data.weather_data.future[0].date}}</p>
         </footer>
     </div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const weatherMapping = {
+                雨: ['fa-cloud-rain', 'text-blue-400'],
+                雷: ['fa-cloud-rain', 'text-blue-400'],
+                云: ['fa-cloud', 'text-gray-300'],
+                阴: ['fa-cloud-meatball', 'text-gray-300'],
+                雪: ['fa-snowflake', 'text-blue-200'],
+                雾: ['fa-smog', 'text-gray-300'],
+                霾: ['fa-smog', 'text-gray-300']
+            };
+
+            function setWeatherIcon(element, weatherInfo) {
+                const { classList } = element;
+                
+                for (const [key, iconClasses] of Object.entries(weatherMapping)) {
+                    if (weatherInfo.includes(key)) {
+                        classList.add(...iconClasses);
+                        return;
+                    }
+                }
+                classList.add('fa-sun', 'text-yellow-500');
+            }
+
+            // 统一处理所有天气图标
+            document.querySelectorAll('[id="weather-icon"]').forEach(icon => {
+                const weatherInfo = icon.dataset.weather || '';
+                setWeatherIcon(icon, weatherInfo);
+            });
+        });
+    </script>
 </body>
 </html>
