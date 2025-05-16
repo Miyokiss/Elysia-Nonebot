@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import uuid
 import httpx
 import qrcode
 import base64
@@ -7,6 +8,7 @@ import codecs
 import json
 import requests
 from io import BytesIO
+from datetime import datetime
 from Crypto.Cipher import AES
 from graiax import silkcoder
 from nonebot import get_driver
@@ -304,7 +306,7 @@ async def music_search(keyword):
     singer = result["data"][0]["artists"][0]["name"]
     return song_id,song_name,singer
 
-async def music_download(song_id, song_name, singer):
+async def music_download(song_id):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     try:
@@ -321,8 +323,8 @@ async def music_download(song_id, song_name, singer):
         async with async_client.stream("GET",url,headers=headers,follow_redirects=True) as response:
             response.raise_for_status()
 
-            file_path = os.path.join(save_path, f"{song_name}-{singer}.wav")
-            file_name = os.path.basename(f"{song_name}-{singer}.wav")
+            file_path = os.path.join(save_path, f"{datetime.now().date()}-{uuid.uuid4().hex}-{song_id}.wav")
+            file_name = os.path.basename(f"{datetime.now().date()}-{uuid.uuid4().hex}-{song_id}.wav")
 
             with open(file_path, "wb") as f:
                 async for chunk in response.aiter_bytes(chunk_size=8192):
