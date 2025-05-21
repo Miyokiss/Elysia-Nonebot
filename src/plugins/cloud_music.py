@@ -37,7 +37,7 @@ async def handle_function(msg: MessageEvent) -> None:
                 await music.finish("\n没有找到歌曲，或检索到的歌曲为付费/无版权喔qwq\n这绝对不是我的错，绝对不是！")
             await music.send(MessageSegment.file_image(Path(temp_file)))
         elif len(values) == 2:
-            if keyword == "-":
+            if keyword == '-':
                 await music.finish()
             idx = values[1]
             if not idx.isdigit() or int(idx) < 1 or int(idx) > 10:
