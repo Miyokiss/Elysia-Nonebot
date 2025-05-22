@@ -50,7 +50,7 @@ async def check_value_in_menu(message: MessageEvent) -> bool:
     await UserList.insert_user(message.author.id, group_id)
     return value[0] not in menu and not value[0].isdigit() and value[0] != "#"
 
-check = on_message(rule=to_me() & Rule(check_value_in_menu), priority=10)
+check = on_message(rule=to_me() & Rule(check_value_in_menu), priority=20)
 
 @check.handle()
 async def handle_function(message: MessageEvent):

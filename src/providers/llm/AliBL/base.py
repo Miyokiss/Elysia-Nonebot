@@ -22,7 +22,6 @@ async def _create_chat_log(user_content: str, assistant_content: str) -> List[Di
 
 async def _handle_new_user(user_id: str, content: str) -> str:
     """处理新用户"""
-    content = ""
     memory_id = await AliBLAPI.Get_Ali_BL_Memory_Id(user_id=user_id)
     chat_msg = await AliBLAPI.Post_Ali_BL_chat_Api(content = content)
     is_session_id = chat_msg["session_id"]
