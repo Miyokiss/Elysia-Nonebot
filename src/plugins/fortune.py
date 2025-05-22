@@ -2,7 +2,8 @@
 from pathlib import Path
 from nonebot.rule import to_me
 from nonebot.plugin import on_command
-from nonebot.adapters.qq import Message, MessageEvent, MessageSegment,exception
+from nonebot.adapters.qq import Message, MessageEvent, MessageSegment, exception
+from nonebot.adapters.qq.message import MessageKeyboard
 from src.clover_image.get_image import get_image_names
 from src.clover_sqlite.models.fortune import QrFortune
 from src.clover_sqlite.models.tarot import TarotExtractLog
@@ -27,7 +28,9 @@ async def get_today_fortune(message: MessageEvent):
         MessageSegment.text(content),
     ])
     try:
-        await fortune_by_sqlite.finish(msg)
+        await fortune_by_sqlite.send(msg)
+        Keyboard_fortune = MessageKeyboard(id="102735560_1747838055")
+        await fortune_by_sqlite.finish(MessageSegment.keyboard(Keyboard_fortune))
     except exception.ActionFailed as e:
         print("\033[32m" + str(time.strftime("%m-%d %H:%M:%S")) +
               "\033[0m [" + "\033[31;1mFAILED\033[0m" + "]" +
@@ -59,7 +62,9 @@ async def get_tarot(message: MessageEvent):
             MessageSegment.text(content),
         ])
         try:
-            await tarot.finish(msg)
+            await tarot.send(msg)
+            Keyboard_tarot = MessageKeyboard(id="102735560_1747838055")
+            await tarot.finish(MessageSegment.keyboard(Keyboard_tarot))
         except exception.ActionFailed as e:
             print("\033[32m" + str(time.strftime("%m-%d %H:%M:%S")) +
                   "\033[0m [" + "\033[31;1mFAILED\033[0m" + "]" +
