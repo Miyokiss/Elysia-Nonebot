@@ -54,9 +54,11 @@ check = on_message(rule=to_me() & Rule(check_value_in_menu), priority=20)
 
 @check.handle()
 async def handle_function(message: MessageEvent):
+    status = 0
     group_openid = message.group_openid if hasattr(message, "group_openid") else "C2C"
-    status = await GroupChatRole.is_on(group_openid)
-    logger.debug(f"check | status ——————> {status}")
+    if group_openid != "C2C":
+        status = await GroupChatRole.is_on(group_openid)
+        logger.debug(f"check| 非C2C环境 获取模式ID ——————> {status}")
 
     content = message.get_plaintext() or "空内容"
 
