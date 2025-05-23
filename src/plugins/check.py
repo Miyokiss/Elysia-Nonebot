@@ -114,6 +114,7 @@ async def handle_Elysia_response(message: MessageEvent):
                                 MessageSegment.text(txt)
                             ])
                             await check.send(msg)
+                            await delete_file(imgs)
                         elif len(imgs) == 2:
                             logger.debug(f"Elysia 处理发送图片数量为2")
                             msg = Message([
@@ -122,8 +123,8 @@ async def handle_Elysia_response(message: MessageEvent):
                             ])
                             await check.send(msg)
                             await check.send(MessageSegment.file_image(Path(imgs['music_img'])))
-                        await delete_file(imgs['info_img'])
-                        await delete_file(imgs['music_img'])
+                            await delete_file(imgs['info_img'])
+                            await delete_file(imgs['music_img'])
                     else:
                         await check.send("未定义内容，建议开启 新的对话")
                 if audios is not None:
