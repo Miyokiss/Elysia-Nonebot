@@ -126,7 +126,7 @@ async def handle_Elysia_response(message: MessageEvent):
                             await delete_file(imgs['info_img'])
                             await delete_file(imgs['music_img'])
                     else:
-                        await check.send("未定义内容，建议开启 新的对话")
+                        await check.send(txt)
                 if audios is not None:
                     await check.send(MessageSegment.file_audio(Path(audios)))
                     await delete_file(audios)
