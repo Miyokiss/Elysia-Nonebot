@@ -7,7 +7,7 @@ from datetime import datetime
 from nonebot import logger
 from typing import List, Optional
 from src.configs.path_config import temp_path
-from src.clover_music.cloud_music.cloud_music import music_download
+from src.clover_music.cloud_music.cloud_music import music_download, netease_music_download
 from src.clover_music.cloud_music.data_base import netease_music_info_img
 
 __name__ = "Elysia_cmd"
@@ -77,9 +77,12 @@ async def elysia_command(result)-> list:
         song_id = music_info['song_id']
         output_silk_path = await music_download(song_id)
         if output_silk_path is None:
-            return{
-                "txt": "歌曲音频获取失败了Σヽ(ﾟД ﾟ; )ﾉ，请重试。"
-            }
+            # 降级下载
+            output_silk_path = await netease_music_download(song_id, session=session)
+            if output_silk_path is None:
+                return{
+                    "txt": "歌曲音频获取失败了Σヽ(ﾟД ﾟ; )ﾉ，可能歌曲为付费歌曲请换首重试吧！"
+                }
         return{
             "txt": r_result,
             "img": temp_file,
