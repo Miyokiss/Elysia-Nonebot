@@ -338,5 +338,6 @@ async def music_download(song_id):
     except httpx.HTTPStatusError as e:
         print(f"❌ HTTP错误 {e.response.status_code}")
     except Exception as e:
+        await delete_file(file_path)
         print(f"❌ 下载失败：{str(e)}")
     return None
