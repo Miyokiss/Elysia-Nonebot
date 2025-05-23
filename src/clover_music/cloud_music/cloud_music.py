@@ -244,8 +244,6 @@ async def netease_music_download(song_id, session):
     歌曲下载
     Args:
         song_id:
-        song_name:
-        singer:
         session:
 
     Returns:
