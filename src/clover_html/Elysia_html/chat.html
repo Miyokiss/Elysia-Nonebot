@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>chat info</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#F472B6', // 淡粉色
+                        accent: '#EC4899', // 亮粉色
+                        dark: '#ffeded', // 框背景
+                        light: '#1E293B', // 文本
+                        bg: '#ffbdca', // 大背景
+                    },
+                    fontFamily: {
+                        pixel: ['"Press Start 2P"', 'system-ui', 'cursive'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .pixel-border {
+                border-radius: 8px;
+                box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            }
+        }
+    </style>
+</head>
+<body class="bg-bg flex items-center justify-center min-h-screen p-4">
+    <div class="w-[580px] w-full">
+        <div class="bg-dark/80 rounded-lg pixel-border p-4">
+            <div class="flex justify-between text-xs font-pixel text-light/70 mb-3">
+                <span>{{data.info_data.time}}</span>
+            </div>
+            
+            <div class="bg-primary/10 rounded border border-primary/30 p-2.5 mb-3">
+                <div class="flex items-center">
+                    <i class="fa-regular fa-face-smile text-primary mr-2"></i>
+                    <span class="font-pixel text-xs text-primary">{{data.info_data.mood}}</span>
+                </div>
+            </div>
+            
+            <div class="bg-accent/10 rounded border border-accent/30 p-2.5">
+                <div class="flex items-center mb-1">
+                    <i class="fa-regular fa-comment text-accent mr-2"></i>
+                    <span class="font-pixel text-xs text-accent">动作/心理活动</span>
+                </div>
+                <div class="text-light/90 text-xs italic">
+                    {{data.info_data.supplement}}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+    

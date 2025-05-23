@@ -1,4 +1,3 @@
-import os
 import random
 import asyncio
 import subprocess
@@ -98,31 +97,40 @@ async def handle_Elysia_response(message: MessageEvent):
                 lambda: asyncio.run(on_bl_chat(user_id, content))
             )
             if not result:
-                raise Exception("生成失败，结果为空")
-            result = result + "\n\n" + "文本内容由AI生成-该功能正在测试中：\n你可以通过指令：\n1、/爱莉希雅 新的对话 \n用途：创建新的对话\n2、/爱莉希雅 新的记忆\n用途：创建新的记忆"
+                raise Exception("生成失败")
             if has_elysia_command_regex(result):
                 r_msg = await elysia_command(result)
                 logger.debug(f"Elysia Chat R Data：{r_msg}")
                 txt = r_msg.get("txt") or None
-                img = r_msg.get("img") or None
-                audio = r_msg.get("audio") or None
+                imgs = r_msg.get("imgs") or None
+                audios = r_msg.get("audios") or None
                 if txt is not None:
                     logger.debug(f"Elysia txt：{txt}")
-                    if img is not None:
-                        logger.debug(f"Elysia img：{img}")
-                        msg = Message([
-                            MessageSegment.file_image(Path(img)),
+                    if imgs is not None:
+                        # 如果imgs是str
+                        if isinstance(imgs, str):
+                            msg = Message([
+                                MessageSegment.file_image(Path(imgs)),
+                                MessageSegment.text(txt)
+                            ])
+                            await check.send(msg)
+                        elif len(imgs) == 2:
+                            logger.debug(f"Elysia 处理发送图片数量为2")
+                            msg = Message([
+                            MessageSegment.file_image(Path(imgs['info_img'])),
                             MessageSegment.text(txt)
-                        ])
-                        await check.send(msg)
-                        await cleanup_files(img)
+                            ])
+                            await check.send(msg)
+                            await check.send(MessageSegment.file_image(Path(imgs['music_img'])))
+                        await delete_file(imgs['info_img'])
+                        await delete_file(imgs['music_img'])
                     else:
-                        await check.send(txt)
-                if audio is not None: 
-                    await check.send(MessageSegment.file_audio(Path(audio)))
-                    await cleanup_files(audio)
+                        await check.send("未定义内容，建议开启 新的对话")
+                if audios is not None:
+                    await check.send(MessageSegment.file_audio(Path(audios)))
+                    await delete_file(audios)
             else:
-                await check.send(result)
+                await check.send("未定义内容，建议开启 新的对话")
             await check.finish()
             
         except Exception as e:
@@ -157,7 +165,8 @@ async def handle_tts_response(message: MessageEvent):
             # 转码使用异步等待
             output_silk_path = await Transcoding(file_path, file_name)
             await check.send(MessageSegment.file_audio(Path(output_silk_path)))
-            await cleanup_files(file_path, output_silk_path)
+            await delete_file(output_silk_path)
+            await delete_file(file_path)
             await check.finish()
             
         except Exception as e:
@@ -167,14 +176,6 @@ async def handle_tts_response(message: MessageEvent):
 
     # 创建后台任务不阻塞当前处理
     asyncio.create_task(_tts_task())
-
-async def cleanup_files(*files):
-    for file in files:
-        if file:
-            try:
-                await delete_file(file)
-            except Exception as e:
-                logger.error(f"check：Exception | 删除临时文件失败：{e}")
 
 async def Transcoding(file_path: str, output_filename: str) -> str:
     loop = asyncio.get_running_loop()
