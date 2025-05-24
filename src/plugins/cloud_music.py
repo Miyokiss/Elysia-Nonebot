@@ -52,12 +52,11 @@ async def handle_function(msg: MessageEvent) -> None:
                 # 降级下载
                 logger.debug(f"第三方API失效触发降级下载歌曲：{song_id}")
                 output_silk_path = await netease_music_download(song_id, session=session)
-                # 降级下载失败
-                if output_silk_path is None or output_silk_path == -1:
-                    await music.send("歌曲音频获取失败了Σヽ(ﾟД ﾟ; )ﾉ，可能歌曲为付费歌曲请换首重试吧！")
-                else:
-                    await music.send(MessageSegment.file_audio(Path(output_silk_path)))
-                    await delete_file(output_silk_path)
+            if output_silk_path is None or output_silk_path == -1:
+                await music.send("歌曲音频获取失败了Σヽ(ﾟД ﾟ; )ﾉ，可能歌曲为付费歌曲请换首重试吧！")
+            else:
+                await music.send(MessageSegment.file_audio(Path(output_silk_path)))
+                await delete_file(output_silk_path)
         else:
             await music.finish("\n输入有误，请检查格式或歌曲名称里是否有空格喔qwq")
 
