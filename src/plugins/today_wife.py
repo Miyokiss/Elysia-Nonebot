@@ -21,7 +21,7 @@ async def handle_function(message: MessageEvent):
             await today_group_wife.finish("潜在老婆太少了，快请群友多多使用吧")
       local_image_path = await download_qq_image(user_id)
       msg = Message([
-            MessageSegment.text(f"您的今日群老婆{ "<@{user_id}>" }"),
+            MessageSegment.text(f"您的今日群老婆"),
             MessageSegment.file_image(Path(local_image_path)),
         ])
       await delete_file(local_image_path)
