@@ -99,7 +99,7 @@ async def elysia_command(result)-> list:
         if output_silk_path is None:
             # 降级下载
             output_silk_path = await netease_music_download(song_id, session=session)
-            if output_silk_path is None:
+            if output_silk_path is None or output_silk_path == -1:
                 return{
                     "txt": "歌曲音频获取失败了Σヽ(ﾟД ﾟ; )ﾉ，可能歌曲为付费歌曲请换首重试吧！"
                 }
