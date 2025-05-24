@@ -2,6 +2,7 @@ from pathlib import Path
 from nonebot.rule import to_me
 from nonebot.plugin import on_command
 from nonebot.exception import FinishedException
+from src.configs.Keyboard_config import Keyboard_ai
 from src.clover_image.delete_file import delete_file
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.clover_sqlite.models.chat import MODE_ELYSIA, MODE_OFF
@@ -27,10 +28,12 @@ async def handle_function(message: MessageEvent):
         try:
             if len(values) == 0 or not all(values[1:len(values)]):
                 if not hasattr(message, 'group_openid'):
-                    await Elysia_super.finish("暂未在当前场景下开放开启功能。建议使用\n/爱莉希雅 新的对话 \n创建新的对话\n/爱莉希雅 新的记忆\n创建新的记忆")
+                    await Elysia_super.send("暂未在当前场景下开放开启功能。建议使用下面功能")
+                    await Elysia_super.finish(MessageSegment.keyboard(Keyboard_ai))
                     # 判断是否为管理员
                 if not await GroupChatRole.get_admin_list(group_openid, user_id):
-                    await Elysia_super.finish("您没有权限使用此功能，你可以通过指令：\n/爱莉希雅 新的对话 \n创建新的对话\n/爱莉希雅 新的记忆\n创建新的记忆")
+                    await Elysia_super.send("您没有权限使用此功能，你可以通过指令")
+                    await Elysia_super.finish(MessageSegment.keyboard(Keyboard_ai))
                 else:
                     if current_mode != MODE_ELYSIA:
                         await GroupChatRole.ai_mode(group_openid, MODE_ELYSIA)
@@ -51,9 +54,11 @@ async def handle_function(message: MessageEvent):
                             await delete_file(r_msg['imgs'])
                             await Elysia_super.finish("开始新的对话啦！~")
                         else:
-                            await Elysia_super.finish("未定义内容，建议 新的对话")
+                            await Elysia_super.send("未定义内容，建议 新的对话")
+                            await Elysia_super.finish(MessageSegment.keyboard(Keyboard_ai))
                     else:
-                        await Elysia_super.finish(msg["msg"])
+                        await Elysia_super.send(msg["msg"])
+                        await Elysia_super.finish(MessageSegment.keyboard(Keyboard_ai))
                 if values[0] == "新的记忆":
                     msg =await on_bl_new_memory_id(user_id)
                     if msg is True:
@@ -61,7 +66,8 @@ async def handle_function(message: MessageEvent):
                     else:
                         await Elysia_super.finish(msg)
                 else:
-                    await Elysia_super.finish("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
+                    await Elysia_super.send("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
+                    await Elysia_super.finish(MessageSegment.keyboard(Keyboard_ai))
         except Exception as e:
             if isinstance(e, FinishedException):
                 return

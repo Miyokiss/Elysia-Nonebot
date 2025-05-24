@@ -10,11 +10,11 @@ from src.clover_openai import ai_chat
 from src.providers.llm.AliBL import BLChatRole
 from nonebot.exception import FinishedException
 from src.clover_sqlite.models.user import UserList
+from src.configs.Keyboard_config import Keyboard_ai
 from src.clover_image.delete_file import delete_file
 from src.providers.llm.AliBL.base import on_bl_chat
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
-from nonebot.adapters.qq.message import MessageKeyboard
 from nonebot.plugin import on_command, on_keyword, on_fullmatch
 from nonebot.adapters.qq import MessageSegment,MessageEvent,Message
 from src.configs.path_config import temp_path,image_local_qq_image_path,AUDIO_PATH
@@ -94,8 +94,6 @@ async def handle_Elysia_response(message: MessageEvent):
     async def _Elysia_Chat_task():
         try:
             user_msg = await BLChatRole.get_chat_role_by_user_id(user_id)
-            Keyboard_fortune = MessageKeyboard(id="102735560_1747838055")
-
             loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, 
@@ -132,15 +130,15 @@ async def handle_Elysia_response(message: MessageEvent):
                             await delete_file(imgs['music_img'])
                     else:
                         await check.send(txt)
-                        await check.send(MessageSegment.keyboard(Keyboard_fortune))
+                        await check.send(MessageSegment.keyboard(Keyboard_ai))
                 if audios is not None:
                     await check.send(MessageSegment.file_audio(Path(audios)))
                     await delete_file(audios)
             else:
                 await check.send("未定义内容，建议开启 新的对话")
-                await check.finish(MessageSegment.keyboard(Keyboard_fortune))
+                await check.finish(MessageSegment.keyboard(Keyboard_ai))
             if user_msg is None:
-                await check.send(MessageSegment.keyboard(Keyboard_fortune))
+                await check.send(MessageSegment.keyboard(Keyboard_ai))
             await check.finish()
             
         except Exception as e:
@@ -150,8 +148,7 @@ async def handle_Elysia_response(message: MessageEvent):
             if hasattr(e, 'message'):
                 r_msg = e.message
             logger.error(f"Elysia Chat 处理失败：{str(e)}")
-            await check.send(f"Elysia Chat 处理失败：{r_msg}")
-            await check.finish(MessageSegment.keyboard(Keyboard_fortune))
+            await check.finish(f"Elysia Chat 处理失败：{r_msg}")
 
     # 创建后台任务不阻塞当前处理
     asyncio.create_task(_Elysia_Chat_task())
