@@ -26,25 +26,19 @@ def has_elysia_command_regex(content: str) -> bool:
     logger.debug(f"Command match: {match}")
     return bool(match)
 
-def get_all_elysia_commands(content: str) -> List[str]:
-    """提取并返回所有 Elysia 命令内容列表"""
-    return [
-        match.group(1).strip()
-        for match in COMMAND_PATTERN.finditer(content)
-        if match.group(1).strip()
-    ]
+def get_elysia_commands(content: str) -> Optional[str]:
+    """提取并返回第一个 Elysia 命令内容"""
+    match = COMMAND_PATTERN.search(content)
+    if match and (cmd := match.group(1).strip()):
+        return cmd
+    return None
 
-def parse_elysia(Edata: List[str],field: str) -> List[Optional[str]]:
-    """解析并返回所有有效指定字段"""
-    results = []
-    for json_str in Edata:
-        try:
-            data = json.loads(json_str.strip())
-            if cmd := data.get(field):
-                results.append(cmd)
-        except (json.JSONDecodeError, AttributeError):
-            continue
-    return results
+def parse_elysia(Edata: Optional[str],field: str) -> Optional[str]:
+    """解析并返回第一个有效指定字段"""
+    data = json.loads(Edata.strip())
+    if cmd := data.get(field):
+        return cmd  # 找到第一个有效项立即返回
+    return None  # 未找到返回None
 
 async def save_img(data: bytes ,temp_file: str) -> None:
 
@@ -65,13 +59,13 @@ async def elysia_command(result)-> list:
     Returns:
         包含响应内容的字典
     """
-    Edata = get_all_elysia_commands(result)
+    Edata = get_elysia_commands(result)
     logger.debug(f"Elysia Chat CMD Data：{Edata}")
 
     cmd = parse_elysia(Edata,field = "cmd")
     logger.debug(f"Elysia Chat CMD：{cmd}")
 
-    if cmd[0] == "elysia_info":
+    if cmd == "elysia_info":
         info_data = await _elysia_info_(Edata=Edata)
         info_img = await _elysia_info_img(info_data)
 
@@ -79,7 +73,7 @@ async def elysia_command(result)-> list:
             "txt": info_data['txt'],
             "imgs": info_img
         }
-    elif cmd[0] == "cloud_music":
+    elif cmd == "cloud_music":
         session = requests.session()
         info_data = await _elysia_info_(Edata=Edata)
         info_img = await _elysia_info_img(info_data)
@@ -120,11 +114,11 @@ async def _elysia_info_(Edata: json) -> json:
     """处理 Elysia 信息
     Args:
         Edata: 包含命令的原始字符串"""
-    time = parse_elysia(Edata,field = "time")[0]
-    mood = parse_elysia(Edata,field = "mood")[0]
-    tone = parse_elysia(Edata,field = "tone")[0]
-    supplement = parse_elysia(Edata,field = "supplement")[0]
-    txt = parse_elysia(Edata,field = "txt")[0]
+    time = parse_elysia(Edata,field = "time")
+    mood = parse_elysia(Edata,field = "mood")
+    tone = parse_elysia(Edata,field = "tone")
+    supplement = parse_elysia(Edata,field = "supplement")
+    txt = parse_elysia(Edata,field = "txt")
     return{
         "time": time,
         "mood": mood,
@@ -173,7 +167,7 @@ async def _elysia_cloud_music_info_(Edata: json) -> tuple:
     singer: 歌手名
     keyword: 关键词
     """
-    song = parse_elysia(Edata,field = "song")[0]
-    singer = parse_elysia(Edata,field = "singer")[0]
+    song = parse_elysia(Edata,field = "song")
+    singer = parse_elysia(Edata,field = "singer")
     keyword = song+"-"+singer if singer!=None else song
     return song,singer,keyword
