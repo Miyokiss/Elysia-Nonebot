@@ -5,7 +5,10 @@ import qrcode
 import base64
 import codecs
 import json
+import uuid
+import datetime
 import requests
+from nonebot import logger
 from io import BytesIO
 from Crypto.Cipher import AES
 from graiax import silkcoder
