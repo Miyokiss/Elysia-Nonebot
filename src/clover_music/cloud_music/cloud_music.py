@@ -281,7 +281,7 @@ async def music_download(song_id):
             async with async_client.stream("GET",song_url.text,headers=headers,follow_redirects=True) as response:
                 response.raise_for_status()
                 if response.status_code == 200:
-                    logger.debug(f"下载歌曲中...")
+                    logger.debug(f"下载歌曲ID:{song_id}\nURL:{song_url.text}\n开始下载中...")
                     file_path = os.path.join(save_path, f"{datetime.now().date()}-{uuid.uuid4().hex}-{song_id}.wav")
                     file_name = os.path.basename(f"{datetime.now().date()}-{uuid.uuid4().hex}-{song_id}.wav")
 
