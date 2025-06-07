@@ -16,14 +16,15 @@ async def handle_function(msg: MessageEvent):
     if keyword == "":
         await music.finish("\n请输入“/点歌+歌曲名”喔🎶")
     #搜索歌曲
-    song_id,song_name,singer = await music_search(keyword)
+    session = requests.session()
+    song_id,song_name,singer,song_url = await netease_music_search(keyword,session)
     song_name = str(song_name).replace(".", "·").replace("/", "、")
     if song_id is None:
         await music.finish("\n没有找到歌曲，或检索到的歌曲均为付费喔qwq\n这绝对不是我的错，绝对不是！")
     else:
         await music.send(MessageSegment.text(f" 来源：网易云音乐\n歌曲：{song_name} - {singer}\n请稍等喔🎵"))
         #返回转换后的歌曲路径
-        output_silk_path = await music_download(song_id, song_name, singer)
+        output_silk_path = await music_download(song_id)
 
         if output_silk_path is None:
                 await music.send("歌曲音频获取失败了Σヽ(ﾟД ﾟ; )ﾉ，请重试。")
