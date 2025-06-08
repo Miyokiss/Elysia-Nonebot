@@ -71,6 +71,7 @@ async def elysia_command(result)-> list:
 
         return{
             "txt": info_data['txt'],
+            "tone": info_data['tone'],
             "imgs": info_img
         }
     elif cmd == "cloud_music":
@@ -99,6 +100,7 @@ async def elysia_command(result)-> list:
                 }
         return{
             "txt": info_data['txt'],
+            "tone": info_data['tone'],
             "imgs": {
                 "info_img": info_img,
                 "music_img": temp_file
