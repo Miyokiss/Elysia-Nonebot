@@ -32,4 +32,4 @@ def get_tone_config(tone):
             'text': '参考音频文本'
         }
     }
-    return tone_lists.get(tone, "普通")
+    return tone_lists.get(tone) or tone_lists.get("普通")

@@ -6,6 +6,7 @@ from nonebot import logger
 from graiax import silkcoder
 from nonebot import  on_message
 from nonebot.rule import Rule, to_me
+from src.utils.tts import MarkdownCleaner
 from nonebot.exception import FinishedException
 from src.clover_openai import ai_chat
 from nonebot.plugin import on_command, on_keyword, on_fullmatch
@@ -60,6 +61,7 @@ async def handle_function(message: MessageEvent):
         logger.debug(f"check| 非C2C环境 获取模式ID ——————> {status}")
 
     content = message.get_plaintext() or "空内容"
+    content = MarkdownCleaner.clean_markdown(content)
 
     if content.startswith("/"):
         r_msg = f"收到内容：{content}\n{random.choice(text_list)}"
