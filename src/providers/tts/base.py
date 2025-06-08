@@ -22,7 +22,7 @@ class TTSProviderBase(ABC):
         """
         pass
 
-    async def to_tts(self, text):
+    async def to_tts(self, text, tone):
         """
         生成语音文件
         :param text: 文本内容
@@ -38,7 +38,7 @@ class TTSProviderBase(ABC):
             max_repeat_time = 5
             text = MarkdownCleaner.clean_markdown(text)
             while not os.path.exists(tmp_file) and max_repeat_time > 0:
-                await self.text_to_speak(text, tmp_file)
+                await self.text_to_speak(text, tmp_file, tone)
                 if not os.path.exists(tmp_file):
                     max_repeat_time = max_repeat_time - 1
                     logger.error(f"语音生成失败: {text}:{tmp_file}，再试{max_repeat_time}次")
@@ -55,5 +55,5 @@ class TTSProviderBase(ABC):
             return None
 
     @abstractmethod
-    async def text_to_speak(self, text, output_file):
+    async def text_to_speak(self, text, output_file, tone):
         pass

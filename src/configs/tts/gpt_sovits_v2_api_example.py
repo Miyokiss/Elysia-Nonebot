@@ -24,3 +24,12 @@ def get_config():
                 'super_sampling': False,
                 'aux_ref_audio_paths': []
             }
+
+def get_tone_config(tone):
+    tone_lists = {
+        '普通': {
+            'path': '参考音频.wav',
+            'text': '参考音频文本'
+        }
+    }
+    return tone_lists.get(tone, "普通")

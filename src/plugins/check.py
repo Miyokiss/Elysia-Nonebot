@@ -66,16 +66,17 @@ async def handle_function(message: MessageEvent):
     if content.startswith("/"):
         r_msg = f"收到内容：{content}\n{random.choice(text_list)}"
         await check.finish(r_msg)
-    elif status == 0:
+    elif status == 0 or status == 2:
         try:
-            await asyncio.wait_for(handle_Elysia_response(message), timeout=30)
+            if status == 0:
+                await asyncio.wait_for(handle_Elysia_response(message), timeout=30)
+            elif status == 2:
+                await asyncio.wait_for(handle_Elysia_response(message,on_tts = True), timeout=40)
         except asyncio.TimeoutError:
             await check.finish("响应超时，请稍后再试")
     elif status == 1:
         msg = await ai_chat.deepseek_chat(group_openid, content)
         await check.finish(msg)
-    elif status == 2:
-        await handle_tts_response(message)
     else:
         await check.finish(random.choice(text_list))
 text_list = [
@@ -86,7 +87,7 @@ text_list = [
     "【妖精爱莉回复】难道是新指令吗？哎呀，一脸茫然呢♪ \n哎呀，一脸茫然呢♪",
 ]
 
-async def handle_Elysia_response(message: MessageEvent):
+async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
     """Elysia Chat 响应"""
     user_id = message.get_user_id()
     content = message.get_plaintext() or "空内容"
@@ -107,6 +108,7 @@ async def handle_Elysia_response(message: MessageEvent):
                 txt = r_msg.get("txt") or None
                 imgs = r_msg.get("imgs") or None
                 audios = r_msg.get("audios") or None
+                tone = r_msg.get("tone") or None
                 if txt is not None:
                     logger.debug(f"Elysia txt：{txt}")
                     if imgs is not None:
@@ -134,6 +136,22 @@ async def handle_Elysia_response(message: MessageEvent):
                 if audios is not None:
                     await check.send(MessageSegment.file_audio(Path(audios)))
                     await delete_file(audios)
+                if on_tts is True:
+                    if tone is None:
+                        raise Exception('tone is None')
+                    tts = TTSProvider()
+                    result = await tts.to_tts(txt ,tone)
+                    if not result:
+                        raise Exception("TTS 生成失败，结果为空")
+                    file_path = result["file_path"]
+                    file_name = result["file_name"]
+                    logger.debug(f"生成语音文件：{file_path}")
+
+                    # 转码使用异步等待
+                    output_silk_path = await Transcoding(file_path, file_name)
+                    await check.send(MessageSegment.file_audio(Path(output_silk_path)))
+                    await delete_file(output_silk_path)
+                    await delete_file(file_path)
             else:
                 await check.send("未定义内容，建议开启 新的对话")
                 await check.finish(MessageSegment.keyboard(Keyboard_ai))
@@ -152,40 +170,14 @@ async def handle_Elysia_response(message: MessageEvent):
 
     # 创建后台任务不阻塞当前处理
     asyncio.create_task(_Elysia_Chat_task())
-async def handle_tts_response(message: MessageEvent):
-    """AI Chat TTS 响应"""
-    user_id = message.get_user_id()
-    content = message.get_plaintext() or "空内容"
-
-    async def _tts_task():
-        text = await on_bl_chat(user_id, content)
-        tts = TTSProvider()
-        
-        try:
-            result = await tts.to_tts(text)
-            if not result:
-                raise Exception("TTS 生成失败，结果为空")
-
-            file_path = result["file_path"]
-            file_name = result["file_name"]
-            logger.debug(f"生成语音文件：{file_path}")
-
-            # 转码使用异步等待
-            output_silk_path = await Transcoding(file_path, file_name)
-            await check.send(MessageSegment.file_audio(Path(output_silk_path)))
-            await delete_file(output_silk_path)
-            await delete_file(file_path)
-            await check.finish()
-            
-        except Exception as e:
-            if isinstance(e, FinishedException):
-                return
-            logger.error(f"TTS处理失败：{str(e)}")
-
-    # 创建后台任务不阻塞当前处理
-    asyncio.create_task(_tts_task())
 
 async def Transcoding(file_path: str, output_filename: str) -> str:
+    """
+    将文件转换为silk格式
+    :param file_path: 文件路径
+    :param output_filename: 输出文件名
+    :return: 输出文件路径
+    """
     loop = asyncio.get_running_loop()
     output_silk_path = Path(temp_path) / f"{Path(output_filename).stem}.silk"
     await loop.run_in_executor(

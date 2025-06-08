@@ -48,13 +48,14 @@ class TTSProvider(TTSProviderBase):
             "file_name": file_name,
         }
 
-    async def text_to_speak(self, text, output_file):
+    async def text_to_speak(self, text, output_file, tone):
+        tts_config=gpt_sovits_v2_api.get_tone_config(tone)
         request_json = {
             "text": text,
             "text_lang": self.text_lang,
-            "ref_audio_path": self.ref_audio_path,
+            "ref_audio_path": tts_config.get("path") or self.ref_audio_path,
             "aux_ref_audio_paths": self.aux_ref_audio_paths,
-            "prompt_text": self.prompt_text,
+            "prompt_text": tts_config.get("text") or self.prompt_text,
             "prompt_lang": self.prompt_lang,
             "top_k": self.top_k,
             "top_p": self.top_p,
