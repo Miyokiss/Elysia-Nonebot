@@ -8,6 +8,7 @@ from nonebot import  on_message
 from nonebot.rule import Rule, to_me
 from src.clover_openai import ai_chat
 from src.providers.llm.AliBL import BLChatRole
+from src.utils.tts import MarkdownCleaner
 from nonebot.exception import FinishedException
 from src.clover_sqlite.models.user import UserList
 from src.configs.Keyboard_config import Keyboard_ai
@@ -62,6 +63,7 @@ async def handle_function(message: MessageEvent):
         logger.debug(f"check| 非C2C环境 获取模式ID ——————> {status}")
 
     content = message.get_plaintext() or "空内容"
+    content = MarkdownCleaner.clean_markdown(content)
 
     if content.startswith("/"):
         r_msg = f"收到内容：{content}\n{random.choice(text_list)}"
