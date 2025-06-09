@@ -71,6 +71,7 @@ async def elysia_command(result)-> list:
 
         return{
             "txt": info_data['txt'],
+            "is_voice": info_data['is_voice'],
             "tone": info_data['tone'],
             "imgs": info_img
         }
@@ -118,6 +119,7 @@ async def _elysia_info_(Edata: json) -> json:
         Edata: 包含命令的原始字符串"""
     time = parse_elysia(Edata,field = "time")
     mood = parse_elysia(Edata,field = "mood")
+    is_voice = parse_elysia(Edata,field = "is_voice")
     tone = parse_elysia(Edata,field = "tone")
     supplement = parse_elysia(Edata,field = "supplement")
     txt = parse_elysia(Edata,field = "txt")
@@ -125,6 +127,7 @@ async def _elysia_info_(Edata: json) -> json:
         "time": time,
         "mood": mood,
         "tone": tone,
+        "is_voice": is_voice,
         "supplement": supplement,
         "txt": txt
     }
