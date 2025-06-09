@@ -1,4 +1,5 @@
 import sys
+from datetime import datetime
 from typing import List
 from nonebot import logger
 from http import HTTPStatus
@@ -59,10 +60,17 @@ class AliBLAPI:
         memory_id : str = None) -> list:
         """调用阿里百炼API进行聊天"""
         # 构造调用参数
+        etime = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         call_params = {
             "api_key": ALI_KEY,
             "app_id": ALI_BLAPP_ID,
-            "prompt": content
+            "prompt": content,
+            "workspace": workspaceId,
+            "biz_params": {
+                "user_prompt_params":{
+                    "Etime": etime
+                }
+            }
         }
         if session_id!=None:
             call_params["session_id"] = session_id

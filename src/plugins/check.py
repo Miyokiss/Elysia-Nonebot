@@ -107,6 +107,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                 txt = r_msg.get("txt") or None
                 imgs = r_msg.get("imgs") or None
                 audios = r_msg.get("audios") or None
+                is_voice = r_msg.get("is_voice") if r_msg.get("is_voice") == "True" else on_tts
                 tone = r_msg.get("tone") or None
                 if txt is not None:
                     logger.debug(f"Elysia txt：{txt}")
@@ -134,9 +135,9 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                 if audios is not None:
                     await check.send(MessageSegment.file_audio(Path(audios)))
                     await delete_file(audios)
-                if on_tts is True:
+                if is_voice == "True" or True:
                     if tone is None:
-                        raise Exception('tone is None')
+                        raise ValueError('tone is None')
                     tts = TTSProvider()
                     result = await tts.to_tts(txt ,tone)
                     if not result:
