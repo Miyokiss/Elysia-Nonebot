@@ -286,23 +286,23 @@ async def music_download(song_id):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     try:
-        headers = {
-            "Referer": "https://www.byfuns.top/api/1/",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-            "Origin": "https://www.byfuns.top"
+        # 构造请求URL
+        url = f'http://192.168.5.31:5000/Song_V1'
+        post_data = {
+            'url': song_id,
+            'level': 'lossless',
+            'type': 'json'
         }
 
-        # 构造请求URL
-        url = f'https://www.byfuns.top/api/1/?id={song_id}&level=lossless'
-
         # 获取Url内容
-        song_url = requests.request("GET", url, headers=headers)
-        if song_url.status_code == 200:
+        song_data = requests.request("POST", url, data=post_data)
+        if song_data.status_code == 200:
+            logger.debug(f"获取到数据：{song_data.json()}")
             # 异步流式下载
-            async with async_client.stream("GET",song_url.text,headers=headers,follow_redirects=True) as response:
+            async with async_client.stream("GET",song_data.json()["url"],follow_redirects=True) as response:
                 response.raise_for_status()
                 if response.status_code == 200:
-                    logger.debug(f"下载歌曲ID:{song_id}\nURL:{song_url.text}\n开始下载中...")
+                    logger.debug(f"下载歌曲ID:{song_id}\nURL:{song_data.url}\n开始下载中...")
                     file_path = os.path.join(save_path, f"{datetime.now().date()}-{uuid.uuid4().hex}-{song_id}.wav")
                     file_name = os.path.basename(f"{datetime.now().date()}-{uuid.uuid4().hex}-{song_id}.wav")
 
@@ -317,15 +317,11 @@ async def music_download(song_id):
                     await delete_file(file_path)
                     return output_silk_path
                 else:
-                    logger.error(f"获取歌曲链接失败，状态码：{song_url.status_code}")
+                    logger.error(f"获取歌曲链接失败，状态码：{song_data.status_code}")
                     return None
         else:
-            logger.error(f"获取歌曲链接失败，状态码：{song_url.status_code}")
+            logger.error(f"获取歌曲链接失败，状态码：{song_data.status_code}")
             return None
-    except httpx.Timeout as e:
-        logger.error(f"TimeoutError: {e}")
-    except httpx.HTTPStatusError as e:
-        logger.error(f"HTTPStatusError: {e}")
     except Exception as e:
         logger.error(e)
-    return None
+        return None
