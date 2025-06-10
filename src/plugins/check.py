@@ -61,6 +61,8 @@ async def handle_function(message: MessageEvent):
         logger.debug(f"check| 非C2C环境 获取模式ID ——————> {status}")
 
     content = message.get_plaintext() or "空内容"
+    if len(content) > 30:
+        await check.finish("请勿发送过长的内容")
     content = MarkdownCleaner.clean_markdown(content)
 
     if content.startswith("/"):
@@ -152,7 +154,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                     await delete_file(output_silk_path)
                     await delete_file(file_path)
             else:
-                await check.send("未定义内容，建议开启 新的对话")
+                await check.send("未定义内容/超出最大回复token，建议开启 新的对话")
             await check.finish()
             
         except Exception as e:
