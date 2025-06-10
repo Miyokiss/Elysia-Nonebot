@@ -158,11 +158,11 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                     await delete_file(output_silk_path)
                     await delete_file(file_path)
             else:
-                await check.send("未定义内容，建议开启 新的对话")
+                await check.send("未定义内容/超出最大回复token，建议开启 新的对话")
                 await check.finish(MessageSegment.keyboard(Keyboard_ai))
             if user_msg is None:
+                await check.send("Tips：如果在对话中遇到问题/错误/不想聊的话题/遇到胡言乱语，请尝试使用：/爱莉希雅 新的对话。\n如果爱莉记住了些奇怪的东西可以使用：/爱莉新希雅 新的记忆")
                 await check.send(MessageSegment.keyboard(Keyboard_ai))
-                await check.send("未定义内容/超出最大回复token，建议开启 新的对话")
             await check.finish()
             
         except Exception as e:
