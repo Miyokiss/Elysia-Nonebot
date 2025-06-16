@@ -60,11 +60,15 @@ class AliBLAPI:
         memory_id : str = None) -> list:
         """调用阿里百炼API进行聊天"""
         # 构造调用参数
+        if memory_id is None:
+            logger.error("【阿里百练API服务】memory_id不能为空")
+            return "【阿里百练API服务】memory_id不能为空"
         etime = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         call_params = {
             "api_key": ALI_KEY,
             "app_id": ALI_BLAPP_ID,
             "prompt": content,
+            "memory_id" : memory_id,
             "workspace": workspaceId,
             "biz_params": {
                 "user_prompt_params":{
@@ -74,8 +78,6 @@ class AliBLAPI:
         }
         if session_id!=None:
             call_params["session_id"] = session_id
-        if memory_id!=None:
-            call_params["memory_id"] = memory_id
         # 调用API
         responses = Application.call(**call_params)
         if responses.status_code != HTTPStatus.OK:
