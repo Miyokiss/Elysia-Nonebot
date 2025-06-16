@@ -191,3 +191,17 @@ async def download_audio(audio_link, file_postfix="mp3"):
     except Exception as e:
         logger.error(e)
         return None
+
+async def get_valkyries_data():
+    temp_valkyries = Path(temp_path) / f"{datetime.now().date()}_bh3_valkyries.json"
+
+    if not temp_valkyries.exists():
+            try:
+                await get_all_valkyrie_json(temp_valkyries)
+            except Exception as e:
+                logger.error(f"获取数据失败: {e}")
+                return None
+
+    with open(temp_valkyries, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    return data
