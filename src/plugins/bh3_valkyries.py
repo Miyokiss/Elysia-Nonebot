@@ -6,14 +6,15 @@ from nonebot import logger
 from datetime import datetime
 from nonebot.rule import to_me
 from nonebot.plugin import on_command
+from src.utils.audio import download_audio
 from src.configs.path_config import temp_path
 from nonebot.exception import FinishedException
 from src.clover_image.delete_file import delete_file
+from src.bh3_valkyries import BH3_User_Assistant, BH3_User_Valkyries
 from nonebot.adapters.qq import   MessageSegment,MessageEvent, Message
 from src.bh3_valkyries.data_base import (get_valkyries_data, get_valkyrie_info,
-                                         get_audio_links, get_valkyrie_img, download_audio)
+                                         get_audio_links, get_valkyrie_img)
 from src.bh3_valkyries.base import all_valkyrie_info_img
-from src.bh3_valkyries import BH3_User_Assistant, BH3_User_Valkyries
 
 bh3_valkyries = on_command("今日助理",aliases={"我的助理"},rule=to_me(),priority=1,block=True)
 @bh3_valkyries.handle()
@@ -101,8 +102,8 @@ async def handle_function(message: MessageEvent):
             await bh3_valkyries.finish()
 
         else:
-            logger.warning("数据格式不正确或为空")
-            await bh3_valkyries.finish("获取今日助理数据格式不正确/为空，请稍后再试...")
+            logger.error("数据格式不正确或为空")
+            await bh3_valkyries.finish("错误：获取今日助理数据格式不正确/为空，请稍后再试...")
     elif cmd[0] == "/我的助理":
         data = await get_valkyries_data()
         if data is None:
