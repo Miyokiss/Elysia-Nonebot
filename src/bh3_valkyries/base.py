@@ -6,13 +6,17 @@ from src.clover_music.cloud_music.data_base import save_img
 
 __name__ = "bh3_valkyries | base"
 
-async def all_valkyrie_info_img(data, temp_file):
+async def valkyrie_info_img(data, temp_file, title):
+    """
+    获取角色获取信息图片
+    """
     async with async_playwright() as p:
         browser = await p.chromium.launch()
     image_bytes = await template_to_pic(
         template_path=getcwd() + "/src/clover_html/BH3",
         template_name="VALKYRIES.html",
-        templates={"data": data},
+        templates={"data": data,
+                   "title": title},
         pages={
             "viewport": {"width": 580, "height": 1},
             "base_url": f"file://{getcwd()}",

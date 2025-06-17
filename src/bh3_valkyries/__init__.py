@@ -74,6 +74,7 @@ class BH3_User_Valkyries(Model):
             logger.error(f"创建用户女武神数据失败: {e}")
             return None
         
+    @classmethod
     # 根据用户ID和女武神ID更新女武神数据
     async def update_user_valkyrie_data(self, user_id: str, valkyrie_id: int, **kwargs) -> bool:
         """
@@ -88,10 +89,10 @@ class BH3_User_Valkyries(Model):
             if user_valkyrie:
                 await user_valkyrie.update_from_dict(kwargs)
                 await user_valkyrie.save()
-                logger.info(f"成功更新用户 {user_id} 的女武神 {valkyrie_id} 数据")
+                logger.debug(f"成功更新用户 {user_id} 的女武神 {valkyrie_id} 数据")
                 return True
             else:
-                logger.warning(f"用户 {user_id} 的女武神 {valkyrie_id} 数据不存在，无法更新")
+                logger.debug(f"用户 {user_id} 的女武神 {valkyrie_id} 数据不存在，无法更新")
                 return False
         except Exception as e:
             logger.error(f"更新用户女武神数据失败: {e}")
@@ -108,6 +109,7 @@ class BH3_User_Assistant(Model):
     assistant_id = fields.IntField(default=0)  # 当前助理ID
     last_set_time = fields.IntField(default=0)  # 最后设置时间
     last_get_time = fields.IntField(default=0)  # 最后获取时间
+    first_set_time = fields.IntField(default=0) # 首次设定时间
     get_valkyrie_log = fields.JSONField(default=[])  # 获取女武神日志
     
     class Meta:
