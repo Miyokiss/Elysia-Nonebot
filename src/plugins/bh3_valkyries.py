@@ -230,8 +230,8 @@ async def handle_function(message: MessageEvent):
             await bh3_valkyries.finish("错误：获取今日助理数据格式不正确/为空，请稍后再试...")
 
     elif cmd[0] == "/我的助理":
-        if cmd[1] == "<女武神名称/ID>" or len(cmd) > 2:
-                await bh3_valkyries.finish("指令有误 \nTips: 指令：/我的助理 <角色关键字/ID> \n例：/我的助理 979 来获取助理信息哦~!")
+        if len(cmd) > 2:
+            await bh3_valkyries.finish("指令有误 \nTips: 指令：/我的助理 <角色关键字/ID> \n例：/我的助理 979 来获取助理信息哦~!")
         
         user_all_valkyries = await BH3_User_Valkyries.get_user_all_valkyries(user_id)
         if not user_all_valkyries:
@@ -243,6 +243,8 @@ async def handle_function(message: MessageEvent):
         
         if len(cmd) == 2:
             keywords = cmd[1]
+            if cmd[1] == "<女武神名称/ID>":
+                await bh3_valkyries.finish("指令有误 \nTips: 指令：/我的助理 <角色关键字/ID> \n例：/我的助理 979 来获取助理信息哦~!")
             ids = await BH3_Data_base.search_valkyrie_to_id(data, keywords)
 
             if ids is None:
