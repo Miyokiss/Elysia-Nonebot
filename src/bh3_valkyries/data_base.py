@@ -94,10 +94,10 @@ async def get_valkyries_data_ext(ext_str, keywords: str = "角色/"):
         ext_data = json.loads(ext_str)
         # 获取文本数组并清理转义字符
         text_array = json.loads(ext_data['c_18']['filter']['text'])
-        # 遍历数组查找角色项
+        # 遍历数组查找项
         for item in text_array:
             if isinstance(item, str) and item.startswith(keywords):
-                # 分割并返回角色名称
+                # 分割并返回
                 return item.split("/", 1)[1]
         return None  # 未找到角色信息
     except json.JSONDecodeError as e:
