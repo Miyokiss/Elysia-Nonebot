@@ -138,6 +138,7 @@ async def handle_function(message: MessageEvent):
                     await bh3_valkyries.finish(f"当前助理角色为: {assistant_id}")
                 else:
                     await bh3_valkyries.finish(f"今日还未设置助理角色！~")
+                    await bh3_valkyries.finish(MessageSegment.keyboard(Keyboard_valkyrie))
 
         # 获取女武神数据
         data = await BH3_Data_base.get_valkyries_data()
@@ -223,7 +224,7 @@ async def handle_function(message: MessageEvent):
                 await bh3_valkyries.send(MessageSegment.file_audio(Path(output_silk_path)))
                 await delete_file(valkyrie_info_img_path)
                 await delete_file(output_silk_path)
-                await bh3_valkyries.finish()
+                await bh3_valkyries.finish(MessageSegment.keyboard(Keyboard_valkyrie))
             else:
                 await bh3_valkyries.finish("女武神信息生成失败，请稍后再试...")
 
@@ -239,6 +240,7 @@ async def handle_function(message: MessageEvent):
         user_all_valkyries = await BH3_User_Valkyries.get_user_all_valkyries(user_id)
         if not user_all_valkyries:
             await bh3_valkyries.finish("您还没有任何女武神数据，请先获取今日助理！")
+            await bh3_valkyries.finish(MessageSegment.keyboard(Keyboard_valkyrie))
 
         data = await BH3_Data_base.get_valkyries_data()
         if data is None:
@@ -298,7 +300,7 @@ async def handle_function(message: MessageEvent):
             ):
              await bh3_valkyries.send(MessageSegment.file_image(temp_info_img_path))
              await delete_file(temp_info_img_path)
-             await bh3_valkyries.finish()
+             await bh3_valkyries.finish(MessageSegment.keyboard(Keyboard_valkyrie))
         else:
             logger.error("生成助理列表信息图片失败")
             await bh3_valkyries.finish("生成助理列表信息图片失败，请稍后再试...")
