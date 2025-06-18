@@ -10,6 +10,7 @@ from nonebot.plugin import on_command
 from src.utils.audio import download_audio
 from src.configs.path_config import temp_path
 from src.clover_image.delete_file import delete_file
+from src.configs.Keyboard_config import Keyboard_valkyrie
 from src.bh3_valkyries.base import valkyries_info_img, valkyrie_info_img
 from src.bh3_valkyries import BH3_User_Assistant, BH3_User_Valkyries
 from nonebot.adapters.qq import   MessageSegment,MessageEvent, Message
@@ -37,7 +38,8 @@ async def handle_function(message: MessageEvent):
 
         if len(cmd) >= 2:
             if cmd[1] == "<女武神名称/ID>" or len(cmd) > 2:
-                await bh3_valkyries.finish("指令有误 \nTips: 指令：/今日助理 <角色关键字/ID> \n例：/今日助理 979 来设定今日助理哦~!")
+                await bh3_valkyries.send("指令有误 \nTips: 指令：/今日助理 <角色关键字/ID> \n例：/今日助理 979 来设定今日助理哦~!")
+                await bh3_valkyries.finish(MessageSegment.keyboard(Keyboard_valkyrie))
             
             # 设定指定女武神为助理
             user_all_valkyries = await BH3_User_Valkyries.get_user_all_valkyries(user_id)
@@ -67,7 +69,7 @@ async def handle_function(message: MessageEvent):
                      ])
                      await bh3_valkyries.send(r_msg)
                      await delete_file(temp_info_img_path)
-                     await bh3_valkyries.finish()
+                     await bh3_valkyries.finish(MessageSegment.keyboard(Keyboard_valkyrie))
                 else:
                     logger.error("生成助理列表信息图片失败")
                     await bh3_valkyries.finish("生成助理列表信息图片失败，请稍后再试...")
@@ -231,7 +233,8 @@ async def handle_function(message: MessageEvent):
 
     elif cmd[0] == "/我的助理":
         if cmd[1] == "<女武神名称/ID>" or len(cmd) > 2:
-                await bh3_valkyries.finish("指令有误 \nTips: 指令：/我的助理 <角色关键字/ID> \n例：/我的助理 979 来获取助理信息哦~!")
+                await bh3_valkyries.send("指令有误 \nTips: 指令：/我的助理 <角色关键字/ID> \n例：/我的助理 979 来获取助理信息哦~!")
+                await bh3_valkyries.finish(MessageSegment.keyboard(Keyboard_valkyrie))
         
         user_all_valkyries = await BH3_User_Valkyries.get_user_all_valkyries(user_id)
         if not user_all_valkyries:
@@ -265,7 +268,7 @@ async def handle_function(message: MessageEvent):
                      ])
                      await bh3_valkyries.send(r_msg)
                      await delete_file(temp_info_img_path)
-                     await bh3_valkyries.finish()
+                     await bh3_valkyries.finish(MessageSegment.keyboard(Keyboard_valkyrie))
                 else:
                     logger.error("生成助理列表信息图片失败")
                     await bh3_valkyries.finish("生成助理列表信息图片失败，请稍后再试...")
