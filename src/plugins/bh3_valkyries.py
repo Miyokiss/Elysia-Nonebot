@@ -19,7 +19,8 @@ bh3_valkyries = on_command("今日助理",aliases={"我的助理"},rule=to_me(),
 async def handle_function(message: MessageEvent):
     cmd = message.get_plaintext().split()
     user_id = message.get_user_id()
-    time = int(datetime.now().timestamp())
+    current_time = int(datetime.now().timestamp())
+    today = datetime.now().date()
 
     if cmd[0] == "/今日助理":
         # 获取用户数据
@@ -62,7 +63,6 @@ async def handle_function(message: MessageEvent):
                 # 搜索结果为单个 设定每日助理角色且增加好感
                 logger.debug(f"用户 {user_id} 指定女武神ID: {ids}")
 
-                today = datetime.now().date()
                 last_set_time = datetime.fromtimestamp(user_assistant.last_set_time).date()
                 logger.debug(f"用户 {user_id} 上次设置理时间: {last_set_time}, 今天日期: {today}")
 
@@ -72,48 +72,48 @@ async def handle_function(message: MessageEvent):
                 ids_valkyries = await BH3_User_Valkyries.get_user_valkyrie_data(user_id, ids)
                 # 判断是否已经设置过的助理角色
                 if user_assistant.assistant_id != ids:
+                    # 设置新的助理
                     await BH3_User_Assistant.create_or_update_field(
                         user_id, 
                         assistant_id = ids, 
-                        last_set_time = time, 
-                        first_set_time = time
+                        last_set_time = current_time, 
+                        first_set_time = current_time
                         )
                     await BH3_User_Valkyries.update_user_valkyrie_data(
                         user_id, 
                         valkyrie_id = ids, 
                         favorability = ids_valkyries.favorability + 1
                         )
-                    logger.debug(f"已设置女武神ID:{ids}")
-                    await bh3_valkyries.finish(f"已设置女武神ID:{ids}")
+                    logger.debug(f"已设置女武神ID:{ids}，好感度+1")
+                    await bh3_valkyries.finish(f"已设置女武神ID:{ids}，好感度+1")
                 else:
-                    # 多天数
-                    await BH3_User_Assistant.create_or_update_field(user_id, last_set_time=time)
-                    # 好感度按天数递曾 上限5天 超过5天则 减1
-                    continuous = min(int((time - user_assistant.first_set_time) / 86400), 6)
-                    if continuous >=6:
+                    # 多天连续设置
+                    await BH3_User_Assistant.create_or_update_field(user_id, last_set_time=current_time)
+                    # 好感度按天数递曾 超过5天则 减1
+                    # 求天数差
+                    first_set_time = datetime.fromtimestamp(user_assistant.first_set_time).date()
+                    days_diff = (today - first_set_time).days + 1
+                    if days_diff > 5:
                         await BH3_User_Valkyries.update_user_valkyrie_data(
                             user_id,
                             valkyrie_id = ids,
-                            favorability = ids_valkyries.favorability - 1
+                            favorability = ids_valkyries.favorability - 1 if ids_valkyries.favorability > 0 else 0
                             )
-                        logger.debug(f"已设置女武神ID:{ids}\n当前连续设置次数:{continuous}")
-                        await bh3_valkyries.finish(f"已设置女武神ID:{ids}\n当前连续设置次数:{continuous} 好度-1 \n女武神也需要休息哦~！")
+                        logger.debug(f"已设置女武神ID:{ids}\n当前连续设置次数:{days_diff}")
+                        await bh3_valkyries.finish(f"已设置女武神ID:{ids}\n当前连续设置次数:{days_diff} 好感度减少 \n女武神也需要休息哦~！")
                     else:
-                        if continuous == 0:
-                            continuous = 1
                         await BH3_User_Valkyries.update_user_valkyrie_data(
                             user_id,
                             valkyrie_id = ids,
-                            favorability = ids_valkyries.favorability + continuous
+                            favorability = ids_valkyries.favorability + days_diff
                             )
-                        logger.debug(f"用户{user_id} 当前连续设置次数:{continuous}好感+{continuous}")
-                        await bh3_valkyries.finish(f"已设置女武神ID:{ids}，\n当前连续设置次数:{continuous}好感+{continuous}")
+                        logger.debug(f"用户{user_id} 当前连续设置次数:{days_diff}好感+{days_diff}")
+                        await bh3_valkyries.finish(f"已设置女武神ID:{ids}，\n当前连续设置次数:{days_diff}好感+{days_diff}")
         else:
             bh3_valkyries.finish("指令有误 \nTips: 指令：/今日助理 <角色关键字/ID> \n例：/今日助理 979 来设定今日助理哦~!")
         
         # 检查是否已获取过助理且最后获取时间是今天
         if user_assistant:
-            today = datetime.now().date()
             last_get_time = datetime.fromtimestamp(user_assistant.last_get_time).date()
             logger.debug(f"用户 {user_id} 上次获取助理时间: {last_get_time}, 今天日期: {today}")
 
@@ -136,14 +136,14 @@ async def handle_function(message: MessageEvent):
             # 随机选择一名女武神
             valkyrie = random.choice(data)
             content_id = valkyrie["content_id"]
-            logger.debug(f"获取的女武神ID: {content_id}, 时间戳: {time}")
+            logger.debug(f"获取的女武神ID: {content_id}, 时间戳: {current_time}")
             # 更新用户助理数据
             await BH3_User_Assistant.create_or_update_field(
                 user_id=user_id,
-                last_get_time=time
+                last_get_time=current_time
             )
             # 写入日志
-            await BH3_User_Assistant.record_get_valkyrie_log(user_id, content_id, time)
+            await BH3_User_Assistant.record_get_valkyrie_log(user_id, content_id, current_time)
             # 获取用户助理信息
             user_valkyrie = await BH3_User_Valkyries.get_user_valkyrie_data(user_id, content_id)
             # 如果用户没有该女武神数据，则创建
@@ -151,7 +151,7 @@ async def handle_function(message: MessageEvent):
                 user_valkyrie = await BH3_User_Valkyries.create_user_valkyrie_data(
                     user_id=user_id,
                     valkyrie_id=content_id,
-                    time=time
+                    time=current_time
                 )
             else:
                 # 如果用户已有该女武神，则更新获取次数
@@ -215,9 +215,15 @@ async def handle_function(message: MessageEvent):
             elif isinstance(ids, list):
                 # 搜索结果为多个
                 temp_info_img_path = Path(temp_path) / f"bh3_valkyries_info_{user_id}_{datetime.now().date()}_{uuid.uuid4().hex}.png"
-                if await valkyrie_info_img(await BH3_Data_base.search_user_valkyries_by_id(user_all_valkyries,
-                                                                                            data, ids),
-                                            temp_info_img_path, "搜索结果"):
+                if await valkyrie_info_img(
+                    await BH3_Data_base.search_user_valkyries_by_id(
+                        user_all_valkyries,
+                        data, 
+                        ids
+                        ),
+                    temp_info_img_path,
+                    "搜索结果"
+                    ):
                      r_msg = Message([
                          MessageSegment.text("\n搜索到多个女武神，请选择其中一位你拥有的女武神查看信息哦!~" \
                          "\nTips: 指令：/我的助理 <角色关键字/ID>\n例：/我的助理 979 或 /我的助理 粉色妖精小姐"),
@@ -243,14 +249,19 @@ async def handle_function(message: MessageEvent):
                         ])
                         await bh3_valkyries.finish(r_msg)
                 await bh3_valkyries.finish("你还没有获取过这个助理哦!~")
-
         else:
             bh3_valkyries.finish("指令有误 \nTips: 指令：/我的助理 <角色关键字/ID> \n例：/我的助理 979 来获取角色数据哦~!")
         
         # 生成助理列表信息图片
         temp_info_img_path = Path(temp_path) / f"bh3_valkyries_info_{user_id}_{datetime.now().date()}_{uuid.uuid4().hex}.png"
-        if await valkyrie_info_img(await BH3_Data_base.search_user_valkyries_by_id(user_all_valkyries, data),
-                                   temp_info_img_path, "女武神图鉴"):
+        if await valkyrie_info_img(
+            await BH3_Data_base.search_user_valkyries_by_id(
+                user_all_valkyries, 
+                data
+                ),
+            temp_info_img_path, 
+            "女武神图鉴"
+            ):
              await bh3_valkyries.send(MessageSegment.file_image(temp_info_img_path))
              await delete_file(temp_info_img_path)
              await bh3_valkyries.finish()
