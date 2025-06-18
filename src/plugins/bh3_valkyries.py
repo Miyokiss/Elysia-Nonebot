@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 import random
@@ -19,9 +20,16 @@ bh3_valkyries = on_command("今日助理",aliases={"我的助理"},rule=to_me(),
 async def handle_function(message: MessageEvent):
     cmd = message.get_plaintext().split()
     user_id = message.get_user_id()
-    current_time = int(datetime.now().timestamp())
-    today = datetime.now().date()
-
+    
+    today = datetime.now().timestamp()
+    current_time = datetime.now().date()
+    
+    # 合并用户数据查询
+    user_assistant, user_all_valkyries = await asyncio.gather(
+        BH3_User_Assistant.get_user_data(user_id),
+        BH3_User_Valkyries.get_user_all_valkyries(user_id)
+    )
+    
     if cmd[0] == "/今日助理":
         # 获取用户数据
         user_assistant = await BH3_User_Assistant.get_user_data(user_id)
@@ -40,14 +48,15 @@ async def handle_function(message: MessageEvent):
                 await bh3_valkyries.finish("未找到指定女武神，请检查关键词/ID是否正确~")
             elif isinstance(ids, list):
                 # 搜索结果为多个
-                temp_info_img_path = Path(temp_path) / f"bh3_valkyries_info_{user_id}_{datetime.now().date()}_{uuid.uuid4().hex}.png"
-                if await valkyrie_info_img(
+                temp_info_img_path = Path(temp_path) / f"bh3_valkyries_info_{user_id}_{today}_{uuid.uuid4().hex}.png"
+                result = await valkyrie_info_img(
                     await BH3_Data_base.search_user_valkyries_by_id(
                         user_all_valkyries,
                         data, 
                         ids
                         ),
-                    temp_info_img_path, "搜索结果"):
+                    temp_info_img_path, "搜索结果")
+                if result:
                      r_msg = Message([
                          MessageSegment.text("\n搜索到多个女武神，请选择其中一位你拥有的女武神作为今日助理!~" \
                          "\nTips: 指令：/今日助理 <角色关键字/ID>\n例：/今日助理 979 或 /今日助理 粉色妖精小姐"),
@@ -163,7 +172,7 @@ async def handle_function(message: MessageEvent):
                 )
 
             # 获取助理信息
-            temp_valkyrie = Path(temp_path) / f"bh3_valkyrie_{datetime.now().date()}_{content_id}.json"
+            temp_valkyrie = Path(temp_path) / f"bh3_valkyrie_{today}_{content_id}.json"
             if not temp_valkyrie.exists():
                 await get_valkyrie_info(content_id, temp_valkyrie)
             with open(temp_valkyrie, "r", encoding="utf-8") as f:
@@ -172,11 +181,10 @@ async def handle_function(message: MessageEvent):
             img_content = valkyrie_info['contents'][0]['text']
             audio_content = valkyrie_info['contents'][2]['text']
 
-            img_link = await BH3_Data_base.get_valkyrie_img(img_content)
-            logger.debug(f"提取到的立绘链接: {img_link}")
-
-            audio_links = await BH3_Data_base.get_audio_links("舰桥互动", audio_content)
-            logger.debug(f"提取到的舰桥互动音频链接: {audio_links}")
+            img_link, audio_links = await asyncio.gather(
+                BH3_Data_base.get_valkyrie_img(img_content),
+                BH3_Data_base.get_audio_links("舰桥互动", audio_content)
+            )
 
             r_data = random.choice(audio_links)
             output_silk_path = await download_audio(r_data['url'])
@@ -214,7 +222,7 @@ async def handle_function(message: MessageEvent):
                 await bh3_valkyries.finish("未找到指定女武神，请检查关键词/ID是否正确~")
             elif isinstance(ids, list):
                 # 搜索结果为多个
-                temp_info_img_path = Path(temp_path) / f"bh3_valkyries_info_{user_id}_{datetime.now().date()}_{uuid.uuid4().hex}.png"
+                temp_info_img_path = Path(temp_path) / f"bh3_valkyries_info_{user_id}_{today}_{uuid.uuid4().hex}.png"
                 if await valkyrie_info_img(
                     await BH3_Data_base.search_user_valkyries_by_id(
                         user_all_valkyries,
@@ -253,7 +261,7 @@ async def handle_function(message: MessageEvent):
             bh3_valkyries.finish("指令有误 \nTips: 指令：/我的助理 <角色关键字/ID> \n例：/我的助理 979 来获取角色数据哦~!")
         
         # 生成助理列表信息图片
-        temp_info_img_path = Path(temp_path) / f"bh3_valkyries_info_{user_id}_{datetime.now().date()}_{uuid.uuid4().hex}.png"
+        temp_info_img_path = Path(temp_path) / f"bh3_valkyries_info_{user_id}_{today}_{uuid.uuid4().hex}.png"
         if await valkyrie_info_img(
             await BH3_Data_base.search_user_valkyries_by_id(
                 user_all_valkyries, 
