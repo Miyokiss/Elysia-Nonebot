@@ -49,7 +49,7 @@ async def handle_function(message: MessageEvent):
             ids = await BH3_Data_base.search_valkyrie_to_id(data, keywords)
 
             if ids is None:
-                await bh3_valkyries.finish("未找到指定女武神，请检查关键词/ID是否正确~")
+                await bh3_valkyries.finish("未找到指定女武神，请检查关键词/ID是否正确~\nTips: 指令：/我的助理 <角色关键字/ID> \n例：/我的助理 979 来获取助理信息哦~!")
             elif isinstance(ids, list):
                 # 搜索结果为多个
                 temp_info_img_path = Path(temp_path) / f"bh3_valkyries_info_{user_id}_{today}_{uuid.uuid4().hex}.png"
@@ -73,16 +73,17 @@ async def handle_function(message: MessageEvent):
                     await bh3_valkyries.finish("生成助理列表信息图片失败，请稍后再试...")
             else:
                 # 搜索结果为单个 设定每日助理角色且增加好感
-                logger.debug(f"用户 {user_id} 指定女武神ID: {ids}")
-                # 判断是否获得该女武神
-                if not await BH3_User_Valkyries.get_user_valkyrie_data(user_id, ids):
-                    await bh3_valkyries.finish("你还没获得该女武神！无法设置为助理...")
 
                 last_set_time = datetime.fromtimestamp(user_assistant.last_set_time).date()
                 logger.debug(f"用户 {user_id} 上次设置理时间: {last_set_time}, 今天日期: {today}")
 
                 if last_set_time == today:
                     await bh3_valkyries.finish("今天已经设置助理角色了，请明天再来吧...")
+                
+                logger.debug(f"用户 {user_id} 指定女武神ID: {ids}")
+                # 判断是否获得该女武神
+                if not await BH3_User_Valkyries.get_user_valkyrie_data(user_id, ids):
+                    await bh3_valkyries.finish("你还没获得该女武神！无法设置为助理...")
                 
                 ids_valkyries = await BH3_User_Valkyries.get_user_valkyrie_data(user_id, ids)
                 # 判断是否已经设置过的助理角色
@@ -251,7 +252,7 @@ async def handle_function(message: MessageEvent):
             ids = await BH3_Data_base.search_valkyrie_to_id(data, keywords)
 
             if ids is None:
-                await bh3_valkyries.finish("未找到指定女武神，请检查关键词/ID是否正确~")
+                await bh3_valkyries.finish("未找到指定女武神，请检查关键词/ID是否正确~\nTips: 指令：/我的助理 <角色关键字/ID> \n例：/我的助理 979 来获取助理信息哦~!")
             elif isinstance(ids, list):
                 # 搜索结果为多个
                 temp_info_img_path = Path(temp_path) / f"bh3_valkyries_info_{user_id}_{today}_{uuid.uuid4().hex}.png"
