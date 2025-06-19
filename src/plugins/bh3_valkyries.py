@@ -11,10 +11,10 @@ from src.utils.audio import download_audio
 from src.configs.path_config import temp_path
 from src.clover_image.delete_file import delete_file
 from src.configs.Keyboard_config import Keyboard_valkyrie
-from src.bh3_valkyries.base import valkyries_info_img, valkyrie_info_img
 from src.bh3_valkyries import BH3_User_Assistant, BH3_User_Valkyries
 from nonebot.adapters.qq import   MessageSegment,MessageEvent, Message
 from src.bh3_valkyries.data_base import BH3_Data_base, get_valkyrie_info, get_valkyries_data_ext
+from src.bh3_valkyries.base import valkyries_info_img, valkyrie_info_img, user_valkyrie_info_img
 
 bh3_valkyries = on_command("今日助理",aliases={"我的助理"},rule=to_me(),priority=1,block=True)
 @bh3_valkyries.handle()
@@ -139,7 +139,58 @@ async def handle_function(message: MessageEvent):
                 if last_set_time == today:
                     # 获取用户设定的助理角色信息
                     assistant_id = user_assistant.assistant_id
-                    await bh3_valkyries.finish(f"当前助理角色为: {assistant_id}")
+                    logger.debug(f"当前助理角色为: {assistant_id}")
+                    user_valkyrie_info_img_path = Path(temp_path) / f"bh3_valkyrie_info_{user_id}_{assistant_id}_{uuid.uuid4().hex}.png"
+                    temp_valkyrie = Path(temp_path) / f"bh3_valkyrie_{today}_{assistant_id}.json"
+                    if not temp_valkyrie.exists():
+                        await get_valkyrie_info(assistant_id, temp_valkyrie)
+                    with open(temp_valkyrie, "r", encoding="utf-8") as f:
+                        valkyrie_info = json.load(f)
+                    # 获取图片/音频
+                    img_content = valkyrie_info['contents'][0]['text']
+                    audio_content = valkyrie_info['contents'][2]['text']
+
+                    img_link, audio_links = await asyncio.gather(
+                        BH3_Data_base.get_valkyrie_img(img_content),
+                        BH3_Data_base.get_audio_links("舰桥互动", audio_content)
+                    )
+
+                    r_data = random.choice(audio_links)
+                    output_silk_path = await download_audio(r_data['url'])
+
+                    ext_str = valkyrie_info['ext']
+                    ext_data = json.loads(ext_str)
+                    text_array = json.loads(ext_data['c_18']['filter']['text'])
+                    summary = valkyrie_info['summary']
+                    no_property_list = ["角色/","初始阶级/"]
+                    text_array = [item for item in text_array if not any(prop in item for prop in no_property_list)]
+                    # 将/替换为：
+                    text_array = [item.replace("/", "：") for item in text_array]
+
+                    img_data = {
+                        "img_link": img_link,
+                        "title": valkyrie_info['title'],
+                        "name": await get_valkyries_data_ext(ext_str, "角色/"),
+                        "text_array": text_array,
+                        "summary": summary,
+                        "text": r_data['text']
+                    }
+                    if await user_valkyrie_info_img(img_data, user_valkyrie_info_img_path):
+                        r_msg = Message([
+                             MessageSegment.file_image(user_valkyrie_info_img_path),
+                             MessageSegment.text(f"\n今日助理{summary}")
+                        ])
+                        await bh3_valkyries.send(r_msg)
+
+                        if output_silk_path is None:
+                            logger.error("下载音频失败")
+                            await bh3_valkyries.finish("下载音频失败，请稍后再试...")
+                        await bh3_valkyries.send(MessageSegment.file_audio(Path(output_silk_path)))
+                        await delete_file(user_valkyrie_info_img_path)
+                        await delete_file(output_silk_path)
+                        await bh3_valkyries.finish()
+                    else:
+                        await bh3_valkyries.finish("女武神信息生成失败，请稍后再试...")
                 else:
                     await bh3_valkyries.finish(f"今日还未设置助理角色！~")
                     await bh3_valkyries.finish(MessageSegment.keyboard(Keyboard_valkyrie))
@@ -287,14 +338,62 @@ async def handle_function(message: MessageEvent):
                 # 判断是否拥有角色
                 for item in user_all_valkyries:
                     if item.valkyrie_id == ids:
+                        logger.debug(f"查询助理ID: {ids}")
+                        user_valkyrie_info_img_path = Path(temp_path) / f"bh3_valkyrie_info_{user_id}_{ids}_{uuid.uuid4().hex}.png"
+                        temp_valkyrie = Path(temp_path) / f"bh3_valkyrie_{today}_{ids}.json"
+                        if not temp_valkyrie.exists():
+                            await get_valkyrie_info(ids, temp_valkyrie)
+                        with open(temp_valkyrie, "r", encoding="utf-8") as f:
+                            valkyrie_info = json.load(f)
+                        # 获取图片/音频
+                        img_content = valkyrie_info['contents'][0]['text']
+                        audio_content = valkyrie_info['contents'][2]['text']
+    
+                        img_link, audio_links = await asyncio.gather(
+                            BH3_Data_base.get_valkyrie_img(img_content),
+                            BH3_Data_base.get_audio_links("舰桥互动", audio_content)
+                        )
+    
+                        r_data = random.choice(audio_links)
+                        output_silk_path = await download_audio(r_data['url'])
+    
+                        ext_str = valkyrie_info['ext']
+                        ext_data = json.loads(ext_str)
+                        text_array = json.loads(ext_data['c_18']['filter']['text'])
+                        summary = valkyrie_info['summary']
+                        no_property_list = ["角色/","初始阶级/"]
+                        text_array = [item for item in text_array if not any(prop in item for prop in no_property_list)]
+                        # 将/替换为：
+                        text_array = [item.replace("/", "：") for item in text_array]
+    
+                        img_data = {
+                            "img_link": img_link,
+                            "title": valkyrie_info['title'],
+                            "name": await get_valkyries_data_ext(ext_str, "角色/"),
+                            "text_array": text_array,
+                            "summary": summary,
+                            "text": r_data['text']
+                        }
                         get_first_obtained = datetime.fromtimestamp(item.first_obtained).strftime("%Y-%m-%d %H:%M:%S")
-                        r_msg = Message([
-                            MessageSegment.text(f"\n角色ID：{item.valkyrie_id}"
-                                                f"\n获取时间：{get_first_obtained}"
-                                                f"\n角色好感：{item.favorability}"
-                                                f"\n获取次数：{item.count}")
-                        ])
-                        await bh3_valkyries.finish(r_msg)
+                        if await user_valkyrie_info_img(img_data, user_valkyrie_info_img_path):
+                            r_msg = Message([
+                                 MessageSegment.file_image(user_valkyrie_info_img_path),
+                                 MessageSegment.text(
+                                     f"\n获取时间：{get_first_obtained}"
+                                     f"\n角色好感：{item.favorability}"
+                                     f"\n获取次数：{item.count}")
+                            ])
+                            await bh3_valkyries.send(r_msg)
+    
+                            if output_silk_path is None:
+                                logger.error("下载音频失败")
+                                await bh3_valkyries.finish("下载音频失败，请稍后再试...")
+                            await bh3_valkyries.send(MessageSegment.file_audio(Path(output_silk_path)))
+                            await delete_file(user_valkyrie_info_img_path)
+                            await delete_file(output_silk_path)
+                            await bh3_valkyries.finish()
+                        else:
+                            await bh3_valkyries.finish("女武神信息生成失败，请稍后再试...")
                 await bh3_valkyries.finish("你还没有获得过这个助理哦!~")
         
         # 生成助理列表信息图片

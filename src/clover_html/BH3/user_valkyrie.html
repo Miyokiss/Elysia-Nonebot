@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background-color: #1b2b48;
+            color: #fff;
+            overflow: hidden;
+            background: url(../res/image/valkyrie_bg.png) no-repeat center;
+        }
+
+        .character-container {
+            width: 1185px;
+            height: 624px;
+            position: relative;
+            background-size: cover;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        .character-img {
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .character-info {
+            width: calc(100% - 50%);
+            z-index: 1;
+            max-width: 500px;
+            text-align: right;
+        }
+
+        .character-info h1 {
+            width: 50%;
+            margin-left: 50%;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+            font-size: 58px;
+            margin-bottom: 10px;
+            color: #fcd12a;
+        }
+
+        .character-info h2 {
+            font-size: 20px;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .property-list {
+            display: flex;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            color: #cfcfcf;
+        }
+
+        .property-item {
+            width: 50%;
+            font-size: 18px;
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+
+        .desc {
+            font-size: 16px;
+            opacity: 0.9;
+            line-height: 1.8;
+            margin-top: 20px;
+            z-index: 1;
+            padding: 0.6rem 1rem;
+            text-align: left;
+            background: rgba(0, 0, 0, 0.25);
+            border-top: 1px solid rgba(255, 255, 255, 0.4);
+            color: #a8abb1;
+        }
+
+        .bottom {
+            width: 100%;
+            display: flex;
+            position: absolute;
+            bottom: 0;
+            margin-bottom: 3px;
+            margin-left: 3px;
+            font-size: 12px;
+            opacity: 0.3;
+        }
+
+        .bottom-left {
+            width: calc(100% - 50%);
+        }
+
+        .bottom-right {
+            position: relative;
+            width: calc(100% - 51.1%);
+        }
+
+        .bottom p {
+            margin: 0;
+        }
+
+        .bottom-right p {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="character-container">
+        <img src="{{data.img_link}}" alt="{{data.title}}" class="character-img">
+        <div class="character-info">
+            <h1>{{data.name}}</h1>
+            <h2>{{data.title}}</h2>
+            <div class="property-list">
+                {% for item in data.text_array %}
+                <div class="property-item">{{item}}</div>
+                {% endfor %}
+            </div>
+            <p class="desc">
+                {{data.summary}}
+                {% if data.text %}
+                    <br>——「{{data.text}}」
+                {% endif %}
+            </p>
+        </div>
+        <div class="bottom">
+            <div class="bottom-left">
+                <p>©版权归MiHoYo所有</p>
+                <p>**数据/素材来源 <i style="color: aqua;">圣芙蕾雅档案馆</i> 每日更新**</p>
+            </div>
+            <div class="bottom-right">
+                <p>By Elysia Bot</p>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

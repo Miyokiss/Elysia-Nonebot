@@ -46,3 +46,23 @@ async def valkyrie_info_img(data, temp_file):
     await save_img(image_bytes,temp_file)
     await browser.close()
     return True
+
+async def user_valkyrie_info_img(data, temp_file):
+    """
+    获取用户角色信息图片
+    """
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+    image_bytes = await template_to_pic(
+        template_path=getcwd() + "/src/clover_html/BH3",
+        template_name="user_valkyrie.html",
+        templates={"data": data},
+        pages={
+            "viewport": {"width": 1185, "height": 1},
+            "base_url": f"file://{getcwd()}",
+        },
+        wait=2,
+    )
+    await save_img(image_bytes,temp_file)
+    await browser.close()
+    return True
