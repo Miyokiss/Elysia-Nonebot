@@ -76,6 +76,9 @@ async def handle_function(message: MessageEvent):
             else:
                 # 搜索结果为单个 设定每日助理角色且增加好感
                 logger.debug(f"用户 {user_id} 指定女武神ID: {ids}")
+                # 判断是否获得该女武神
+                if not await BH3_User_Valkyries.get_user_valkyrie_data(user_id, ids):
+                    await bh3_valkyries.finish("你还没获得该女武神！无法设置为助理...")
 
                 last_set_time = datetime.fromtimestamp(user_assistant.last_set_time).date()
                 logger.debug(f"用户 {user_id} 上次设置理时间: {last_set_time}, 今天日期: {today}")
@@ -291,7 +294,7 @@ async def handle_function(message: MessageEvent):
                                                 f"\n获取次数：{item.count}")
                         ])
                         await bh3_valkyries.finish(r_msg)
-                await bh3_valkyries.finish("你还没有获取过这个助理哦!~")
+                await bh3_valkyries.finish("你还没有获得过这个助理哦!~")
         
         # 生成助理列表信息图片
         temp_info_img_path = Path(temp_path) / f"bh3_valkyries_info_{user_id}_{today}_{uuid.uuid4().hex}.png"
