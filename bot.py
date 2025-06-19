@@ -1,6 +1,7 @@
 import os
 import glob
 import nonebot
+import logging.config
 from pathlib import Path
 from nonebot import logger
 from nonebot.log import default_format
@@ -13,6 +14,9 @@ __name__ = "Bot"
 # 记录 PID 到文件
 with open("bot.pid", "w") as f:
     f.write(str(os.getpid()))
+    
+# 加载全局日志配置文件
+logging.config.fileConfig('logging.conf')
 
 nonebot.init()
 driver = nonebot.get_driver()
