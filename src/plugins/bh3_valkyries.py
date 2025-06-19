@@ -313,4 +313,5 @@ async def handle_function(message: MessageEvent):
             logger.error("生成助理列表信息图片失败")
             await bh3_valkyries.finish("生成助理列表信息图片失败，请稍后再试...")             
     else:
-        await bh3_valkyries.finish("指令有误 Tips:\n 指令：/我的助理 <角色关键字/ID> \n例：/我的助理 979 来获取助理信息哦~!\n指令：/今日助理 <角色关键字/ID> \n例：/今日助理 979 来设置助理哦~!")
+        await bh3_valkyries.send("指令有误 Tips:\n 指令：/我的助理 <角色关键字/ID> \n例：/我的助理 979 来获取助理信息哦~!\n指令：/今日助理 <角色关键字/ID> \n例：/今日助理 979 来设置助理哦~!")
+        await bh3_valkyries.finish(MessageSegment.keyboard(Keyboard_valkyrie))
