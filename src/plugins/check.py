@@ -21,7 +21,7 @@ from nonebot.adapters.qq import MessageSegment,MessageEvent,Message
 from src.configs.path_config import temp_path,image_local_qq_image_path,AUDIO_PATH
 from src.providers.llm.elysiacmd  import has_elysia_command_regex,elysia_command
 
-menu = ["/今日运势","/今日塔罗",
+menu = ["/今日运势","/今日塔罗","/今日助理","/我的助理"
         "/图","/随机图",
         "/搜番",
         "/日报",
@@ -70,6 +70,8 @@ async def handle_function(message: MessageEvent):
     if content.startswith("/"):
         r_msg = f"收到内容：{content}\n{random.choice(text_list)}"
         await check.finish(r_msg)
+    if content.startswith("新的对话") or content.startswith("新的记忆"):
+        await check.finish("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
     elif status == 0 or status == 2:
         try:
             if status == 0:
