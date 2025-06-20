@@ -1,7 +1,10 @@
 import random
-from datetime import datetime
+from nonebot.log import logger
+from typing import Optional
 from tortoise import fields
+from datetime import datetime
 from typing_extensions import Self
+from tortoise.exceptions import MultipleObjectsReturned
 from src.clover_sqlite.data_init.db_connect import Model
 
 class QrFortune(Model):
@@ -57,14 +60,40 @@ class QrFortuneLog(Model):
         table_description = "获取运势日志表"
 
     @classmethod
-    async def is_get_fortune_log(cls, member_openid: str | None) -> Self | None:
+    async def is_get_fortune_log(cls, member_openid: Optional[str]) -> Optional[Self]:
         """
         判断用户是否已经获取过运势，如果已经获取过则返回记录，否则返回None
-        :param member_openid:
-        :return:
+        增加异常处理防止多记录返回
+
+        Args:
+            member_openid (Optional[str]): 用户唯一标识
+
+        Returns:
+            Optional[Self]: 查询结果，若存在多个结果则清理后返回最新记录
         """
-        existing_record = await cls.get_or_none(user_id=member_openid, extract_time=datetime.now().date())
-        return existing_record
+        if not member_openid:
+            logger.error("无效的用户ID")
+            return None
+        now = datetime.now().date()
+        try:
+            return await cls.get_or_none(
+                user_id=member_openid, 
+                extract_time=now
+            )
+        except MultipleObjectsReturned as e:
+            # 处理多对象返回异常
+            logger.warning(f"用户 {member_openid} 获取运势日志时发生多记录返回异常 {e}")
+            records = await cls.filter(
+                user_id=member_openid, 
+                extract_time=now
+            ).order_by("-id")
+            if records:
+                # 保留最新的一条记录
+                keep_record = records[0]
+                delete_ids = [r.id for r in records[1:]]
+                await cls.filter(id__in=delete_ids).delete()
+                logger.warning(f"检测到重复记录，已清理用户 {member_openid} 的 {len(delete_ids)} 条重复数据")
+                return keep_record
 
     @classmethod
     async def insert_fortune_log(cls, model:QrFortune | None, member_openid: str | None):
