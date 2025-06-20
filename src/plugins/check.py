@@ -71,7 +71,8 @@ async def handle_function(message: MessageEvent):
         r_msg = f"收到内容：{content}\n{random.choice(text_list)}"
         await check.finish(r_msg)
     if content.startswith("新的对话") or content.startswith("新的记忆"):
-        await check.finish("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
+        await check.send("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
+        await check.finish(MessageSegment.keyboard(Keyboard_ai))
     elif status == 0 or status == 2:
         try:
             if status == 0:
