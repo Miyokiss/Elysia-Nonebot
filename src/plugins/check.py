@@ -1,3 +1,4 @@
+import re
 import random
 import asyncio
 import subprocess
@@ -143,7 +144,9 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                     if tone is None:
                         raise ValueError('tone is None')
                     tts = TTSProvider()
-                    result = await tts.to_tts(txt ,tone)
+                    # 移除（）和()和括号内文本
+                    text = re.sub(r'\([^)]*\)', '', txt)
+                    result = await tts.to_tts(text ,tone)
                     if not result:
                         raise Exception("TTS 生成失败，结果为空")
                     file_path = result["file_path"]
