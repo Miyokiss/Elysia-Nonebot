@@ -55,7 +55,7 @@
 
         .character-info h2 {
             font-size: 20px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             opacity: 0.9;
         }
 
@@ -84,6 +84,46 @@
             background: rgba(0, 0, 0, 0.25);
             border-top: 1px solid rgba(255, 255, 255, 0.4);
             color: #a8abb1;
+        }
+
+        .character-holding {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            text-align: left;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .character-holding h3 {
+            font-size: 18px;
+            color: #fcd12a;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+
+        .holding-content {
+            width: 70%;
+        }
+
+        .holding-item {
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #cfcfcf;
+        }
+
+        .holding-image {
+            width: 30%;
+            text-align: center;
+        }
+
+        .holding-image img {
+            width: 80px;
+            max-height: 120px;
+            object-fit: contain;
         }
 
         .bottom {
@@ -135,6 +175,17 @@
                     <br>——「{{data.text}}」
                 {% endif %}
             </p>
+            <div class="character-holding">
+                <h3>持有信息</h3>
+                <div class="holding-content">
+                    <div class="holding-item">获取时间：{{data.get_first_obtained}}</div>
+                    <div class="holding-item">角色好感：{{data.favorability}}</div>
+                    <div class="holding-item">获取次数：{{data.count}}</div>
+                </div>
+                <div class="holding-image">
+                    <img src="{{data.rank}}" alt="角色等阶">
+                </div>
+            </div>
         </div>
         <div class="bottom">
             <div class="bottom-left">
