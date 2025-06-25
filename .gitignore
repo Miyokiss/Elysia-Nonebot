@@ -42,3 +42,5 @@ runtime
 bot.pid
 .vscode/launch.json
 logging.conf
+src/providers/waf/Banned.txt
+src/providers/waf/Non_replying.txt
