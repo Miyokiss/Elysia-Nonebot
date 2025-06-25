@@ -1,16 +1,16 @@
 import os
 import uuid
+import asyncio
 import requests
 from pathlib import Path
 from datetime import datetime
 from src.clover_music.cloud_music.data_base import netease_music_search_info_img,netease_music_info_img
-from src.clover_music.cloud_music.cloud_music import music_download
+from src.clover_music.cloud_music.cloud_music import music_download, netease_music_download
 from src.configs.path_config import temp_path
 from nonebot import on_command
-from nonebot.rule import to_me
-from nonebot.exception import FinishedException
-from nonebot.adapters.qq import MessageSegment,MessageEvent
-from src.clover_music.cloud_music.cloud_music import *
+from nonebot.rule import Rule, to_me
+from nonebot.exception import FinishedException, PausedException
+from nonebot.adapters.qq import MessageSegment, MessageEvent, Message
 from src.clover_image.delete_file import delete_file
 from nonebot import logger
 
@@ -22,26 +22,45 @@ music = on_command("点歌", rule=to_me(), priority=10, block=False)
 @music.handle()
 async def handle_function(msg: MessageEvent) -> None:
     try:
-        values = msg.get_plaintext().removeprefix("/点歌").strip().split()
+        keyword = msg.get_plaintext().removeprefix("/点歌").strip()
         session = requests.session()
 
-        if not values or not all(values):
-            await music.finish("\n请输入“/点歌+歌曲名”喔🎶")
+        if not keyword or not all(keyword):
+            await music.finish("\n请输入“/点歌+歌曲名”喔")
 
-        keyword = values[0]
         temp_file = os.path.join(temp_path, f"{datetime.now().date()}_{uuid.uuid4().hex}.png")
 
-        if len(values) == 1:
-            r_search_info_img = await netease_music_search_info_img(keyword, session, temp_file)
-            if r_search_info_img is None:
-                await music.finish("\n没有找到歌曲，或检索到的歌曲为付费/无版权喔qwq\n这绝对不是我的错，绝对不是！")
-            await music.send(MessageSegment.file_image(Path(temp_file)))
-        elif len(values) == 2:
-            if keyword == '-':
-                await music.finish()
-            idx = values[1]
-            if not idx.isdigit() or int(idx) < 1 or int(idx) > 10:
+        r_search_info_img = await netease_music_search_info_img(keyword, session, temp_file)
+        if r_search_info_img is None:
+            await music.finish("\n没有找到歌曲，或检索到的歌曲为付费/无版权喔qwq\n这绝对不是我的错，绝对不是！")
+        
+        # 发送搜索结果并等待用户选择
+        r_msg = Message([
+            MessageSegment.file_image(Path(temp_file)),
+            MessageSegment.text("\n请直接回复要听的歌曲序号哦！(1-10)")
+        ])
+        try:
+            await music.send(r_msg)
+            # 创建异步等待
+            future = asyncio.get_event_loop().create_future()
+
+            # 定义临时 matcher 处理用户回复
+            from nonebot.matcher import Matcher
+            choice_matcher = Matcher.new(
+                rule=Rule(lambda event: event.get_user_id() == msg.get_user_id()),
+                handlers=[lambda bot, event: future.set_result(event)],
+                priority=0,
+                block=True
+            )
+            # 等待用户回复（超时15秒）
+            reply_event = await asyncio.wait_for(future, timeout=15)
+            choice = reply_event.get_plaintext().strip()
+
+            if not choice.isdigit() or int(choice) < 1 or int(choice) > 10:
                 await music.finish("\n序号必须是数字且在1-10范围内喔qwq")
+
+            idx = choice
+            # 继续执行下载流程
             music_info = await netease_music_info_img(keyword, session, idx, temp_file)
             if music_info is None:
                 await music.finish("\n没有找到歌曲，或检索到的歌曲为付费/无版权喔qwq\n这绝对不是我的错，绝对不是！")
@@ -57,13 +76,12 @@ async def handle_function(msg: MessageEvent) -> None:
             else:
                 await music.send(MessageSegment.file_audio(Path(output_silk_path)))
                 await delete_file(output_silk_path)
-        else:
-            await music.finish("\n输入有误，请检查格式或歌曲名称里是否有空格喔qwq")
-
-        await delete_file(temp_file)
-        await music.finish()
+        finally:
+            choice_matcher.destroy()
+    except asyncio.TimeoutError:
+        logger.info(f"点歌选择超时 User: {msg.get_user_id()} Keyword: {keyword}")
     except Exception as e:
-        if isinstance(e, FinishedException):
+        if isinstance(e, FinishedException, PausedException):
             return
         logger.error(f"处理点歌请求时发生错误: {e}")
         r_msg = "未知错误，请稍后再试"
