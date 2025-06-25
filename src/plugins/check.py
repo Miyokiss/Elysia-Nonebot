@@ -5,22 +5,23 @@ import subprocess
 from pathlib import Path
 from nonebot import logger
 from graiax import silkcoder
-from nonebot import  on_message
+from nonebot import on_message
 from nonebot.rule import Rule, to_me
 from src.clover_openai import ai_chat
-from src.providers.llm.AliBL import BLChatRole
 from src.utils.tts import MarkdownCleaner
-from nonebot.exception import FinishedException
+from src.providers.llm.AliBL import BLChatRole
 from src.clover_sqlite.models.user import UserList
 from src.configs.Keyboard_config import Keyboard_ai
-from src.clover_image.delete_file import delete_file
 from src.providers.llm.AliBL.base import on_bl_chat
+from src.clover_image.delete_file import delete_file
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
 from nonebot.plugin import on_command, on_keyword, on_fullmatch
-from nonebot.adapters.qq import MessageSegment,MessageEvent,Message
-from src.configs.path_config import temp_path,image_local_qq_image_path,AUDIO_PATH
-from src.providers.llm.elysiacmd  import has_elysia_command_regex,elysia_command
+from nonebot.exception import FinishedException, PausedException
+from nonebot.adapters.qq import MessageSegment, MessageEvent, Message
+from src.providers.llm.elysiacmd import has_elysia_command_regex, elysia_command
+from src.configs.path_config import temp_path, image_local_qq_image_path, AUDIO_PATH
+
 
 menu = ["/今日运势","/今日塔罗","/今日助理","/我的助理"
         "/图","/随机图",
@@ -75,13 +76,10 @@ async def handle_function(message: MessageEvent):
         await check.send("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
         await check.finish(MessageSegment.keyboard(Keyboard_ai))
     elif status == 0 or status == 2:
-        try:
-            if status == 0:
-                await asyncio.wait_for(handle_Elysia_response(message), timeout=30)
-            elif status == 2:
-                await asyncio.wait_for(handle_Elysia_response(message,on_tts = True), timeout=40)
-        except asyncio.TimeoutError:
-            await check.finish("响应超时，请稍后再试")
+        if status == 0:
+            await asyncio.wait_for(handle_Elysia_response(message), timeout=250)
+        elif status == 2:
+            await asyncio.wait_for(handle_Elysia_response(message,on_tts = True), timeout=250)
     elif status == 1:
         msg = await ai_chat.deepseek_chat(group_openid, content)
         await check.finish(msg)
@@ -99,7 +97,55 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
     """Elysia Chat 响应"""
     user_id = message.get_user_id()
     content = message.get_plaintext() or "空内容"
-
+    user_msg = await BLChatRole.get_chat_role_by_user_id(user_id)
+    if user_msg is None:
+        # 发送等待回复
+        r_msg = Message([
+            MessageSegment.file_image((Path(image_local_qq_image_path) / "AIchat.png")),
+            MessageSegment.text("请认真阅读并同意《AI服务使用协议与安全规范》相关内容后"
+                                +"\n回答此问题：本爱莉希雅出自那款游戏？"
+                                +"\n回复要求使用中文，不得使用其他语言符号或外号"
+                                +"\n回答正确即视为已阅读并同意遵守相关协议！")
+        ])
+        try:
+            await check.send(r_msg)
+            
+            # 创建异步消息接收器
+            future = asyncio.get_event_loop().create_future()
+            
+            # 定义临时 matcher 处理用户回复
+            from nonebot.matcher import Matcher
+            protocol_matcher = Matcher.new(
+                rule=Rule(lambda event: event.get_user_id() == user_id),
+                handlers=[lambda bot, event: future.set_result(event)],
+                priority=0,
+                block=True
+            )
+            
+            try:
+                # 等待用户回复（超时240秒）
+                r_content = await asyncio.wait_for(future, timeout=240)
+                # 显式获取消息内容
+                answer = r_content.get_plaintext().strip() if hasattr(r_content, 'get_plaintext') else str(r_content).strip()
+                if answer.lower() not in {"崩坏三", "崩坏3"}:
+                    await check.finish("回答错误，请重新开始对话。")
+                else:
+                    await check.send("回答正确，欢迎您！舰长~"
+                                     +"\nTips：如果在对话中遇到问题/错误/不想聊的话题/遇到胡言乱语，请尝试使用：/爱莉希雅 新的对话。"
+                                     +"\n如果爱莉记住了些奇怪的东西可以使用：/爱莉新希雅 新的记忆")
+                    content = "你好呀"
+            except asyncio.TimeoutError:
+                logger.info(f"check | 回复等待超时 User: {user_id} Content: {content}")
+                return
+            finally:
+                # 清理临时 matcher
+                protocol_matcher.destroy()
+            
+        except Exception as e:
+            if isinstance(e, (FinishedException, PausedException)):
+                return
+            logger.error(f"处理用户协议交互时发生错误: {e}", exc_info=True)
+            await check.finish("发生错误，请稍后再试。")
     async def _Elysia_Chat_task():
         try:
             user_msg = await BLChatRole.get_chat_role_by_user_id(user_id)
