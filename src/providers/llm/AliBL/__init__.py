@@ -2,6 +2,7 @@ from typing import Any
 from nonebot import logger
 from tortoise import fields
 from tortoise.fields import JSONField
+from datetime import datetime
 from typing_extensions import Self, Optional, List, Dict
 from src.clover_sqlite.data_init.db_connect import Model
 from tortoise.exceptions import DoesNotExist, IntegrityError
@@ -15,6 +16,9 @@ class BLChatRole(Model):
     is_session_id = fields.CharField(max_length=128, description="session_ID")
     memory_id = fields.CharField(max_length=128, description="memory_id")
     chat_logs = fields.JSONField(description="chat_logs", null=True)
+    is_banned = fields.BooleanField(default=False, description="是否被封禁")
+    ban_reason = fields.TextField(default="无", description="封禁原因")
+    ban_time = fields.IntField(default=0, description="封禁时间")
 
     class Meta:
         # 指定表名
@@ -67,7 +71,7 @@ class BLChatRole(Model):
     @classmethod
     async def update_chat_role_by_user_id(cls, user_id: List[str], **kwargs) -> bool:
         """
-        更新字段\n
+        更新字段
         :param user_id: 用户ID列表
         :param kwargs: 需要更新的字段
         :return: 是否更新成功
@@ -82,6 +86,29 @@ class BLChatRole(Model):
         except Exception as e:
             logger.error(f"Failed to update chat role: {e}")
             return False
+
+    @classmethod
+    async def update_ban_status(cls, user_id: str, is_banned: bool, reason: str = None) -> bool:
+        """
+        更新用户封禁状态
+        :param user_id: 用户ID列表
+        :param is_banned: 是否封禁
+        :param reason: 封禁原因（可选）
+        :return: 是否更新成功
+        """
+        try:
+            logger.info(f"Updating ban status for user_id: {user_id}, is_banned: {is_banned}")
+            update_data = {
+                'is_banned': is_banned,
+                'ban_reason': reason,
+                'ban_time': datetime.now().timestamp()
+            }
+            await cls.filter(user_id=user_id).update(**update_data)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update ban status: {e}")
+            return False
+
     @classmethod
     async def save_chat_logs_role_by_user_id(cls, user_id: str | None,content: dict[str, str | Any] | None):
         """

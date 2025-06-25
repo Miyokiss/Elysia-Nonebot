@@ -21,7 +21,9 @@ from nonebot.exception import FinishedException, PausedException
 from nonebot.adapters.qq import MessageSegment, MessageEvent, Message
 from src.providers.llm.elysiacmd import has_elysia_command_regex, elysia_command
 from src.configs.path_config import temp_path, image_local_qq_image_path, AUDIO_PATH
+from src.providers.waf.llm_waf import LLMWAF
 
+waf = LLMWAF()
 
 menu = ["/今日运势","/今日塔罗","/今日助理","/我的助理"
         "/图","/随机图",
@@ -146,6 +148,15 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                 return
             logger.error(f"处理用户协议交互时发生错误: {e}", exc_info=True)
             await check.finish("发生错误，请稍后再试。")
+    else:
+        ban_info = await waf.get_ban_reason(user_id)
+        if ban_info:
+            await check.finish(f"您的AI Chat已被封禁：{ban_info}\n请联使用 /help 指令咨询管理员了解详情")
+        is_k, is_i = await waf.process(user_id, content)
+        if is_k:
+            logger.info(f"用户：{user_id} {is_i} content：{content}")
+            return
+
     async def _Elysia_Chat_task():
         try:
             loop = asyncio.get_running_loop()

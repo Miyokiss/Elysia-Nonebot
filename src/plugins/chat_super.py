@@ -140,4 +140,24 @@ async def handle_function(message: MessageEvent):
             else:
                 await Elysia_super.finish("当前群已开启妖精爱莉聊天~")
 
-            
+
+Elysia_super_deban = on_command("deban",rule=to_me(),priority=1,block=True)
+@Elysia_super_deban.handle()
+async def handle_function(message: MessageEvent):
+    user_id, group_openid, content = message.get_user_id(), message.group_openid, message.get_plaintext().split()
+    if not hasattr(message, 'group_openid'):
+        await Elysia_super_deban.finish("暂未在当前场景下开放开启功能。")
+        # 判断是否为管理员
+    if not await GroupChatRole.get_admin_list(group_openid, user_id):
+        await Elysia_super_deban.finish("您没有权限使用此功能。")
+    try:
+        if len(content)==1:
+            await Elysia_super_deban.finish("请输入UserID")
+        if await BLChatRole.get_chat_role_by_user_id(content[1]) is None:
+            await Elysia_super_deban.finish("用户不存在")
+        await BLChatRole.filter(user_id=content[1]).update(is_banned=False)
+        await Elysia_super_deban.finish("解封成功")
+    except Exception as e:
+       if isinstance(e, FinishedException):
+           return
+       logger.error(f"Elysia_super_deban Error: {e}")
