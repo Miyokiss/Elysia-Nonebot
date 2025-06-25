@@ -148,10 +148,6 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
             await check.finish("发生错误，请稍后再试。")
     async def _Elysia_Chat_task():
         try:
-            user_msg = await BLChatRole.get_chat_role_by_user_id(user_id)
-            if user_msg is None:
-                await check.send("Tips：如果在对话中遇到问题/错误/不想聊的话题/遇到胡言乱语，请尝试使用：/爱莉希雅 新的对话。\n如果爱莉记住了些奇怪的东西可以使用：/爱莉新希雅 新的记忆")
-                await check.send(MessageSegment.keyboard(Keyboard_ai))
             loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, 
