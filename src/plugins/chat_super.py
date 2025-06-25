@@ -1,10 +1,13 @@
+import asyncio
 from pathlib import Path
-from nonebot.rule import to_me
+from nonebot.rule import Rule, to_me
 from nonebot.plugin import on_command
-from nonebot.exception import FinishedException
+from src.providers.llm.AliBL import BLChatRole
 from src.clover_image.delete_file import delete_file
 from src.clover_sqlite.models.chat import GroupChatRole
+from src.configs.path_config import image_local_qq_image_path
 from src.clover_sqlite.models.chat import MODE_ELYSIA, MODE_OFF
+from nonebot.exception import FinishedException, PausedException
 from nonebot.adapters.qq import MessageEvent, Message, MessageSegment
 from src.providers.llm.elysiacmd  import has_elysia_command_regex,elysia_command
 from src.providers.llm.AliBL.base import on_bl_new_session_id,on_bl_new_memory_id
@@ -22,6 +25,56 @@ async def handle_function(message: MessageEvent):
         user_id,content = message.get_user_id(), message.get_plaintext().split()
 
     logger.debug(f"\n{content}")
+    user_msg = await BLChatRole.get_chat_role_by_user_id(user_id)
+    if user_msg is None:
+        # 发送等待回复
+        r_msg = Message([
+            MessageSegment.file_image((Path(image_local_qq_image_path) / "AIchat.png")),
+            MessageSegment.text("请认真阅读并同意《AI服务使用协议与安全规范》相关内容后"
+                                +"\n回答此问题：本爱莉希雅出自那款游戏？"
+                                +"\n回复要求使用中文，不得使用其他语言符号或外号"
+                                +"\n回答正确即视为已阅读并同意遵守相关协议！")
+        ])
+        try:
+            await Elysia_super.send(r_msg)
+            
+            # 创建异步消息接收器
+            future = asyncio.get_event_loop().create_future()
+            
+            # 定义临时 matcher 处理用户回复
+            from nonebot.matcher import Matcher
+            protocol_matcher = Matcher.new(
+                rule=Rule(lambda event: event.get_user_id() == user_id),
+                handlers=[lambda bot, event: future.set_result(event)],
+                priority=0,
+                block=True
+            )
+            
+            try:
+                # 等待用户回复（超时240秒）
+                r_content = await asyncio.wait_for(future, timeout=240)
+                # 显式获取消息内容
+                answer = r_content.get_plaintext().strip() if hasattr(r_content, 'get_plaintext') else str(r_content).strip()
+                if answer.lower() not in {"崩坏三", "崩坏3"}:
+                    await Elysia_super.finish("回答错误，请重新开始对话。")
+                else:
+                    await Elysia_super.send("回答正确，欢迎您！舰长~"
+                                     +"\nTips：如果在对话中遇到问题/错误/不想聊的话题/遇到胡言乱语，请尝试使用：/爱莉希雅 新的对话。"
+                                     +"\n如果爱莉记住了些奇怪的东西可以使用：/爱莉新希雅 新的记忆")
+                    content = "你好呀"
+            except asyncio.TimeoutError:
+                logger.info(f"check | 回复等待超时 User: {user_id} Content: {content}")
+                return
+            finally:
+                # 清理临时 matcher
+                protocol_matcher.destroy()
+            
+        except Exception as e:
+            if isinstance(e, (FinishedException, PausedException)):
+                return
+            logger.error(f"处理用户协议交互时发生错误: {e}", exc_info=True)
+            await Elysia_super.finish("发生错误，请稍后再试。")
+    
     if content[0] == "/爱莉希雅":
         values = message.get_plaintext().replace("/爱莉希雅", "").split()
         try:
