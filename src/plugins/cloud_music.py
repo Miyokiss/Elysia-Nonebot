@@ -52,8 +52,8 @@ async def handle_function(msg: MessageEvent) -> None:
                 priority=0,
                 block=True
             )
-            # 等待用户回复（超时15秒）
-            reply_event = await asyncio.wait_for(future, timeout=15)
+            # 等待用户回复（超时30秒）
+            reply_event = await asyncio.wait_for(future, timeout=30)
             choice = reply_event.get_plaintext().strip()
 
             if not choice.isdigit() or int(choice) < 1 or int(choice) > 10:
@@ -81,7 +81,7 @@ async def handle_function(msg: MessageEvent) -> None:
     except asyncio.TimeoutError:
         logger.info(f"点歌选择超时 User: {msg.get_user_id()} Keyword: {keyword}")
     except Exception as e:
-        if isinstance(e, FinishedException, PausedException):
+        if isinstance(e, (FinishedException, PausedException)):
             return
         logger.error(f"处理点歌请求时发生错误: {e}")
         r_msg = "未知错误，请稍后再试"
