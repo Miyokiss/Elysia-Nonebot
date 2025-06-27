@@ -106,7 +106,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
             MessageSegment.file_image((Path(image_local_qq_image_path) / "AIchat.png")),
             MessageSegment.text("请认真阅读并同意《AI服务使用协议与安全规范》相关内容后"
                                 +"\n回答此问题：本爱莉希雅出自那款游戏？"
-                                +"\n回复要求使用中文，不得使用其他语言符号或外号"
+                                +"\n回复游戏名称！要求使用中文，不得使用其他语言符号或外号"
                                 +"\n回答正确即视为已阅读并同意遵守相关协议！")
         ])
         try:
