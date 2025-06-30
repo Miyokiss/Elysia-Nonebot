@@ -1,24 +1,10 @@
 from datetime import datetime
 from typing import Dict, List, Optional
-from src.providers.llm.AliBL import BLChatRole
+from src.providers.llm.AliBL import BLChatRole, BLChatRoleLog
 from src.providers.llm.AliBL.AliBL_API import AliBLAPI
 from nonebot import logger
 
 __name__ = "AliBL_Base"
-
-async def _create_chat_log(user_content: str, assistant_content: str) -> List[Dict[str, str]]:
-    """创建聊天记录"""
-    return [
-        {
-            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "role": "user",
-            "content": user_content
-        },
-        {
-            "role": "assistant",
-            "content": assistant_content
-        }
-    ]
 
 async def _handle_new_user(user_id: str, content: str) -> str:
     """处理新用户"""
@@ -27,12 +13,15 @@ async def _handle_new_user(user_id: str, content: str) -> str:
     is_session_id = chat_msg["session_id"]
     r_msg = chat_msg["content"]
     
-    chat_logs_msg = await _create_chat_log(content, r_msg)
+    await BLChatRoleLog.save_chat_log(
+        user_id=user_id,
+        user_content=content,
+        assistant_content=r_msg
+    )
     await BLChatRole.create_chat_role(
         user_id=user_id,
         is_session_id=is_session_id,
-        memory_id=memory_id,
-        chat_logs=chat_logs_msg
+        memory_id=memory_id
     )
     return r_msg
 
@@ -47,10 +36,10 @@ async def _handle_existing_user(user_id: str, content: str, user_msg) -> str:
     )
     r_msg = chat_msg["content"]
     
-    chat_logs_msg = await _create_chat_log(content, r_msg)
-    await BLChatRole.save_chat_logs_role_by_user_id(
+    await BLChatRoleLog.save_chat_log(
         user_id=user_id,
-        content=chat_logs_msg
+        user_content=content,
+        assistant_content=r_msg
     )
     return r_msg
 

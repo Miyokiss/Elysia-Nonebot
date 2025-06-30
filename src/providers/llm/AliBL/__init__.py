@@ -16,7 +16,6 @@ class BLChatRole(Model):
     user_id = fields.CharField(max_length=128,description="user_id")
     is_session_id = fields.CharField(max_length=128, description="session_ID")
     memory_id = fields.CharField(max_length=128, description="memory_id")
-    chat_logs = fields.JSONField(description="chat_logs", null=True)
     is_banned = fields.BooleanField(default=False, description="是否被封禁")
     ban_reason = fields.TextField(default="无", description="封禁原因")
     ban_time = fields.IntField(default=0, description="封禁时间")
@@ -27,21 +26,20 @@ class BLChatRole(Model):
         table_description = "百炼聊天表"
 
     @classmethod
-    async def create_chat_role(cls, user_id: List[str], is_session_id: str, memory_id: str, chat_logs: Optional[Dict] = None) -> Self:
+    async def create_chat_role(cls, user_id: List[str], is_session_id: str, memory_id: str) -> Self:
         """
         创建新的聊天角色记录\n
         :param user_id: 用户ID列表
         :param is_session_id: 会话ID
         :param memory_id: 记忆ID
-        :param chat_logs: 聊天记录
         :return: 创建的记录对象
 
         示例:
-        await BLChatRole.create_chat_role(user_id=["12345"], is_session_id="session_123", memory_id="memory_123", chat_logs={"message": "Hello"})
+        await BLChatRole.create_chat_role(user_id=["12345"], is_session_id="session_123", memory_id="memory_123")
         """
         try:
             logger.info(f"Creating chat role for user_id: {user_id}, session_id: {is_session_id}, memory_id: {memory_id}")
-            return await cls.create(user_id=user_id, is_session_id=is_session_id, memory_id=memory_id, chat_logs=chat_logs)
+            return await cls.create(user_id=user_id, is_session_id=is_session_id, memory_id=memory_id)
         except IntegrityError as e:
             logger.error(f"Failed to create chat role due to integrity error: {e}")
             raise ValueError("Failed to create chat role due to integrity error") from e
@@ -124,22 +122,6 @@ class BLChatRole(Model):
             return False
 
     @classmethod
-    async def save_chat_logs_role_by_user_id(cls, user_id: str | None,content: dict[str, str | Any] | None):
-        """
-        保存聊天上下文
-
-        :param group_id: 群聊的ID。
-        :param content: 要保存的内容。
-        """
-        history = await cls.filter(user_id=user_id).first()
-        if history.chat_logs is None:
-            history.chat_logs = [content]
-            await history.save()
-        else:
-            history.chat_logs.append(content)
-            await history.save()
-
-    @classmethod
     async def delete_chat_role_by_user_id(cls, user_id: List[str]) -> bool:
         """
         删除用户表\n
@@ -156,3 +138,31 @@ class BLChatRole(Model):
         except Exception as e:
             logger.error(f"Failed to delete chat role: {e}")
             return False
+
+
+class BLChatRoleLog(Model):
+    """
+    聊天记录表
+    """
+    id = fields.IntField(primary_key=True, generated=True, auto_increment=True)
+    user_id = fields.CharField(max_length=128,description="user_id")
+    user_content = fields.TextField(description="用户输入", null=True)
+    assistant_content = fields.TextField(description="模型输出", null=True)
+    save_time = fields.DateField(description="保存时间", null=True)
+    class Meta:
+        # 指定表名
+        table = "bl_chat_role_log"
+        table_description = "聊天记录表"
+
+    @classmethod
+    async def save_chat_log(cls, user_id: str, user_content: str, assistant_content: str):
+        """
+        保存聊天上下文
+        :param user_id: 用户ID
+        :param user_content: 用户输入
+        :param assistant_content: 模型输出
+        """
+        await cls.create(user_id=user_id, 
+                         user_content=user_content, 
+                         assistant_content=assistant_content,
+                         save_time=datetime.now())
