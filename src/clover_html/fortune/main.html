@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>今日运势</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f8f0f2;
+        }
+        
+        .fortune-container {
+            position: relative;
+            width: 540px;
+            height: 1006.5px;
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(200, 150, 160, 0.3);
+        }
+        
+        .bg-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }
+        
+        .content-area {
+            position: absolute;
+            width: 100%;
+            padding: 20px 30px;
+            color: #6a2c45;
+        }
+        
+        .top-content {
+            top: 0;
+            text-align: center;
+            padding-top: 25px;
+        }
+        
+        .bottom-content {
+            bottom: 0;
+        }
+        
+        /* 标题样式 */
+        .fortune-title {
+            text-align: center;
+            color: #f1cb4e;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 5px;
+            letter-spacing: 1px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            background-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+        }
+        
+        /* 星级样式 */
+        .stars {
+            font-size: 24px;
+            margin: 15px 0;
+            color: #ebc64b;
+        }
+        
+        /* 签文样式 */
+        .qianwen {
+            font-size: 20px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* 解签样式 */
+        .jieqian {
+            font-size: 18px;
+            line-height: 1.8;
+            background-color: rgba(255, 255, 255, 0.6);
+            font-weight: bold;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        /* 警示文本样式 */
+        .warning {
+            font-size: 15px;
+            color: rgba(255, 0, 0, 0.3);
+            margin-top: 15px;
+            background-color: rgba(255, 235, 238, 0.8); /* 浅红色背景 */
+            padding: 10px 15px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="fortune-container">
+        <img src="../res/image/fortune_bg.jpeg" alt="运势背景图" class="bg-image">
+        
+        <!-- 顶部内容区域 -->
+        <div class="content-area top-content">
+            <p class="stars">{{data.lucky_star}}</p>
+            <p class="qianwen">签文：{{data.sign_text}}</p>
+        </div>
+        
+        <!-- 底部内容区域 -->
+        <div class="content-area bottom-content">
+            <h2 class="fortune-title">{{data.fortune_summary}}</h2>
+            <p class="jieqian">解签：{{data.un_sign_text}}</p>
+            <p class="warning">每日运势仅供娱乐，记得相信科学哦，不过偶尔看看也无妨，对吧？</p>
+        </div>
+    </div>
+</body>
+</html>
