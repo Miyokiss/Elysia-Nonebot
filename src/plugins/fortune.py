@@ -11,7 +11,6 @@ from playwright.async_api import async_playwright
 from nonebot_plugin_htmlrender import template_to_pic
 from nonebot.adapters.qq import Message, MessageEvent, MessageSegment
 from src.configs.Keyboard_config import Keyboard_fortune
-from nonebot.adapters.qq.message import MessageKeyboard
 from src.clover_sqlite.models.fortune import QrFortune
 from src.clover_sqlite.models.tarot import TarotExtractLog
 from src.clover_music.cloud_music.data_base import save_img
@@ -94,4 +93,5 @@ async def get_tarot(message: MessageEvent):
             logger.error(f"获取塔罗牌失败：{e}")
             await tarot.finish("您的塔罗牌被未来人抢走啦，请重试。这绝对不是咱的错，绝对不是！")
     else:
-        await tarot.finish(MessageSegment.file_image(Path(result.image)))
+        await tarot.send(MessageSegment.file_image(Path(result.image)))
+        await tarot.finish(MessageSegment.keyboard(Keyboard_fortune))
