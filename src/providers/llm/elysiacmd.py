@@ -12,6 +12,7 @@ from playwright.async_api import async_playwright
 from nonebot_plugin_htmlrender import template_to_pic
 from src.clover_music.cloud_music.cloud_music import music_download, netease_music_download
 from src.clover_music.cloud_music.data_base import netease_music_info_img
+from src.utils.date_info import DateInfo
 
 __name__ = "Elysia_cmd"
 
@@ -143,8 +144,14 @@ async def _elysia_info_img(info_data: json) -> str:
     if os.path.exists(temp_file):
         with open(temp_file,"rb") as image_file:
             return image_file.read()
+    date_info = DateInfo()
+    week = date_info.get_weekday()
+    is_holiday, holiday = date_info.check_holiday()
     data = {
          "info_data": info_data,
+         "week": week,
+         "is_holiday": is_holiday,
+         "holiday": holiday,
     }
     logger.debug(f"data：{data}")
     async with async_playwright() as p:
