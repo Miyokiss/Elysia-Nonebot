@@ -3,6 +3,7 @@ from nonebot import logger
 from tortoise import fields
 from tortoise.fields import JSONField
 from datetime import datetime
+from tortoise.exceptions import MultipleObjectsReturned
 from typing_extensions import Self, Optional, List, Dict
 from src.clover_sqlite.data_init.db_connect import Model
 from tortoise.exceptions import DoesNotExist, IntegrityError
@@ -61,6 +62,19 @@ class BLChatRole(Model):
         try:
             logger.info(f"Fetching chat role for user_id: {user_id}")
             return await cls.get(user_id=user_id)
+        except MultipleObjectsReturned as e:
+            # 处理多对象返回异常
+            logger.warning(f"获取 {user_id}  {e}")
+            records = await cls.filter(
+                user_id=user_id
+            ).order_by("-id")
+            if records:
+                # 保留最新的一条记录
+                keep_record = records[0]
+                delete_ids = [r.id for r in records[1:]]
+                await cls.filter(id__in=delete_ids).delete()
+                logger.warning(f"检测到重复记录，已清理用户 {user_id} 的 {len(delete_ids)} 条重复数据")
+                return keep_record
         except DoesNotExist:
             logger.info(f"No chat role found for user_id: {user_id}")
             return None
