@@ -16,7 +16,8 @@ with open("bot.pid", "w") as f:
     f.write(str(os.getpid()))
     
 # 加载全局日志配置文件
-logging.config.fileConfig('logging.conf')
+config_path = os.path.normpath(os.path.abspath(r'logging.conf'))
+logging.config.fileConfig(config_path)
 
 nonebot.init()
 driver = nonebot.get_driver()
