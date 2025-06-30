@@ -37,7 +37,7 @@
     <div class="w-[580px] w-full">
         <div class="bg-dark/80 rounded-lg pixel-border p-4">
             <div class="flex justify-between text-xs font-pixel text-light/70 mb-3">
-                <span>{{data.info_data.time}}</span>
+                <span>{{data.info_data.time}}  {{data.week}}  {% if data.is_holiday %}{{data.holiday}}{% endif %}</span>
             </div>
             
             <div class="bg-primary/10 rounded border border-primary/30 p-2.5 mb-3">

@@ -13,6 +13,7 @@ from alibabacloud_tea_openapi import models as open_api_models
 from alibabacloud_bailian20231229 import models as bailian_20231229_models
 from alibabacloud_tea_util import models as util_models
 from alibabacloud_tea_util.client import Client as UtilClient
+from src.utils.date_info import DateInfo
 
 __name__ = "AliBL API"
 
@@ -64,6 +65,9 @@ class AliBLAPI:
             logger.error("【阿里百练API服务】memory_id不能为空")
             return "【阿里百练API服务】memory_id不能为空"
         etime = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        date_info = DateInfo()
+        week = date_info.get_weekday()
+        is_holiday, holiday = date_info.check_holiday()
         call_params = {
             "api_key": ALI_KEY,
             "app_id": ALI_BLAPP_ID,
@@ -72,7 +76,9 @@ class AliBLAPI:
             "workspace": workspaceId,
             "biz_params": {
                 "user_prompt_params":{
-                    "Etime": etime
+                    "Etime": etime,
+                    "Weekday": week,
+                    "Holiday": holiday
                 }
             }
         }
