@@ -12,7 +12,7 @@ from src.configs.path_config import temp_path
 from nonebot.exception import FinishedException
 from src.clover_image.delete_file import delete_file
 from src.bh3_valkyries.data_base import BH3_Data_base
-from src.bh3_valkyries import BH3_User_Assistant, BH3_User_Valkyries
+from src.bh3_valkyries import BH3_User_Assistant, BH3_User_Valkyries, BH3_User_Valkyrie_Log
 from nonebot.adapters.qq import   MessageSegment,MessageEvent, Message
 from src.bh3_valkyries.base import valkyries_info_img, valkyrie_info_img, user_valkyrie_info_img, get_valkyrie_audio_info, get_today_valkyrie_file
 
@@ -264,7 +264,7 @@ async def handle_function(message: MessageEvent):
                 last_get_time=current_time
             )
             # 写入日志
-            await BH3_User_Assistant.record_get_valkyrie_log(user_id, content_id, current_time)
+            await BH3_User_Valkyrie_Log.record_get_valkyrie_log(user_id, content_id, current_time)
             # 获取用户助理信息
             user_valkyrie = await BH3_User_Valkyries.get_user_valkyrie_data(user_id, content_id)
             # 如果用户没有该女武神数据，则创建
