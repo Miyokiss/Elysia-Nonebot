@@ -156,9 +156,9 @@ class BH3_User_Assistant(Model):
 
 class BH3_User_Valkyrie_Log(Model):
     id = fields.IntField(pk=True)
-    user_id = fields.CharField(max_length=128, unique=True, index=True)  # 用户ID
+    user_id = fields.CharField(max_length=128, description="user_id")  # 用户ID
     valkyrie_id = fields.IntField(description="女武神ID")
-    timestamp = fields.IntField(description="保存时间")
+    timestamp = fields.FloatField(description="保存时间")
     
     class Meta:
         table = "bh3_user_valkyrie_log"
