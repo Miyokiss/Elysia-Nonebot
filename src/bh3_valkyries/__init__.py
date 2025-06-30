@@ -99,7 +99,6 @@ class BH3_User_Valkyries(Model):
             return False
 
 
-
 class BH3_User_Assistant(Model):
     """
     BH3_User_Assistant
@@ -110,7 +109,6 @@ class BH3_User_Assistant(Model):
     last_set_time = fields.IntField(default=0)  # 最后设置时间
     last_get_time = fields.IntField(default=0)  # 最后获取时间
     first_set_time = fields.IntField(default=0) # 首次设定时间
-    get_valkyrie_log = fields.JSONField(default=[])  # 获取女武神日志
     
     class Meta:
         table = "bh3_user_assistant"
@@ -154,29 +152,24 @@ class BH3_User_Assistant(Model):
         except Exception as e:
             logger.error(f"创建或更新用户字段失败: {e}")
             return False
+
+
+class BH3_User_Valkyrie_Log(Model):
+    id = fields.IntField(pk=True)
+    user_id = fields.CharField(max_length=128, unique=True, index=True)  # 用户ID
+    valkyrie_id = fields.IntField(description="女武神ID")
+    timestamp = fields.IntField(description="保存时间")
+    
+    class Meta:
+        table = "bh3_user_valkyrie_log"
+        table_description = "崩坏3用户女武神获取日志表"
+
     @classmethod
-    # 根据用户ID记录女武神日志
-    async def record_get_valkyrie_log(cls, user_id: str, valkyrie_id: int, time: int) -> bool:
+    async def record_get_valkyrie_log(cls, user_id: str, valkyrie_id: int, timestamp: int):
         """
         记录获取女武神日志
         :param user_id: 用户ID
         :param valkyrie_id: 女武神ID
-        :return: 是否成功
+        :param timestamp: 时间戳
         """
-        try:
-            user_record = await cls.get_user_data(user_id)
-            if user_record:
-                log_entry = {
-                    "valkyrie_id": valkyrie_id,
-                    "timestamp": time
-                }
-                user_record.get_valkyrie_log.append(log_entry)
-                await user_record.save()
-                return True
-            else:
-                logger.info(f"用户 {user_id} 的数据不存在，无法记录日志")
-                return False
-        except Exception as e:
-            logger.error(f"记录获取女武神日志失败: {e}")
-            return False
-
+        await BH3_User_Valkyrie_Log.create(user_id=user_id, valkyrie_id=valkyrie_id, timestamp=timestamp)
