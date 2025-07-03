@@ -3,7 +3,7 @@ from os import getcwd
 from nonebot.log import logger
 from nonebot_plugin_htmlrender import template_to_pic
 from playwright.async_api import async_playwright
-from src.clover_music.cloud_music.cloud_music import netease_music_search,netease_music_info
+from src.clover_music.cloud_music.cloud_music import netease_music_info
 
 
 __name__ = "cloud_music | data_base"
@@ -17,7 +17,7 @@ async def save_img(data: bytes ,temp_file: str) -> None:
      """
     with open(temp_file, "wb") as file:
         file.write(data)
-async def netease_music_search_info_img(keyword,session,temp_file):
+async def netease_music_search_info_img(song_lists, temp_file):
         """获取数据
         :param keyword: 搜索关键字
         :param session: requests会话对象
@@ -26,9 +26,6 @@ async def netease_music_search_info_img(keyword,session,temp_file):
         if os.path.exists(temp_file):
             with open(temp_file,"rb") as image_file:
                 return image_file.read()
-        song_lists = await netease_music_search(keyword, session)
-        if song_lists is None:
-            return None
         data = {
              "song_lists": song_lists,
         }
@@ -50,33 +47,15 @@ async def netease_music_search_info_img(keyword,session,temp_file):
         await browser.close()
         return True
 
-async def netease_music_info_img(keyword,session,idx,temp_file: str):
+async def netease_music_info_img(song_id, temp_file: str):
         """
         获取数据\n
         :param keyword: 搜索关键字
         :param session: requests会话对象
         :param idx: 歌曲索引
         :param temp_file: 临时文件路径
-        :return: {\n
-            song_id,
-            song_name,
-            singer
-        }
-        :return: None 如果没有找到或其他返回None
+        :return: True 如果没有找到或其他返回None
         """
-        song_lists = await netease_music_search(keyword, session)
-        if song_lists is None:
-            return None
-        song_id = None
-        for i in range(len(song_lists)):
-            s_list = song_lists[i]
-            if isinstance(s_list, dict) and 'index' in s_list:
-                logger.debug(f"s_list['index']: {s_list['index']}, index: {idx}")
-                if str(s_list['index']) == str(idx):
-                    song_id = s_list["song_id"]
-                    break
-        if song_id is None:
-            return None
         song_info = await netease_music_info(song_id)
         if song_info is None:
             return None
@@ -118,9 +97,4 @@ async def netease_music_info_img(keyword,session,idx,temp_file: str):
         )
         await save_img(image_bytes, temp_file)
         await browser.close()
-        r_msg = {
-            "song_id": song_id,
-            "song_name": song_name,
-            "song_artists": song_artists,
-        }
-        return r_msg
+        return True
