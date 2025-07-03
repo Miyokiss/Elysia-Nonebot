@@ -118,8 +118,9 @@ class BH3_Data_base():
             Keywords (str): 要查找的关键词，例如"舰桥互动"
             html_content (str): 包含舰桥互动音频信息的HTML内容
 
-        返回:
+        returns:
             list: 符合条件的音频链接列表
+            None: 如果未找到符合条件的音频链接，则返回None
         """
         audio_links = []
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -148,6 +149,8 @@ class BH3_Data_base():
                             })
 
         logger.debug(f"提取到 {len(audio_links)} 个有效音频链接")
+        if len(audio_links) < 1:
+            return None
         return audio_links
 
 

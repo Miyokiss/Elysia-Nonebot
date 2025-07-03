@@ -148,9 +148,12 @@ async def get_valkyrie_audio_info(valkyrie_info, Keywords = "舰桥互动"):
         Keywords (str): 音频关键词，默认为"舰桥互动"
     Returns:
         list: 角色音频关键词列表
+        None: 如果没有找到关键词，则返回None
     """
     # 获取助理信息
-    audio_content = valkyrie_info['contents'][2]['text']
+    audio_content = valkyrie_info['contents'][2]['text'] if valkyrie_info['contents'][2]['text'] else None
+    if audio_content is None:
+        return None
     audio_links = await BH3_Data_base.get_audio_links(Keywords, audio_content)
     return audio_links
 
