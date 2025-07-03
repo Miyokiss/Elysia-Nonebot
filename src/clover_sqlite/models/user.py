@@ -23,11 +23,6 @@ class UserList(Model):
         :param days: 最近活动天数，默认为3天
         :return: 随机选择的伴侣ID，如果没有符合条件的用户则返回None
         """
-        # 检查用户是否已有伴侣
-        has_wife = await Wife.has_wife(user_id=user_id, group_id=group_id)
-        if has_wife:
-            return has_wife
-
         # 获取最近指定天数内有活动的用户
         start_date = datetime.now().date() - timedelta(days=days)
         end_date = datetime.now().date()
@@ -36,7 +31,6 @@ class UserList(Model):
 
         if user_ids:
             wife_id = random.choice(user_ids)
-            await Wife.save_wife(user_id=user_id, group_id=group_id, wife_id=wife_id)
             return wife_id
         else:
             return None
@@ -67,6 +61,7 @@ class Wife(Model):
     wife_id = fields.CharField(max_length=64, description="对应群聊用户抽取到的id", null=True)
     wife_name = fields.CharField(max_length=64, description="名称", null=True)
     wife_description = fields.CharField(max_length=64, description="描述", null=True)
+    change_idx = fields.IntField(default=0,description="当前抽取的次数")
     create_time = fields.DateField(auto_now_add=True, description="创建时间", null=True)
 
     class Meta:
@@ -107,5 +102,31 @@ class Wife(Model):
             "create_time":datetime.now().date()
         }
         await cls.create(**data)
-
-
+    @classmethod
+    async def update_wife(cls, user_id: str, group_id: str, change_idx:int, wife_id: str):
+        """
+        更新今日群老婆
+        :param user_id:
+        :param group_id:
+        :param change_idx:
+        :param wife_id:
+        """
+        return await cls.filter(
+            user_id = user_id, 
+            group_id = group_id,
+            create_time = datetime.now().date()
+            ).update(
+                wife_id = wife_id, 
+                change_idx = change_idx
+            )
+    
+    @classmethod
+    async def get_user_today_info(cls, user_id, group_id):
+        """
+        获取用户信息
+        """
+        return await cls.filter(
+            user_id = user_id,
+            group_id = group_id,
+            create_time = datetime.now().date()
+            ).first()
