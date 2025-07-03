@@ -30,6 +30,9 @@ async def generate_and_send_response(
     try:
         # 获取音频
         audio_list = await get_valkyrie_audio_info(valkyrie_info)
+        if audio_list is None:
+            logger.error("获取音频信息失败")
+            await bh3_valkyries.finish("获取音频信息失败...")
         audio_info = random.choice(audio_list)
         output_silk_path = await download_audio(audio_info['url'])
         
@@ -245,6 +248,9 @@ async def handle_function(message: MessageEvent):
                     valkyrie_info =await get_today_valkyrie_file(today=today, content_id=assistant_id)
                     # 获取音频
                     audio_list = await get_valkyrie_audio_info(valkyrie_info)
+                    if audio_list is None:
+                        logger.error("获取音频信息失败")
+                        await bh3_valkyries.finish("获取音频信息失败...")
                     # 随机音频
                     audio_info = random.choice(audio_list)
                     output_silk_path = await download_audio(audio_info['url'])
@@ -311,6 +317,9 @@ async def handle_function(message: MessageEvent):
             valkyrie_info = await get_today_valkyrie_file(today=today, content_id=content_id)
             # 获取音频
             audio_list = await get_valkyrie_audio_info(valkyrie_info)
+            if audio_list is None:
+                logger.error("音频获取失败")
+                await bh3_valkyries.finish("音频获取失败...")
             # 随机音频
             audio_info = random.choice(audio_list)
             output_silk_path = await download_audio(audio_info['url'])
