@@ -147,7 +147,7 @@ async def handle_function(message: MessageEvent):
                     await bh3_valkyries.finish("你还没获得该女武神！无法设置为助理...")
                 
                 ids_valkyries = await BH3_User_Valkyries.get_user_valkyrie_data(user_id, ids)
-                # 判断是否已经设置过的助理角色
+                # 判断是否已经设置过的助理角色且上次设定时间是昨天
                 if user_assistant.assistant_id != ids:
                     # 设置新的助理
                     await BH3_User_Assistant.create_or_update_field(
@@ -173,11 +173,31 @@ async def handle_function(message: MessageEvent):
                 else:
                     # 多天连续设置
                     await BH3_User_Assistant.create_or_update_field(user_id, last_set_time=current_time)
-                    # 好感度按天数递曾 超过5天则 减1
-                    # 求天数差
-                    first_set_time = datetime.fromtimestamp(user_assistant.first_set_time).date()
-                    days_diff = (today - first_set_time).days + 1
+                    
+                    # 获取上次设置时间并验证
+                    last_set_time = datetime.fromtimestamp(user_assistant.last_set_time).date()
+                    if not last_set_time:
+                        logger.error("获取上次设置时间失败")
+                        await bh3_valkyries.finish("时间数据异常，请稍后再试...")
+                        
+                    # 计算连续设置天数（包含今天和昨天）
+                    first_set_time = None
+                    if user_assistant.first_set_time:
+                        first_set_time = datetime.fromtimestamp(user_assistant.first_set_time).date()
+                    
+                    # 判断是否连续设置
+                    is_consecutive = (last_set_time == today) or ((today - last_set_time).days == 1)
+                    
+                    if first_set_time and is_consecutive:
+                        # 如果是连续设置，则计算总天数
+                        days_diff = (today - first_set_time).days + 1
+                    else:
+                        # 否则重置为第一天
+                        days_diff = 1
+                        await BH3_User_Assistant.create_or_update_field(user_id, first_set_time=current_time)
+                    
                     if days_diff > 5:
+                        # 连续设置超过5天，好感度减少
                         await BH3_User_Valkyries.update_user_valkyrie_data(
                             user_id,
                             valkyrie_id = ids,
@@ -193,18 +213,20 @@ async def handle_function(message: MessageEvent):
                         )
                         return
                     else:
+                        # 正常连续设置，好感度增加
+                        update_favorability = days_diff if days_diff <= 5 else 1
                         await BH3_User_Valkyries.update_user_valkyrie_data(
                             user_id,
                             valkyrie_id = ids,
-                            favorability = ids_valkyries.favorability + days_diff
+                            favorability = ids_valkyries.favorability + update_favorability
                         )
-                        logger.debug(f"用户{user_id} 当前连续设置次数:{days_diff}好感+{days_diff}")
+                        logger.debug(f"用户{user_id} 当前连续设置次数:{days_diff}好感+{update_favorability}")
                         valkyrie_info =await get_today_valkyrie_file(today=today, content_id=ids)
                         await generate_and_send_response(
                             user_id,
                             valkyrie_info,
                             ids_valkyries,
-                            f"\n已设置女武神：{valkyrie_info['summary']}\n当前连续设置次数：{days_diff}次，好感度+{days_diff}"
+                            f"\n已设置女武神：{valkyrie_info['summary']}\n当前连续设置次数：{days_diff}次，好感度+{update_favorability}"
                         )
                         return
         
