@@ -39,6 +39,7 @@ src/clover_lightnovel/output1.html
 Elysia
 runtime
 /src/configs/tts
+logs
 bot.pid
 .vscode/launch.json
 logging.conf
