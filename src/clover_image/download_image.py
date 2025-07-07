@@ -1,4 +1,8 @@
+import os
 import aiohttp
+from nonebot import logger
+
+__name__ = 'download_image'
 
 async def download_image(url,file_path):
     """
@@ -11,6 +15,8 @@ async def download_image(url,file_path):
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
                 response.raise_for_status()
+                if not os.path.exists(os.path.dirname(file_path)):
+                    os.makedirs(os.path.dirname(file_path))
                 with open(file_path, 'wb') as file:
                     while True:
                         chunk = await response.content.read(8192)
@@ -18,4 +24,4 @@ async def download_image(url,file_path):
                             break
                         file.write(chunk)
     except aiohttp.ClientError as e:
-        print(f"下载图片时出错: {e}")
+        logger.error(f"下载图片时出错: {e}")
