@@ -1,8 +1,12 @@
 import re
+from pathlib import Path
 from nonebot import logger
 from nonebot.rule import to_me
 from nonebot.plugin import on_command
 from nonebot.adapters.qq import MessageEvent, MessageSegment,Message
+from src.clover_image.download_image import download_image
+from src.clover_image.delete_file import delete_file
+from src.configs.path_config import temp_path
 from src.clover_jm.jm_comic import jm_qr, jm_email
 from nonebot.exception import FinishedException
 
@@ -22,13 +26,19 @@ async def handle_qrcode_download(album_id: str):
     """处理二维码发送载逻辑"""
     await jm.send("正在下载中，请稍等~")
     msgs = await jm_qr(album_id=album_id)
+    qr_url = msgs["qr_code"]
+    logger.debug(f"二维码链接{qr_url}")
+    qr_path = Path(temp_path) / f"qr{album_id}.png"
+    await download_image(qr_url, qr_path)
     if "qr_code" not in msgs:
         await jm.finish(msgs["msg"])
     msg = Message([
         MessageSegment.text(msgs["msg"]),
-        MessageSegment.image(msgs["qr_code"])
+        MessageSegment.file_image(qr_path)
     ])
-    await jm.finish(msg)
+    await jm.send(msg)
+    await delete_file(qr_path)
+    await jm.finish()
 
 @jm.handle()
 async def handle_function(message: MessageEvent):

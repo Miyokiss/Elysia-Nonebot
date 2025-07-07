@@ -57,10 +57,12 @@ async def jm_qr(album_id: str| None):
     send_status = await Kukufile.upload_file(zip_path,zip_name)
     logger.debug(f"send_status: {send_status}")
     if send_status[0] == "OK":
+        # 设定删除时间
+        await Kukufile.auto_delete_kukufile(send_status, 600)
         # 删除文件
         await delete_folder(folder_path)
         return {
-            "msg":"获取成功~！码上下载！~",
+            "msg":"获取成功~！码上下载！~\n有效期10分钟",
             "qr_code": f"{qrserver_url}?size={qrserver_size}&data={send_status[1]}"
         }
     else:
