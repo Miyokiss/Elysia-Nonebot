@@ -159,14 +159,7 @@ async def post_video_kuku_file(vid_title, video_url, cid):
     if post_msg[0] == "OK":
         biliVideos.delete_video(cid)
         logger.debug(f'post_msg = {post_msg[1]}')
-        # 设定删除时间
-        url_prefix = "https://d.kuku.lu/"
-        if post_msg[1].startswith(url_prefix):
-            file_key = post_msg[1][len(url_prefix):]
-        else:
-            raise ValueError(f"Invalid URL format: {post_msg[1]}")
-        logger.debug(f'Kukufile_hash = {file_key}')
-        await Kukufile.auto_delete_kukufile(file_key, 600)
+        await Kukufile.auto_delete_kukufile(post_msg, 600)
         return f"{qrserver_url}?size={qrserver_size}&data={post_msg[1]}"
     else:
         logger.error(f"上传出错API返回: {post_msg}")

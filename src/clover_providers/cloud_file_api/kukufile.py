@@ -72,11 +72,17 @@ class Kukufile:
         uploader.upload_queue.append(upload_task)
         return await uploader.start_upload(0)
         
-    async def auto_delete_kukufile(hash : str, time : int):
+    async def auto_delete_kukufile(status : list, time : int):
         """定时删除文件\n
-        :param hash: 文件hash\n
+        :param status: upload_file 方法返回内容 List\n
         :param time: 多久后删除、单位秒\n
         """
+        url_prefix = "https://d.kuku.lu/"
+        if status[1].startswith(url_prefix):
+            hash = status[1][len(url_prefix):]
+        else:
+            raise ValueError(f"Invalid URL format: {status[1]}")
+        logger.debug(f'Kukufile_hash = {hash}')
         headers = {
          'cookie':'cf_clearance=qTaH1Ne.F75jqbQeXwLIq2xAwpxhucg87JyXdEeAaAA-1751754281-1.2.1.1-YyntzTHf64T0A86O1IW4oqskEF0ebeKzeOmFGhVsDesVgmfTKCIF91XHRmUD0_GZ_SMh925ArYpbCbhYE8XbgM8ZHGwHPi2SWHwrNbc7zL4ASuk9rfteJN4HLxCcEhO6CRxtmKqV9Nh6JRpUR_TXLTxI2tPGpDwpMuTeuxrlmIpssaef75y7J6kEWA0wyV_YOiAcitXg1qA.mGJlDgz2g50PjqS0kCCOuLTr5lcNYwI; _ga=GA1.1.1061375737.1751754298; _ga_HMG13DJCGJ=GS2.1.s1751754297$o1$g1$t1751754313$j44$l0$h0; ua_ipados=; cookie_uid=ab896e383ba9831e5ad48189a2407062; ua_ipados=; _ga_MY7WC5RXVN=GS2.1.s1751885434$o1$g1$t1751885705$j57$l0$h0; ffucs=KDMyYykoMjU2MHgxNDQwKSggTlZJRElBTlZJRElBLCBOVklESUEgR2VGb3JjZSBSVFggNDA3MCBMYXB0b3AgR1BVIDB4MDAwMDI4NjAgRGlyZWN0M0QxMSB2c181XzAgcHNfNV8wLCBEM0QxMSk%3D; __gads=ID=b7f242567b7f19bb:T=1751754283:RT=1751888033:S=ALNI_Mb4Z1Iz-tumsT7kF-buE6wPv55KiQ; __gpi=UID=0000114b4adb02ad:T=1751754283:RT=1751888033:S=ALNI_MbcqjCEQRFg4fK2Sakc-lJIHhrQEA; __eoi=ID=7bd732fb18f29cbc:T=1751754283:RT=1751888033:S=AA-AfjbEbwbeFo-LTujZCtIQ9Aux; _ga_SVPVLB6BB7=GS2.1.s1751885437$o2$g1$t1751888251$j60$l0$h0; FCNEC=%5B%5B%22AKsRol8eipYEdtJ5zr7sWmxse0lWcb2sMZu1yRntxK1MfzR-3O7yQSHLmu-j6MxSez7CsYxBm-4zS1CCXoJbuamNZZpQ0lJ5uhhiS8BrYMF21PtkmuWeOfHaMDIb5mkboNFUHiuujkAKgx2C7MLXiuZCSMKVIjs0cQ%3D%3D%22%5D%5D'
          }
