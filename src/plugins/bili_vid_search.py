@@ -2,11 +2,16 @@
 
 import time
 import nonebot.adapters.qq.exception
+import src.clover_videos.billibili.biliVideos as biliVideos
+from pathlib import Path
+from src.clover_image.download_image import download_image
+from src.clover_image.delete_file import delete_file
 from nonebot import on_command
 from nonebot.rule import to_me
 from nonebot.adapters.qq import   MessageSegment,MessageEvent, Message
-import src.clover_videos.billibili.biliVideos as biliVideos
-from src.configs.path_config import video_path
+from src.configs.path_config import video_path, temp_path
+from src.clover_providers.cloud_file_api.kukufile import Kukufile
+from src.configs.api_config import qrserver_url,qrserver_size
 from nonebot import logger
 
 bili_vid = on_command("B站搜索",rule=to_me(), priority=10)
@@ -74,18 +79,27 @@ async def get_video_file(message: MessageEvent):
 
             cid = pages[0]['cid']
             video_url = biliVideos.get_video_file_url(keyword[0], cid)
-            # biliVideos.video_download(video_url, cid)
-            # biliVideos.transcode_video(f"./src/resources/videos/{cid}.mp4",f"./src/resources/videos/{cid}-o.mp4")
 
             try:
-                # await bili_bv_search.send(Message(MessageSegment.file_video(Path(video_path + f"/{cid}-o.mp4"))))
                 await bili_bv_search.send(MessageSegment.video(video_url))
             except nonebot.adapters.qq.exception.ActionFailed as e:
-                print("\033[32m" + str(time.strftime("%m-%d %H:%M:%S")) +"\033[0m [" + "\033[31;1mFAILED\033[0m" + "]" + "\033[31;1m nonebot.adapters.qq.exception.ActionFailed \033[0m" + str(e))
-                await bili_bv_search.finish("发送失败惹，可能是视频过长，请尽量搜索1分钟以内的视频吧。")
-
-            # biliVideos.delete_video(cid)
-
+                qr_url = await post_video_kuku_file(vid_title, video_url, cid)
+                logger.debug(f"二维码链接{qr_url}")
+                qr_path = Path(temp_path) / f"qr{cid}.png"
+                await download_image(qr_url, qr_path)
+                if qr_url is False:
+                    await bili_bv_search.finish("发送失败了，API错误")
+                r_msg = Message([
+                    MessageSegment.file_image(qr_path),
+                    MessageSegment.text("由于QQ的限制，官方bot无法发送文件大于10M（实际更低）。"
+                                        +"\n此二维码有效时间为10分钟。"
+                                        +"\n可尝试扫码下载或在线观看视频哦~!")
+                ])
+                await bili_bv_search.send(r_msg)
+                await delete_file(qr_path)
+            except Exception as e:
+                logger.error(f'{e}')
+                await bili_bv_search.finish("发送失败了，请稍后再试")
     elif len(keyword) >= 2:
 
         try:
@@ -107,18 +121,53 @@ async def get_video_file(message: MessageEvent):
 
         cid = pages[page_num - 1]['cid']
         video_url = biliVideos.get_video_file_url(keyword[0], cid)
-        # biliVideos.video_download(video_url, cid)
-        # biliVideos.transcode_video(VIDEO_PATH / f"{cid}.mp4", VIDEO_PATH / f"{cid}-o.mp4")
 
         try:
-            # await bili_bv_search.send(Message(MessageSegment.file_video(Path(VIDEO_PATH / f"{cid}.mp4"))))
             await bili_bv_search.send(MessageSegment.video(video_url))
         except nonebot.adapters.qq.exception.ActionFailed as e:
-            print("\033[32m" + str(time.strftime("%m-%d %H:%M:%S")) +
-                  "\033[0m [" + "\033[31;1mFAILED\033[0m" + "]" +
-                  "\033[31;1m nonebot.adapters.qq.exception.ActionFailed \033[0m" + str(e))
-            await bili_bv_search.finish("发送失败惹，可能是视频过长，请尽量搜索1分钟以内的视频吧。")
-
-        # biliVideos.delete_video(cid)
-
+            qr_url = await post_video_kuku_file(vid_title, video_url, cid)
+            logger.debug(f"二维码链接{qr_url}")
+            qr_path = Path(temp_path) / f"qr{cid}.png"
+            await download_image(qr_url, qr_path)
+            if qr_url is False:
+                await bili_bv_search.finish("发送失败了，API错误")
+            r_msg = Message([
+                MessageSegment.file_image(qr_path),
+                MessageSegment.text("由于QQ的限制，官方bot无法发送文件大于10M（实际更低）。"
+                                    +"\n此二维码有效时间为10分钟。"
+                                    +"\n可尝试扫码下载或在线观看视频哦~!")
+            ])
+            await bili_bv_search.send(r_msg)
+            await delete_file(qr_path)
+        except Exception as e:
+            logger.error(f'{e}')
+            await bili_bv_search.finish("发送失败了，请稍后再试")
     await bili_bv_search.finish()
+
+async def post_video_kuku_file(vid_title, video_url, cid):
+    """
+    上传视频
+    :param vid_title: 视频标题
+    :param video_url: 视频URL
+    :param cid: 视频CID
+    :return: 上传成功返回二维码URL，上传失败返回False
+    """
+    biliVideos.video_download(video_url, cid)
+    temp_file = Path(video_path)/f"{cid}.mp4"
+    post_msg = await Kukufile.upload_file(temp_file, file_name=vid_title)
+    logger.debug(f'post_msg = {post_msg}')
+    if post_msg[0] == "OK":
+        biliVideos.delete_video(cid)
+        logger.debug(f'post_msg = {post_msg[1]}')
+        # 设定删除时间
+        url_prefix = "https://d.kuku.lu/"
+        if post_msg[1].startswith(url_prefix):
+            file_key = post_msg[1][len(url_prefix):]
+        else:
+            raise ValueError(f"Invalid URL format: {post_msg[1]}")
+        logger.debug(f'Kukufile_hash = {file_key}')
+        await Kukufile.auto_delete_kukufile(file_key, 600)
+        return f"{qrserver_url}?size={qrserver_size}&data={post_msg[1]}"
+    else:
+        logger.error(f"上传出错API返回: {post_msg}")
+        return False
