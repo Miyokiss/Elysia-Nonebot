@@ -1,15 +1,19 @@
 import re
+import os
+import uuid
 import random
 import asyncio
 import subprocess
 from pathlib import Path
 from nonebot import logger
 from graiax import silkcoder
+from datetime import datetime
 from nonebot import on_message
 from nonebot.rule import Rule, to_me
 from src.clover_openai import ai_chat
 from src.utils.tts import MarkdownCleaner
 from src.providers.llm.AliBL import BLChatRole
+from src.clover_html.help import help_info_img
 from src.clover_sqlite.models.user import UserList
 from src.configs.Keyboard_config import Keyboard_ai
 from src.providers.llm.AliBL.base import on_bl_chat
@@ -46,9 +50,188 @@ menu = ["/今日运势","/今日塔罗","/今日助理","/我的助理"
         "/奶龙","我喜欢你", "❤","#joker","#小丑","#寂寞的人唱伤心的歌","#得吃",
         "/重启","/repo", "/info", "/help", "/test"]
 
-send_menu = ["/help","/今日运势","/今日塔罗","/图","/随机图","搜番","/日报","/点歌","/摸摸头","/群老婆","/待办","/天气",
-             "/待办查询", "/新建待办", "/删除待办" ,"/B站搜索", "/BV搜索", "/喜报", "/悲报","/鲁迅说",
-             "/轻小说","/本季新番","/新番观察","/下季新番","/绝对色感"]
+send_menu = [
+    {
+        "command_type": "日常功能",
+        "command_list": [
+            {
+                "command": "/今日运势",
+                "description": "Tips:查询今日运势",
+            },
+            {
+                "command": "/日报",
+                "description": "Tips:综合讯息大全！",
+            },
+            {
+                "command": "/摸摸头",
+                "description": "Tips:摸摸爱莉的！！！",
+            },
+            {
+                "command": "/点歌 歌名",
+                "description": "Tips:搜索获取你指定歌名的音乐！",
+            },
+            {
+                "command": "/天气 地名",
+                "description": "Tips:查询指定地点的天气信息！",
+            },
+            {
+                "command": "/轻小说",
+                "description": "Tips:轻小说咨询！~"
+            },
+            {
+                "command": "/搜番 图片",
+                "description": "Tips:识图搜索番剧！~"
+            }
+        ]
+    },
+    {
+        "command_type": "B站相关",
+        "command_list": [
+            {
+                "command": "/BV搜索 BV号",
+                "description": "Tips:获取BV号对应的视频/信息！",
+            },
+            {
+                "command": "/B站搜索 关键词",
+                "description": "Tips:搜索B站关键词的视频信息！",
+            }
+        ]
+    },
+    {
+        "command_type": "番剧相关",
+        "command_list": [
+            {
+                "command": "/本季新番",
+                "description": "Tips:本季新番咨讯！",
+            },
+            {
+                "command": "/下季新番",
+                "description": "Tips:下季新番咨讯！",
+            },
+            {
+                "command": "/新番观察",
+                "description": "Tips:未来新番咨询！",
+            }
+        ]
+    },
+    {
+        "command_type": "群老婆相关",
+        "command_list": [
+            {
+                "command": "/群老婆",
+                "description": "Tips:获取今日老婆！",
+            },
+            {
+                "command": "/群老婆 换",
+                "description": "Tips:重新获取今日老婆！",
+            },
+            {
+                "command": "/群老婆 摸",
+                "description": "Tips:摸摸今日群老婆！",
+            }
+        ]
+    },
+    {
+        "command_type": "今日塔罗",
+        "command_list": [
+            {
+                "command": "/今日塔罗",
+                "description": "Tips:塔罗牌列表帮助",
+            },
+            {
+                "command": "/今日塔罗 1",
+                "description": "Tips:抽取大阿尔克纳牌",
+            },
+            {
+                "command": "/今日塔罗 2",
+                "description": "Tips:抽取小阿尔克纳牌",
+            },
+            {
+                "command": "/今日塔罗 3",
+                "description": "Tips:抽取混合牌组",
+            },
+            {
+                "command": "/今日塔罗 4",
+                "description": "Tips:抽取三角牌阵",
+            },
+            {
+                "command": "/今日塔罗 5",
+                "description": "Tips:抽取六芒星牌阵",
+            }
+        ]
+    },
+    {
+        "command_type": "助理相关",
+        "command_list": [
+            {
+                "command": "/今日助理",
+                "description": "Tips:获取、查询今日助理",
+            },
+            {
+                "command": "/今日助理 ID",
+                "description": "Tips:设定你指定ID的助理为今日助理",
+            },
+            {
+                "command": "/今日助理 名称",
+                "description": "Tips:设定你指定名称的助理为今日助理",
+            },
+            {
+                "command": "/我的助理",
+                "description": "Tips:获取你的全部助理信息",
+            },
+            {
+                "command": "/我的助理 名称",
+                "description": "Tips:获取你指定名称的助理信息",
+            },
+            {
+                "command": "/我的助理 ID",
+                "description": "Tips:获取你指定ID的助理信息",
+            }
+        ]
+    },
+    {
+        "command_type": "图片相关",
+        "command_list": [
+            {
+                "command": "/图",
+                "description": "Tips:获取一张随机爱莉图片！~",
+            },
+            {
+                "command": "/随机图",
+                "description": "Tips:获取一张随机图片！~",
+            }
+        ]
+    },
+    {
+        "command_type": "整活功能",
+        "command_list": [
+            {
+                "command": "/奶龙",
+                "description": "",
+            },
+            {
+                "command": "#joker",
+                "description": "",
+            },
+            {
+                "command": "#得吃",
+                "description": "",
+            },
+            {
+                "command": "/喜报 内容",
+                "description": "tips:发送喜报内容",
+            },
+            {
+                "command": "/悲报 内容",
+                "description": "Tips:发送悲报内容",
+            },
+            {
+                "command": "/鲁迅说 内容",
+                "description": "Tips:你想让鲁迅说什么？",
+            }
+        ]
+    }
+]
 
 async def check_value_in_menu(message: MessageEvent) -> bool:
     value = message.get_plaintext().strip().split(" ")
@@ -255,20 +438,11 @@ async def Transcoding(file_path: str, output_filename: str) -> str:
 get_help = on_command("help", rule=to_me(), priority=10, block=True)
 @get_help.handle()
 async def send_help_list():
-    text = """
-嗨~想我了吗？不论何时何地，爱莉希雅都会回应你的期待！
-我可以做什么？
-1、想要点歌给群友吗？快来点一首你喜欢的歌，和大家一起分享音乐的快乐吧♪
-2、每日运势仅供娱乐，记得相信科学哦，不过偶尔看看也无妨，对吧？
-3、想知道天气吗？随时可以和我说，我会回应你的期待♪
-
-Q：遇到BUG/问题/提建议？
-A：欢迎加入群聊反馈还能体验新内容！"""
-    msg = Message([
-        MessageSegment.text(text),
-        MessageSegment.file_image((Path(image_local_qq_image_path) / "QQ.jpg"))
-    ])
-    await get_help.finish(msg)
+    temp_file = os.path.join(temp_path, f"{datetime.now().date()}_{uuid.uuid4().hex}.png")
+    if await help_info_img(send_menu, temp_file):
+        await get_help.finish(MessageSegment.file_image(Path(temp_file)))
+    else:
+        await get_help.finish("获取帮助失败")
 
 restart = on_command("重启", rule=to_me(), priority=10, block=True)
 @restart.handle()

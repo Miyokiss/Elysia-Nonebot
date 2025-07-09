@@ -54,3 +54,9 @@ proxy_api = "<KEY>"
 """
 qrserver_url = "https://api.qrserver.com/v1/create-qr-code/"
 qrserver_size= "200x200"
+
+"""
+爱发电API
+"""
+afdian_user_id = "your_afdian_user_id"
+afdian_token = "your_afdian_token"

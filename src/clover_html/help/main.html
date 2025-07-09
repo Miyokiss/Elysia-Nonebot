@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>帮助</title>
+  <style>
+    /* 主题变量 */
+    :root {
+      --primary-color: #ffbdca;
+      --bg-color: #fff6f8;
+      --text-color: #333;
+      --border-radius: 8px;
+    }
+
+    /* 重置样式 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* 基础样式 */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      background-color: var(--bg-color);
+      border: 4px solid var(--primary-color);
+    }
+
+    /* 标题样式 */
+    .title {
+      background: var(--primary-color);
+      color: #fff;
+      text-align: center;
+      padding: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      position: relative;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      border-radius: 4px 4px 0 0;
+    }
+
+    .title::before,
+    .title::after {
+      content: "";
+      position: absolute;
+      height: 2px;
+      width: 30px;
+      background-color: #fff;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .title::before {
+      left: 20%;
+    }
+
+    .title::after {
+      right: 20%;
+    }
+
+    /* 命令区域样式 */
+    .command-section {
+      margin: 15px;
+      border: 2px solid var(--primary-color);
+      border-radius: var(--border-radius);
+      padding: 10px;
+      position: relative;
+    }
+
+    .command-type {
+      position: absolute;
+      top: -12px;
+      left: 15px;
+      background-color: var(--primary-color);
+      color: white;
+      font-weight: bold;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 14px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .command-bar {
+      display: flex;
+      gap: 10px;
+      padding: 15px 5px 5px;
+      background-color: var(--bg-color);
+      flex-wrap: wrap;
+    }
+
+    .command {
+      border: 2px solid var(--primary-color);
+      padding: 5px 10px;
+      border-radius: var(--border-radius);
+      font-size: 14px;
+      color: var(--text-color);
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 31.75%;
+      background-color: #fff;
+    }
+
+    .command:hover {
+      background-color: var(--primary-color);
+      color: #fff;
+    }
+
+    .command-text {
+      font-weight: 500;
+    }
+
+    .command-tip {
+      font-size: 10px;
+      color: #666;
+      margin-top: 3px;
+      text-align: center;
+    }
+
+    /* 赞助区域样式 */
+    .sponsor-section {
+      margin: 15px;
+      border: 2px solid var(--primary-color);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      position: relative;
+    }
+
+    .sponsor-title {
+      text-align: center;
+      font-size: 18px;
+      margin-bottom: 25px;
+      font-weight: bold;
+      color: var(--primary-color);
+      position: relative;
+    }
+
+    .sponsor-title::after {
+      content: "";
+      position: absolute;
+      width: 80px;
+      height: 2px;
+      background-color: var(--primary-color);
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .sponsor-content {
+      display: flex;
+      gap: 15px;
+    }
+
+    .sponsor-left {
+      flex: 1;
+      background-color: #fff;
+      padding-top: 25px!important;
+      padding: 15px;
+      border-radius: var(--border-radius);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+
+    .avatar-group {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      margin: 0 auto 15px;
+      position: relative;
+      height: 130px;
+    }
+
+    .avatar-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: absolute;
+      transition: all 0.3s ease;
+    }
+
+    .avatar-item:first-child {
+      top: -10px;
+    }
+
+    .avatar-item:nth-child(2) {
+      left: 0%;
+      top: 50px;
+    }
+
+    .avatar-item:nth-child(3) {
+      right: 0%;
+      top: 50px;
+    }
+
+    .avatar-item:hover {
+      transform: translateY(-5px);
+    }
+
+    .avatar {
+      width: 70px;
+      height: 70px;
+      font-size: 14px;
+      border: 3px solid var(--primary-color);
+      background-color: #fff;
+      color: var(--text-color);
+      transition: all 0.3s ease;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .avatar-item:nth-child(2) .avatar,
+    .avatar-item:nth-child(3) .avatar {
+      width: 60px;
+      height: 60px;
+      font-size: 12px;
+      border-width: 2px;
+    }
+
+    .avatar:hover {
+      transform: scale(1.1);
+      background-color: var(--primary-color);
+      color: #fff;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .nickname {
+      color: var(--text-color);
+      font-weight: 500;
+      width: 42px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+      text-align: center;
+    }
+
+    .avatar-item:nth-child(2) .nickname,
+    .avatar-item:nth-child(3) .nickname {
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .nickname-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 15px;
+    }
+
+    .nickname-row span {
+      background-color: #fff;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--primary-color);
+      font-size: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .nickname-row span:hover {
+      background-color: var(--primary-color);
+      color: #fff;
+    }
+
+    /* 右侧部分 - 卡片和名称 */
+    .sponsor-right {
+      flex: 1;
+      background-color: #fff;
+      padding: 15px 15px 0px 15px;
+      border-radius: var(--border-radius);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+
+    .card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #fff;
+      color: var(--text-color);
+      padding: 5px 10px;
+      border-radius: 4px;
+      margin-bottom: 5px;
+      border: 2px solid var(--primary-color);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      background-color: var(--primary-color);
+      color: #fff;
+    }
+
+    .card-name {
+      font-weight: bold;
+    }
+
+    .card-intro {
+      flex: 1;
+      margin-left: 5px;
+    }
+
+    .multi-name {
+      background-color: #fff;
+      color: var(--text-color);
+      padding: 5px 10px;
+      border-radius: 4px;
+      margin-bottom: 5px;
+      border: 2px solid var(--primary-color);
+      transition: all 0.3s ease;
+    }
+
+    .multi-name:hover {
+      background-color: var(--primary-color);
+      color: #fff;
+    }
+
+    /* 群组渠道样式 */
+    .group-channel {
+      margin: 15px;
+      border: 2px solid var(--primary-color);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      background-color: var(--bg-color);
+      text-align: center;
+      font-size: 16px;
+      color: var(--text-color);
+      position: relative;
+    }
+
+    .group-title {
+      font-size: 18px;
+      margin-bottom: 20px;
+      font-weight: bold;
+      color: var(--primary-color);
+      position: relative;
+      display: inline-block;
+    }
+
+    .group-title::before,
+    .group-title::after {
+      content: "✧";
+      margin: 0 10px;
+      color: var(--primary-color);
+      font-size: 14px;
+      animation: shine 2s infinite;
+    }
+
+    @keyframes shine {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* 二维码区域 */
+    .qrcode-container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+
+    .qrcode-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: all 0.3s ease;
+    }
+
+    .qrcode-item:hover {
+      transform: translateY(-5px);
+    }
+
+    .qrcode-img {
+      width: 120px;
+      height: 120px;
+      background-color: #fff;
+      border: 3px solid var(--primary-color);
+      border-radius: var(--border-radius);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 8px;
+      color: var(--primary-color);
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    .qrcode-img:hover {
+      background-color: var(--primary-color);
+      color: #fff;
+    }
+
+    .qrcode-text {
+      font-size: 14px;
+      color: var(--text-color);
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 400px) {
+      .command-section,
+      .sponsor-section,
+      .group-channel {
+        margin: 10px;
+      }
+
+      .sponsor-content {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .avatar-item:first-child {
+        top: -5px;
+      }
+
+      .avatar-item:nth-child(2) {
+        left: 5%;
+        top: 55px;
+      }
+
+      .avatar-item:nth-child(3) {
+        right: 5%;
+        top: 55px;
+      }
+
+      .avatar {
+        width: 50px;
+        height: 50px;
+      }
+
+      .avatar-item:nth-child(2) .avatar,
+      .avatar-item:nth-child(3) .avatar {
+        width: 45px;
+        height: 45px;
+      }
+
+      .nickname-row {
+        margin-top: 10px;
+      }
+
+      .qrcode-container {
+        gap: 15px;
+      }
+
+      .qrcode-img {
+        width: 100px;
+        height: 100px;
+      }
+
+      .command {
+        width: 90px;
+      }
+
+      .command-text {
+        font-size: 12px;
+      }
+
+      .command-tip {
+        font-size: 9px;
+      }
+
+      .title {
+        font-size: 18px;
+      }
+
+      .title::before,
+      .title::after {
+        width: 20px;
+      }
+
+      .title::before {
+        left: 15%;
+      }
+
+      .title::after {
+        right: 15%;
+      }
+
+      .command-type {
+        font-size: 12px;
+        padding: 1px 8px;
+        top: -10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="title">帮助</div>
+    {% for item in data %}
+    <div class="command-section">
+      <div class="command-type">{{item.command_type}}</div>
+      <div class="command-bar">
+        {% for item in item.command_list %}
+        <div class="command">
+          <div class="command-text">{{item.command}}</div>
+          <div class="command-tip">{{item.description}}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    <div class="sponsor-section">
+      <div class="sponsor-title">赞助 / 致谢</div>
+      <div class="sponsor-content">
+        <div class="sponsor-left">
+          <div class="avatar-group">
+            {% for item in afdian_data.top_list %}
+            <div class="avatar-item">
+              <img class="avatar" src="{{item.avatar}}"></img>
+              <div class="nickname">{{item.name}}</div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="nickname-row">
+            <span>感谢！共{{afdian_data.total_count}}位伙伴的支持！<br>(仅显示最新数据，不代表排名或其他涵义)</span>
+          </div>
+        </div>
+        <div class="sponsor-right">
+          <div class="card">
+            <div class="card-name">Miyo</div>
+            <div class="card-intro">开发者</div>
+          </div>
+          <div class="card">
+            <div class="card-name">小茯苓</div>
+            <div class="card-intro">部分标注</div>
+          </div>
+          <div class="multi-name">创意总监<br><div style="font-size: 13px;">庄笙、舍己爱人大白莉<br>StarlitAstrologos</div></div>
+          <div class="multi-name">项目参考/框架<br>SanYeCao-Nonebot</div>
+        </div>
+      </div>
+    </div>
+    <div class="group-channel">
+      <div class="group-title">群 / 赞渠道</div>
+      <div class="qrcode-container">
+        <div class="qrcode-item">
+          <img class="qrcode-img" src="https://api.qrserver.com/v1/create-qr-code?size=200x200&data=https://qm.qq.com/q/EvqQwgwKcw"></img>
+          <div class="qrcode-text">QQ群</div>
+        </div>
+        <div class="qrcode-item">
+          <img class="qrcode-img" src="https://api.qrserver.com/v1/create-qr-code?size=200x200&data=https://afdian.com/u/0bca8194462c11f083605254001e7c00"></img>
+          <div class="qrcode-text">爱发电</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
