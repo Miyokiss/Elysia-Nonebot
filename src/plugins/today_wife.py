@@ -4,7 +4,7 @@ from nonebot import logger
 from nonebot.adapters.qq import  MessageSegment
 from nonebot.plugin import on_command
 from nonebot.rule import to_me
-from src.configs.Keyboard_config import Keyboard_fortune
+from src.configs.Keyboard_config import Keyboard_fortune, Keyboard_mate
 from src.clover_image.qq_image import  download_qq_image
 from src.clover_image.delete_file import delete_file
 from src.clover_sqlite.models.user import UserList, Wife
@@ -73,7 +73,7 @@ async def post_wife_function(user_id) -> None:
         ])
       await delete_file(local_image_path)
       await today_group_wife.send(msg)
-      await today_group_wife.finish(MessageSegment.keyboard(Keyboard_fortune))
+      await today_group_wife.finish(MessageSegment.keyboard(Keyboard_mate))
 
 today_wife = on_command("今日老婆", rule=to_me(), priority=10)
 @today_wife.handle()
