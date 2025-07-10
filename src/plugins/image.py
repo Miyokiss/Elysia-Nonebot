@@ -13,7 +13,7 @@ from nonebot import logger
 __name__ = "plugins_image"
 
 
-image = on_command("图", rule=to_me(), priority=10,block=False)
+image = on_command("图", rule=to_me(), priority=10,block=True)
 @image.handle()
 async def handle_function():
 
@@ -22,7 +22,7 @@ async def handle_function():
 
 
 
-random_keyword_image = on_command("随机图", rule=to_me(), priority=10, block=False)
+random_keyword_image = on_command("随机图", rule=to_me(), priority=10, block=True)
 @random_keyword_image.handle()
 async def handle_function(message: MessageEvent):
 
@@ -58,7 +58,7 @@ async def handle_function(message: MessageEvent):
 
 
 
-search_image = on_command("搜番", rule=to_me(), priority=10, block=False)
+search_image = on_command("搜番", rule=to_me(), priority=10, block=True)
 @search_image.handle()
 async def handle_function(message: MessageEvent):
     if not message.attachments:
