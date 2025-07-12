@@ -1,5 +1,6 @@
 import os
 import glob
+import threading
 import nonebot
 import logging.config
 from pathlib import Path
@@ -20,6 +21,10 @@ config_path = os.path.normpath(os.path.abspath(r'logging.conf'))
 logging.config.fileConfig(config_path)
 
 nonebot.init()
+
+from backend import start_flask
+
+
 driver = nonebot.get_driver()
 driver.register_adapter(QQAdapter)  # 注册QQ适配器
 nonebot.load_from_toml("pyproject.toml")
@@ -47,5 +52,15 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(clean_temp_cache, 'cron', hour=0, minute=0)
 
 if __name__ == "Bot":
+
+    # nonebot_thread = threading.Thread(target=nonebot.run(), daemon=True)
+    # nonebot_thread.start()
+
+
+
+    flask_thread = threading.Thread(target=start_flask, daemon=True)
+    flask_thread.start()
     scheduler.start()
     nonebot.run()
+
+
