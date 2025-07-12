@@ -41,12 +41,6 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(clean_temp_cache, 'cron', hour=0, minute=0)
 
 if __name__ == "__main__":
-
-    # nonebot_thread = threading.Thread(target=nonebot.run(), daemon=True)
-    # nonebot_thread.start()
-
-
-
     flask_thread = threading.Thread(target=start_flask, daemon=True)
     flask_thread.start()
     scheduler.start()
