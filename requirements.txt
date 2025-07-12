@@ -45,3 +45,4 @@ pydantic
 matplotlib
 httpx
 crypto
+flask[async]

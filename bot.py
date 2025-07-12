@@ -1,6 +1,8 @@
 import os
 import glob
+import threading
 import logging
+
 import nonebot
 from pathlib import Path
 from nonebot import logger
@@ -10,6 +12,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from src.configs.path_config import log_path,temp_path,video_path,yuc_wiki_path
 
 nonebot.init()
+
+from backend import start_flask
+
+
 driver = nonebot.get_driver()
 driver.register_adapter(QQAdapter)  # 注册QQ适配器
 nonebot.load_from_toml("pyproject.toml")
@@ -35,5 +41,15 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(clean_temp_cache, 'cron', hour=0, minute=0)
 
 if __name__ == "__main__":
+
+    # nonebot_thread = threading.Thread(target=nonebot.run(), daemon=True)
+    # nonebot_thread.start()
+
+
+
+    flask_thread = threading.Thread(target=start_flask, daemon=True)
+    flask_thread.start()
     scheduler.start()
     nonebot.run()
+
+
