@@ -117,6 +117,9 @@ class Question(Model):
 
     @classmethod
     async def fetch(cls) -> list:
+        """
+        获取数据库中question表中所有数据内容
+        """
         return await cls._fetch_data()
 
     @classmethod
@@ -126,6 +129,15 @@ class Question(Model):
                      via_question: bool = False,
                      via_ans: bool = False,
                      fuzzy: bool = False) -> list | None:
+        """
+        搜索数据库中question表的数据，可以选择不同种搜索方式
+
+        :param keyword: [int/str]传入的搜索关键字
+        :param via_id: [bool](可选) 通过id搜索，不可与fuzzy一起使用
+        :param via_question: [bool](可选) 通过问题搜索
+        :param via_ans: [bool](可选) 通过回答搜索
+        :param fuzzy: [bool](可选) 是否启用模糊搜索，当via_id为True时此参数不可为True
+        """
         if (via_id and via_ans and via_question is False) or (fuzzy and via_id is True):
             print("不合法传参")
             return None
@@ -146,14 +158,31 @@ class Question(Model):
 
     @classmethod
     async def update(cls, update_id, question, answer) -> bool:
+        """
+        更新数据库中question表的某一元素
+
+        :param update_id: [int]需要更新的元素id
+        :param question: [str]该元素更新后的问题字段内容
+        :param answer: [str]该元素更新后的回答字段内容
+        """
         return await cls._alter_data(update_id, question, answer)
 
     @classmethod
     async def delete_one(cls, delete_id) -> bool:
+        """
+        删除数据库中question表的某一元素
+
+        :param delete_id: [int]需要删除元素的id
+        """
         return await cls._delete_data(delete_id)
 
     @classmethod
     async def delete_many(cls, delete_id_list: list | None) -> bool:
+        """
+        批量删除数据库中question表的元素
+
+        :param delete_id_list: [list]一个包括所有需要删除的元素的id的列表
+        """
         for delete_id in delete_id_list:
             await cls._delete_data(delete_id)
 
@@ -163,11 +192,21 @@ class Question(Model):
     async def insert_one(cls,
                          question: str | None,
                          answer: str | None) -> bool:
+        """
+        向数据库中的question表中插入一个元素
+
+        :param question: 该元素的问题字段内容
+        :param answer: 该元素的回答字段内容
+        """
         return await cls._insert_data(question, answer)
 
     @classmethod
     async def insert_many(cls, data_list: list | None) -> bool:
+        """
+        向数据库的question表中批量插入元素
 
+        :param data_list: [list]一个包括所有要插入数据的数组，注意该数组必须为2维数组，且每一个元组必须为question, answer两个元素组成。例如：[["问题1","回答1"],["问题2", "回答2"]]
+        """
         for question, answer in data_list:
             flag = await cls._insert_data(question, answer)
             if flag is False:
