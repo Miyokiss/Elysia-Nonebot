@@ -51,6 +51,7 @@ class DataGet(DataApi):
             nickname = r['hotComments'][i]['user']['nickname']
             # 获取评论内容
             content = r['hotComments'][i]['content']
+            content = content.replace('\n', '<br>')
             # 获取评论时间
             r_time = r['hotComments'][i]['time']
             # 获取点赞数

@@ -252,7 +252,7 @@ async def handle_function(message: MessageEvent):
     
     # 临时关闭非私聊环境
     if group_openid != "C2C":
-        await check.finish(random.choice(text_list))
+        return
 
     if len(content) > 30:
         await check.finish("请勿发送过长的内容")
