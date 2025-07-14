@@ -239,24 +239,26 @@ async def check_value_in_menu(message: MessageEvent) -> bool:
     await UserList.insert_user(message.author.id, group_id)
     return value[0] not in menu and not value[0].isdigit() and value[0] != "#"
 
-check = on_message(rule=to_me() & Rule(check_value_in_menu), priority=20)
+check = on_message(rule=to_me() & Rule(check_value_in_menu), priority=20, block=True)
 
 @check.handle()
 async def handle_function(message: MessageEvent):
     status = 0
     group_openid = message.group_openid if hasattr(message, "group_openid") else "C2C"
-    if group_openid != "C2C":
-        status = await GroupChatRole.is_on(group_openid)
-        logger.debug(f"check| 非C2C环境 获取模式ID ——————> {status}")
-
     content = message.get_plaintext() or "空内容"
-    if len(content) > 30:
-        await check.finish("请勿发送过长的内容")
-    content = MarkdownCleaner.clean_markdown(content)
-
+    
     if content.startswith("/"):
         r_msg = f"收到内容：{content}\n{random.choice(text_list)}"
         await check.finish(r_msg)
+    
+    # 临时关闭非私聊环境
+    if group_openid != "C2C":
+        await check.finish(random.choice(text_list))
+
+    if len(content) > 30:
+        await check.finish("请勿发送过长的内容")
+    content = MarkdownCleaner.clean_markdown(content)
+    
     if content.startswith("新的对话") or content.startswith("新的记忆"):
         await check.send("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
         await check.finish(MessageSegment.keyboard(Keyboard_ai))
