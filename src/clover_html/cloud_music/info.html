@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="cn">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>歌曲信息</title>
 </head>
 <link rel="stylesheet" href="./info.css">
+<link rel="stylesheet" href="./info_comments.css">
+
 <body>
     <div class="wrapper">
         <div class="box">
@@ -19,16 +22,42 @@
                     <p>歌手/作者：{{data.song_artists}}</p>
                     <p>时长：{{data.song_playTime}}</p>
                 </div>
-            <div class="bottom">
-                <div class="bottom_left">
-                    <p>你可以发送：/点歌 歌曲名 搜索歌曲</p>
-                    <p>例如：/点歌 True-黄龄</p>
+                <div class="comments_box">
+                    <h3 style="text-align: center;">热评</h3>
+                    {% if data.song_comments %}
+                        {% for comment in data.song_comments %}
+                        <div class="comments">
+                            <div class="comments-header">
+                                <img src="{{comment.avatar}}" alt="头像">
+                                <div class="user-info">
+                                    <span class="username">{{comment.nickname}}</span>
+                                </div>
+                            </div>
+                            <div class="comments-content">{{comment.content}}</div>
+                            <div class="comments-footer">
+                                <span>{{comment.time}}</span>
+                                <div class="like">
+                                    <img src="../res/icon/like_icon.png" alt="点赞图标">
+                                    <span>{{comment.liked_count}}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p style="text-align: center;">暂无热评</p>
+                    {% endif %}
                 </div>
-                <div class="bottom_right">
-                    <p>By Elysia Bot</p>
+                <div class="bottom">
+                    <div class="bottom_left">
+                        <p>你可以发送：/点歌 歌曲名 搜索歌曲</p>
+                        <p>例如：/点歌 True-黄龄</p>
+                    </div>
+                    <div class="bottom_right">
+                        <p>By Elysia Bot</p>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 </body>
+
 </html>

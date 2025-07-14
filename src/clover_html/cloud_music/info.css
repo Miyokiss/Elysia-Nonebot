@@ -64,6 +64,10 @@ h1 {
     font-family: "Noto Sans SC B";
 }
 
+.comments{
+    font-family: "Noto Sans SC B";
+}
+
 .bottom {
     display: flex;
     margin-top: 10px;

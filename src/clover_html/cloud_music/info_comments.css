@@ -1,0 +1,54 @@
+/* 评论容器样式 */
+.comments {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+/* 评论头部（用户信息）样式 */
+.comments-header {
+    display: flex;
+    align-items: center;
+}
+
+.comments-header img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.comments-header .user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.comments-header .user-info .username {
+    font-weight: bold;
+}
+
+/* 评论内容样式 */
+.comments-content {
+    margin-top: 5px;
+}
+
+/* 评论时间和点赞等样式 */
+.comments-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+    color: #999;
+}
+
+.comments-footer .like {
+    display: flex;
+    align-items: center;
+}
+
+.comments-footer .like img {
+    width: 16px;
+    height: 16px;
+    margin-right: 5px;
+}
