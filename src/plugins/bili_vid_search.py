@@ -13,6 +13,8 @@ from src.configs.path_config import video_path, temp_path
 from src.clover_providers.cloud_file_api.kukufile import Kukufile
 from src.configs.api_config import qrserver_url,qrserver_size
 from nonebot import logger
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 bili_vid = on_command("B站搜索",rule=to_me(), priority=10)
 @bili_vid.handle()
@@ -146,21 +148,30 @@ async def get_video_file(message: MessageEvent):
 
 async def post_video_kuku_file(vid_title, video_url, cid):
     """
-    上传视频
+    上传视频（异步处理）
     :param vid_title: 视频标题
     :param video_url: 视频URL
     :param cid: 视频CID
     :return: 上传成功返回二维码URL，上传失败返回False
     """
-    biliVideos.video_download(video_url, cid)
-    temp_file = Path(video_path)/f"{cid}.mp4"
-    post_msg = await Kukufile.upload_file(temp_file, file_name=vid_title)
-    logger.debug(f'post_msg = {post_msg}')
-    if post_msg[0] == "OK":
-        biliVideos.delete_video(cid)
-        logger.debug(f'post_msg = {post_msg[1]}')
-        await Kukufile.auto_delete_kukufile(post_msg, 600)
-        return f"{qrserver_url}?size={qrserver_size}&data={post_msg[1]}"
-    else:
-        logger.error(f"上传出错API返回: {post_msg}")
+    try:
+        # 使用线程池执行耗时的下载和上传操作
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor() as pool:
+            await loop.run_in_executor(pool, biliVideos.video_download, video_url, cid)
+            
+        temp_file = Path(video_path)/f"{cid}.mp4"
+        post_msg = await Kukufile.upload_file(temp_file, file_name=vid_title)
+        logger.debug(f'post_msg = {post_msg}')
+        
+        if post_msg[0] == "OK":
+            biliVideos.delete_video(cid)
+            logger.debug(f'post_msg = {post_msg[1]}')
+            await Kukufile.auto_delete_kukufile(post_msg, 600)
+            return f"{qrserver_url}?size={qrserver_size}&data={post_msg[1]}"
+        else:
+            logger.error(f"上传出错API返回: {post_msg}")
+            return False
+    except Exception as e:
+        logger.error(f"后台任务异常: {str(e)}")
         return False
