@@ -4,6 +4,7 @@ from nonebot.log import logger
 from nonebot_plugin_htmlrender import template_to_pic
 from playwright.async_api import async_playwright
 from src.clover_music.cloud_music.cloud_music import netease_music_info
+from src.clover_music.cloud_music.data_comments import DataGet
 
 
 __name__ = "cloud_music | data_base"
@@ -56,7 +57,9 @@ async def netease_music_info_img(song_id, temp_file: str):
         :param temp_file: 临时文件路径
         :return: True 如果没有找到或其他返回None
         """
+        Data_get = DataGet()
         song_info = await netease_music_info(song_id)
+        song_comments = await Data_get.song_comments(song_id)
         if song_info is None:
             return None
         artists = song_info[0]['artists']
@@ -79,7 +82,8 @@ async def netease_music_info_img(song_id, temp_file: str):
              "song_alias" : " - "+song_info[0]['alias'][0] if len(song_info[0]['alias']) > 0 else "",
              "song_artists" : song_artists,
              "song_imgurl" : song_info[0]['album']['blurPicUrl'],
-             "song_playTime" : playTime_str
+             "song_playTime" : playTime_str,
+             "song_comments": song_comments,
         }
         logger.debug(f"data：{data}")
         async with async_playwright() as p:
