@@ -247,11 +247,10 @@ async def handle_function(message: MessageEvent):
     group_openid = message.group_openid if hasattr(message, "group_openid") else "C2C"
     # 检查是否开启了AI聊天
     if group_openid != "C2C":
-        if await GroupChatRole.is_on(group_openid) == 0:
+        status = await GroupChatRole.is_on(group_openid)
+        if status == 0:
             # 未开启退出
             return
-        else:
-            status = await GroupChatRole.is_on(group_openid)
 
     content = message.get_plaintext() or "空内容"
     
