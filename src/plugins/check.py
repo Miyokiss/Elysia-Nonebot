@@ -251,6 +251,8 @@ async def handle_function(message: MessageEvent):
         if await GroupChatRole.is_on(group_openid) == 0:
             # 未开启退出
             return
+        else:
+            status = await GroupChatRole.is_on(group_openid)
 
     content = message.get_plaintext() or "空内容"
     
