@@ -242,17 +242,20 @@ check = on_message(rule=to_me() & Rule(check_value_in_menu), priority=20, block=
 
 @check.handle()
 async def handle_function(message: MessageEvent):
-    status = 0
+    # 默认模式
+    status = 2
     group_openid = message.group_openid if hasattr(message, "group_openid") else "C2C"
+    # 检查是否开启了AI聊天
+    if group_openid != "C2C":
+        if await GroupChatRole.is_on(group_openid) == 0:
+            # 未开启退出
+            return
+
     content = message.get_plaintext() or "空内容"
     
     if content.startswith("/"):
         r_msg = f"收到内容：{content}\n{random.choice(text_list)}"
         await check.finish(r_msg)
-    
-    # 临时关闭非私聊环境
-    if group_openid != "C2C":
-        return
 
     if len(content) > 30:
         await check.finish("请勿发送过长的内容")
@@ -260,10 +263,10 @@ async def handle_function(message: MessageEvent):
     
     if content.startswith("新的对话") or content.startswith("新的记忆"):
         await check.finish("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
-    elif status == 0 or status == 2:
-        if status == 0:
+    elif status == 2 or status == 3:
+        if status == 2:
             await asyncio.wait_for(handle_Elysia_response(message), timeout=250)
-        elif status == 2:
+        elif status == 3:
             await asyncio.wait_for(handle_Elysia_response(message,on_tts = True), timeout=250)
     elif status == 1:
         msg = await ai_chat.deepseek_chat(group_openid, content)

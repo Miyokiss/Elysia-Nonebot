@@ -29,7 +29,7 @@ async def handle_function(msg: MessageEvent) -> None:
             await music.finish("\n请输入“/点歌+歌曲名”喔")
 
         temp_file = os.path.join(temp_path, f"{datetime.now().date()}_{uuid.uuid4().hex}.png")
-
+        logger.debug(f"开始搜索歌曲: {keyword}")
         song_lists = await netease_music_search(keyword, session)
         if song_lists is None:
             await music.finish("\n没有找到歌曲，或检索到的歌曲为付费或者无版权喔qwq")
@@ -61,8 +61,8 @@ async def handle_function(msg: MessageEvent) -> None:
                 reply_event = await asyncio.wait_for(future, timeout=30)
                 choice = reply_event.get_plaintext().strip()
 
-                if not choice.isdigit() or int(choice) < 1 or int(choice) > 10:
-                    await music.finish("\n序号必须是数字且在1-10范围内喔qwq")
+                if not choice.isdigit() or int(choice) < 1 or int(choice) > len(song_lists):
+                    await music.finish(f"请输入1-{len(song_lists)}之间的数字")
                 idx = choice
                 song_id = None
                 for i in range(len(song_lists)):
@@ -78,21 +78,10 @@ async def handle_function(msg: MessageEvent) -> None:
                 choice_matcher.destroy()
         else:
             song_id = song_lists[0]["song_id"]
-        # 继续执行下载流程
-        music_info = await netease_music_info_img(song_id, temp_file)
-        if music_info is not True:
-            await music.finish("\n图片生成失败或未获取到歌曲信息")
-        await music.send(MessageSegment.file_image(Path(temp_file)))
-        output_silk_path = await music_download(song_id)
-        if output_silk_path is None:
-            # 降级下载
-            logger.debug(f"第三方API失效触发降级下载歌曲：{song_id}")
-            output_silk_path = await netease_music_download(song_id, session=session)
-        if output_silk_path is None or output_silk_path == -1:
-            await music.send("歌曲音频获取失败了Σヽ(ﾟД ﾟ; )ﾉ，可能歌曲为付费歌曲请换首重试吧！")
-        else:
-            await music.send(MessageSegment.file_audio(Path(output_silk_path)))
-            await delete_file(output_silk_path)
+        logger.debug(f"歌曲ID获取成功: {song_id}")
+        img_task = post_netease_music_info_img(song_id, temp_file)
+        music_task = post_music_download(song_id, session)
+        await asyncio.gather(img_task, music_task)
     except asyncio.TimeoutError:
         logger.info(f"点歌选择超时 User: {msg.get_user_id()} Keyword: {keyword}")
     except Exception as e:
@@ -103,3 +92,23 @@ async def handle_function(msg: MessageEvent) -> None:
         if hasattr(e, 'message'):
             r_msg = e.message
         await music.finish(f"处理点歌请求时发生错误：{r_msg}。这绝对不是我的错，绝对不是！")
+
+async def post_netease_music_info_img(song_id, temp_file):
+    music_info = await netease_music_info_img(song_id, temp_file)
+    if not music_info:
+        logger.error(f"歌曲信息图片生成失败 Song ID: {song_id}")
+        await music.finish("\n图片生成失败或未获取到歌曲信息")
+        return False
+    await music.send(MessageSegment.file_image(Path(temp_file)))
+    await delete_file(temp_file)
+
+async def post_music_download(song_id, session):
+    output_silk_path = await music_download(song_id)
+    if output_silk_path is None:
+        logger.warning(f"主下载失败，触发降级下载")
+        output_silk_path = await netease_music_download(song_id, session=session)
+        
+    if output_silk_path is None or output_silk_path == -1:
+        await music.send("歌曲音频获取失败了Σヽ(ﾟД ﾟ; )ﾉ，可能歌曲为付费歌曲请换首重试吧！")
+    await music.send(MessageSegment.file_audio(Path(output_silk_path)))
+    await delete_file(output_silk_path)
