@@ -246,6 +246,8 @@ async def handle_function(message: MessageEvent):
     status = 2
     group_openid = message.group_openid if hasattr(message, "group_openid") else "C2C"
     
+    content = message.get_plaintext() or "空内容"
+
     if content.startswith("/"):
         r_msg = f"收到内容：{content}\n{random.choice(text_list)}"
         await check.finish(r_msg)
@@ -256,8 +258,6 @@ async def handle_function(message: MessageEvent):
         if status == 0:
             # 未开启退出
             return
-
-    content = message.get_plaintext() or "空内容"
 
     if len(content) > 30:
         await check.finish("请勿发送过长的内容")
