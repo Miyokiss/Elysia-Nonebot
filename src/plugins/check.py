@@ -28,7 +28,7 @@ from src.providers.waf.llm_waf import LLMWAF
 
 waf = LLMWAF()
 
-menu = ["/今日运势","/今日塔罗","/今日助理","/我的助理"
+menu = ["/今日运势","/今日塔罗","/今日助理","/我的助理","/今日超能力"
         "/图","/随机图",
         "/搜番",
         "/日报",
@@ -245,6 +245,11 @@ async def handle_function(message: MessageEvent):
     # 默认模式
     status = 2
     group_openid = message.group_openid if hasattr(message, "group_openid") else "C2C"
+    
+    if content.startswith("/"):
+        r_msg = f"收到内容：{content}\n{random.choice(text_list)}"
+        await check.finish(r_msg)
+
     # 检查是否开启了AI聊天
     if group_openid != "C2C":
         status = await GroupChatRole.is_on(group_openid)
@@ -253,10 +258,6 @@ async def handle_function(message: MessageEvent):
             return
 
     content = message.get_plaintext() or "空内容"
-    
-    if content.startswith("/"):
-        r_msg = f"收到内容：{content}\n{random.choice(text_list)}"
-        await check.finish(r_msg)
 
     if len(content) > 30:
         await check.finish("请勿发送过长的内容")
