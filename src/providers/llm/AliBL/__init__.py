@@ -16,6 +16,7 @@ class BLChatRole(Model):
     user_id = fields.CharField(max_length=128,description="user_id")
     is_session_id = fields.CharField(max_length=128, description="session_ID")
     memory_id = fields.CharField(max_length=128, description="memory_id")
+    like_value = fields.IntField(default=100, description="好感值、范围0-200")
     is_banned = fields.BooleanField(default=False, description="是否被封禁")
     ban_reason = fields.TextField(default="无", description="封禁原因")
     ban_time = fields.IntField(default=0, description="封禁时间")
@@ -26,7 +27,7 @@ class BLChatRole(Model):
         table_description = "百炼聊天表"
 
     @classmethod
-    async def create_chat_role(cls, user_id: List[str], is_session_id: str, memory_id: str) -> Self:
+    async def create_chat_role(cls, user_id: List[str], is_session_id: str, memory_id: str, like_value: int) -> Self:
         """
         创建新的聊天角色记录\n
         :param user_id: 用户ID列表
@@ -38,8 +39,8 @@ class BLChatRole(Model):
         await BLChatRole.create_chat_role(user_id=["12345"], is_session_id="session_123", memory_id="memory_123")
         """
         try:
-            logger.info(f"Creating chat role for user_id: {user_id}, session_id: {is_session_id}, memory_id: {memory_id}")
-            return await cls.create(user_id=user_id, is_session_id=is_session_id, memory_id=memory_id)
+            logger.info(f"Creating chat role for user_id: {user_id}, session_id: {is_session_id}, memory_id: {memory_id}, like_value: {like_value}")
+            return await cls.create(user_id=user_id, is_session_id=is_session_id, memory_id=memory_id, like_value=like_value)
         except IntegrityError as e:
             logger.error(f"Failed to create chat role due to integrity error: {e}")
             raise ValueError("Failed to create chat role due to integrity error") from e

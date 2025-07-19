@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from src.providers.llm.AliBL import BLChatRole, BLChatRoleLog
 from src.providers.llm.AliBL.AliBL_API import AliBLAPI
+from src.providers.llm.elysiacmd import parse_elysia, get_elysia_commands
 from nonebot import logger
 
 __name__ = "AliBL_Base"
@@ -12,6 +13,8 @@ async def _handle_new_user(user_id: str, content: str) -> str:
     chat_msg = await AliBLAPI.Post_Ali_BL_chat_Api(content = content, memory_id=memory_id)
     is_session_id = chat_msg["session_id"]
     r_msg = chat_msg["content"]
+    Edata = get_elysia_commands(r_msg)
+    like_value = parse_elysia(Edata,field = "like_value")
     
     await BLChatRoleLog.save_chat_log(
         user_id=user_id,
@@ -21,7 +24,8 @@ async def _handle_new_user(user_id: str, content: str) -> str:
     await BLChatRole.create_chat_role(
         user_id=user_id,
         is_session_id=is_session_id,
-        memory_id=memory_id
+        memory_id=memory_id,
+        like_value=like_value
     )
     return r_msg
 
@@ -29,12 +33,18 @@ async def _handle_existing_user(user_id: str, content: str, user_msg) -> str:
     """处理已有用户"""
     memory_id = user_msg.memory_id
     is_session_id = user_msg.is_session_id
+    Like_value = user_msg.like_value
     chat_msg = await AliBLAPI.Post_Ali_BL_chat_Api(
         session_id=is_session_id,
         content=content,
-        memory_id=memory_id
+        memory_id=memory_id,
+        Like_value=Like_value
     )
     r_msg = chat_msg["content"]
+
+    Edata = get_elysia_commands(r_msg)
+    like_value = parse_elysia(Edata,field = "like_value")
+    await BLChatRole.update_chat_role_by_user_id(user_id,like_value=like_value)
     
     await BLChatRoleLog.save_chat_log(
         user_id=user_id,

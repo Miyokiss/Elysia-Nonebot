@@ -30,24 +30,47 @@
                 border-radius: 8px;
                 box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
             }
+            .like-gradient {
+                background: linear-gradient(90deg, #f98bae 0%, #f472b6 100%);
+            }
         }
     </style>
+    <script>
+        window.onload = function () {
+            var like_percentage = document.getElementById("like_percentage");
+            like_percentage.style.width = "{{data.like_percentage}}%";
+        }
+    </script>
 </head>
 <body class="bg-bg flex items-center justify-center min-h-screen p-4">
     <div class="w-[580px] w-full">
         <div class="bg-dark/80 rounded-lg pixel-border p-4">
             <div class="flex justify-between text-xs font-pixel text-light/70 mb-3">
                 <span>{{data.info_data.time}}  {{data.week}}  {% if data.is_holiday %}{{data.holiday}}{% endif %}</span>
+                <span><i>内容由AI生成请注意甄别！</i></span>
             </div>
             
-            <div class="bg-primary/10 rounded border border-primary/30 p-2.5 mb-3">
+            <div class="bg-primary/10 rounded-lg border border-primary/30 p-2.5 mb-3">
                 <div class="flex items-center">
                     <i class="fa-regular fa-face-smile text-primary mr-2"></i>
                     <span class="font-pixel text-xs text-primary">{{data.info_data.mood}}</span>
                 </div>
             </div>
             
-            <div class="bg-accent/10 rounded border border-accent/30 p-2.5">
+            <div class="bg-primary/10 rounded-lg border border-primary/30 p-3 mb-3">
+                <div class="flex justify-between items-center mb-1.5">
+                    <div class="flex items-center">
+                        <i class="fa-solid fa-heart text-accent mr-2"></i>
+                        <span class="font-pixel text-xs text-accent">好感值</span>
+                    </div>
+                    <span class="font-pixel text-xs text-accent">{{data.like_value}} / 200</span>
+                </div>
+                <div class="h-2 bg-pink-200 rounded-full overflow-hidden">
+                    <div class="h-full like-gradient transition-all duration-500 ease-in-out" id="like_percentage"></div>
+                </div>
+            </div>
+            
+            <div class="bg-accent/10 rounded-lg border border-accent/30 p-2.5">
                 <div class="flex items-center mb-1">
                     <i class="fa-regular fa-comment text-accent mr-2"></i>
                     <span class="font-pixel text-xs text-accent">动作/心理活动</span>

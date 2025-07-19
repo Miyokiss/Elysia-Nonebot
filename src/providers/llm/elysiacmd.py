@@ -122,6 +122,7 @@ async def _elysia_info_(Edata: json) -> json:
     mood = parse_elysia(Edata,field = "mood")
     is_voice = parse_elysia(Edata,field = "is_voice")
     tone = parse_elysia(Edata,field = "tone")
+    like_value = parse_elysia(Edata,field = "like_value")
     supplement = parse_elysia(Edata,field = "supplement")
     txt = parse_elysia(Edata,field = "txt")
     return{
@@ -129,6 +130,7 @@ async def _elysia_info_(Edata: json) -> json:
         "mood": mood,
         "tone": tone,
         "is_voice": is_voice,
+        "like_value": like_value,
         "supplement": supplement,
         "txt": txt
     }
@@ -147,11 +149,15 @@ async def _elysia_info_img(info_data: json) -> str:
     date_info = DateInfo()
     week = date_info.get_weekday()
     is_holiday, holiday = date_info.check_holiday()
+    like_value = int(info_data.get("like_value"))
+    like_percentage = int(like_value / 200 * 100)
     data = {
          "info_data": info_data,
          "week": week,
          "is_holiday": is_holiday,
          "holiday": holiday,
+         "like_value": like_value,
+         "like_percentage": like_percentage
     }
     logger.debug(f"data：{data}")
     async with async_playwright() as p:
