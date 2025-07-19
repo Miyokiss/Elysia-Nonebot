@@ -47,6 +47,8 @@ h1,h3 {
 
 h3{
     width: 150px!important;
+    margin-top: 10px;
+    margin-bottom: 15px;
 }
 
 .content{
