@@ -58,7 +58,8 @@ class AliBLAPI:
     async def Post_Ali_BL_chat_Api(
         session_id : str = None,
         content : str =  "空内容",
-        memory_id : str = None) -> list:
+        memory_id : str = None,
+        Like_value : int = 100) -> list:
         """调用阿里百炼API进行聊天"""
         # 构造调用参数
         if memory_id is None:
@@ -78,7 +79,8 @@ class AliBLAPI:
                 "user_prompt_params":{
                     "Etime": etime,
                     "Weekday": week,
-                    "Holiday": holiday
+                    "Holiday": holiday,
+                    "Like_value" : Like_value
                 }
             }
         }
