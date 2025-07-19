@@ -202,6 +202,23 @@ send_menu = [
         ]
     },
     {
+        "command_type": "每日超能力",
+        "command_list": [
+            {
+                "command": "/今日超能力",
+                "description": "Tips:获取今日超能力！~",
+            },
+            {
+                "command": "/今日超能力 按下",
+                "description": "Tips:按下表示想要",
+            },
+            {
+                "command": "/今日超能力 不按",
+                "description": "Tips:不按表示不想要",
+            }
+        ]
+    },
+    {
         "command_type": "整活功能",
         "command_list": [
             {
