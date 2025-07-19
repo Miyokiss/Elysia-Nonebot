@@ -10,11 +10,12 @@ today_superpowers = on_command("今日超能力", rule=to_me(), priority=1, bloc
 async def handle_today_superpowers(msg: MessageEvent):
     user_id = msg.get_user_id()
     keyword = msg.get_plaintext().replace("/今日超能力", "").split()
-    if len(keyword) == 0 or len(keyword) == 1:
+    keyword_len = len(keyword)
+    if keyword_len == 0 or keyword_len == 1:
         # 获取今日超能力
         today_superpowers_data = await Today_superpowers.get_today_superpowers()
         user_today_superpowers = await Today_User_superpowers.get_user_today_superpowers(user_id)
-        if len(keyword) == 1 and keyword[0] in ["按下", "不按"]:
+        if keyword_len == 1 and keyword[0] in ["按下", "不按"]:
             # 按下为true，不按下为false
             is_button = True if keyword[0] == "按下" else False
             if user_today_superpowers is None:
@@ -31,14 +32,16 @@ async def handle_today_superpowers(msg: MessageEvent):
                 # 更新数据
                 today_superpowers_data = await Today_superpowers.get_today_superpowers()
                 user_today_superpowers = await Today_User_superpowers.get_user_today_superpowers(user_id)
+        elif keyword_len >= 1:
+            await today_superpowers.finish("请使用正确的指令格式：\n/今日超能力 按下 \n/今日超能力 不按")
 
-        if user_today_superpowers is None and len(keyword) == 0:
+        if user_today_superpowers is None and keyword_len == 0:
             r_msg = Message([
                 f"\n今日超能力：\n"+
                 today_superpowers_data.superpowers
                 + f"\n但是：\n"+
                 today_superpowers_data.but
-                + f"\n按下：/今日超能力 按下"
+                + f"\n\n按下：/今日超能力 按下"
                 + f"\n不按下：/今日超能力 不按"
             ])
         else:
