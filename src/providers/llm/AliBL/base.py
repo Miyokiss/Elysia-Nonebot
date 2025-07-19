@@ -82,7 +82,10 @@ async def on_bl_new_session_id(user_id: str) -> Optional[list[Dict[str, str]]]:
     if user_msg is None:
         return {"code":"None","msg":"你还没有聊过天哦~"}
     else:
-        chat_msg = await AliBLAPI.Post_Ali_BL_chat_Api(content =  "你好呀",memory_id = user_msg.memory_id) 
+        chat_msg = await AliBLAPI.Post_Ali_BL_chat_Api(
+            content =  "你好呀",
+            memory_id = user_msg.memory_id,
+            Like_value= user_msg.like_value) 
         is_session_id = chat_msg["session_id"]
         r_msg = chat_msg["content"]
         await BLChatRole.update_chat_role_by_user_id(
