@@ -1,7 +1,9 @@
 import sys
 from datetime import datetime
-from typing import List
+from typing import List, Dict, Any
+from functools import partial
 from nonebot import logger
+import asyncio
 from http import HTTPStatus
 from dashscope import Application
 from src.configs.api_config import (
@@ -59,47 +61,76 @@ class AliBLAPI:
         session_id : str = None,
         content : str =  "空内容",
         memory_id : str = None,
-        Like_value : int = 100) -> list:
+        Like_value : int = 100) -> Dict[str, any]:
         """调用阿里百炼API进行聊天"""
-        # 构造调用参数
-        if memory_id is None:
-            logger.error("【阿里百练API服务】memory_id不能为空")
-            return "【阿里百练API服务】memory_id不能为空"
-        etime = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        date_info = DateInfo()
-        week = date_info.get_weekday()
-        is_holiday, holiday = date_info.check_holiday()
-        call_params = {
-            "api_key": ALI_KEY,
-            "app_id": ALI_BLAPP_ID,
-            "prompt": content,
-            "memory_id" : memory_id,
-            "workspace": workspaceId,
-            "biz_params": {
-                "user_prompt_params":{
-                    "Etime": etime,
-                    "Weekday": week,
-                    "Holiday": holiday,
-                    "Like_value" : Like_value
+        try:
+            # 参数有效性校验
+            if not memory_id:
+                logger.error("【阿里百练API服务】memory_id不能为空")
+                return {"session_id": session_id, "content": "", "error": "memory_id_required"}
+
+            # 构造调用参数
+            etime = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            date_info = DateInfo()
+            week = date_info.get_weekday()
+            is_holiday, holiday = date_info.check_holiday()
+
+            call_params = {
+                "api_key": ALI_KEY,
+                "app_id": ALI_BLAPP_ID,
+                "prompt": content,
+                "memory_id" : memory_id,
+                "workspace": workspaceId,
+                "biz_params": {
+                    "user_prompt_params":{
+                        "Etime": etime,
+                        "Weekday": week,
+                        "Holiday": holiday,
+                        "Like_value" : Like_value
+                    }
                 }
             }
-        }
-        if session_id!=None:
-            call_params["session_id"] = session_id
-        # 调用API
-        responses = Application.call(**call_params)
-        if responses.status_code != HTTPStatus.OK:
-            logger.error(
-                f"code={responses.status_code}, "
-                f"message={responses.message}, "
-                f"请参考文档：https://help.aliyun.com/zh/model-studio/developer-reference/error-code"
+
+            if session_id != None:
+                call_params["session_id"] = session_id
+
+            # 修复异步调用：将同步方法包装为异步执行
+            loop = asyncio.get_event_loop()
+            responses = await loop.run_in_executor(
+                None,  # 使用默认的executor
+                partial(Application.call, **call_params)  # 包装同步方法
             )
-            logger.debug(f"【阿里百练API服务】构造参数: {call_params}")
-            return "【阿里百练API服务响应异常】"
-        else:
-            reply_content = {
+
+            # 响应处理
+            if responses.status_code != HTTPStatus.OK:
+                logger.error(
+                    f"code={responses.status_code}, "
+                    f"message={responses.message}, "
+                    f"请参考文档：https://help.aliyun.com/zh/model-studio/developer-reference/error-code",
+                    exc_info=True
+                )
+                logger.debug(f"【阿里百练API服务】构造参数: {call_params}")
+                return {
+                    "session_id": session_id,
+                    "content": "",
+                    "error": f"api_error_{responses.status_code}"
+                }
+
+            # 正常响应
+            return {
                 "session_id": responses.output.session_id,
-                "content": responses.output.text
+                "content": responses.output.text or "",  # 防止None值
+                "error": None
             }
-            logger.debug(f"【阿里百练API服务】响应结果: {reply_content}")
-            return reply_content
+
+        except Exception as error:
+            # 链式异常处理
+            logger.exception(
+                f"【阿里百练API服务】调用异常: {error}", 
+                exc_info=True
+            )
+            return {
+                "session_id": session_id,
+                "content": "",
+                "error": str(error)
+            }
