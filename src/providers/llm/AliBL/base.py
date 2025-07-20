@@ -53,10 +53,6 @@ async def _handle_existing_user(user_id: str, content: str, user_msg) -> str:
             
         # 正常处理流程
         r_msg = chat_msg["content"]
-
-        Edata = get_elysia_commands(r_msg)
-        like_value = parse_elysia(Edata,field = "like_value")
-        await BLChatRole.update_chat_role_by_user_id(user_id,like_value=like_value)
         
         await BLChatRoleLog.save_chat_log(
             user_id=user_id,

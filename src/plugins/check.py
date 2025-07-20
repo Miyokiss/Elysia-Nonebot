@@ -393,6 +393,10 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                 audios = r_msg.get("audios") or None
                 is_voice = r_msg.get("is_voice") if r_msg.get("is_voice") == "True" else on_tts
                 tone = r_msg.get("tone") or None
+                like_value = r_msg.get("like_value") or None
+                if like_value is not None:
+                    # 更新用户喜好值
+                    await BLChatRole.update_chat_role_by_user_id(user_id, like_value=like_value)
                 if txt is not None:
                     logger.debug(f"Elysia txt：{txt}")
                     if imgs is not None:
