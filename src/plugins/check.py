@@ -52,6 +52,19 @@ menu = ["/今日运势","/今日塔罗","/今日助理","/我的助理","/今日
 
 send_menu = [
     {
+        "command_type": "聊天对话相关",
+        "command_list": [
+            {
+                "command": "/爱莉希雅 新的对话",
+                "description": "Tips:开始新的对话！",
+            },
+            {
+                "command": "/爱莉希雅 新的记忆",
+                "description": "Tips:开启新的记忆！",
+            }
+        ]
+    },
+    {
         "command_type": "日常功能",
         "command_list": [
             {
