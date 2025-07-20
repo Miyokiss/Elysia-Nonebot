@@ -35,6 +35,9 @@ async def _handle_existing_user(user_id: str, content: str, user_msg) -> str:
         memory_id = user_msg.memory_id
         is_session_id = user_msg.is_session_id
         Like_value = user_msg.like_value
+        # 如果Like_value超过200，则重置为200
+        if Like_value > 200:
+            Like_value = 200
         chat_msg = await AliBLAPI.Post_Ali_BL_chat_Api(
             session_id=is_session_id,
             content=content,
