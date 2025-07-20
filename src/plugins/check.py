@@ -372,7 +372,8 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                 lambda: asyncio.run(on_bl_chat(user_id, content))
             )
             if not result:
-                raise Exception("生成失败")
+                logger.error(f"API Chat R Data：结果为空")
+                await check.finish("Chat回复为空，请稍后再试...")
             if has_elysia_command_regex(result):
                 r_msg = await elysia_command(result)
                 logger.debug(f"Elysia Chat R Data：{r_msg}")
@@ -437,11 +438,23 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
             r_msg = "未知错误，请稍后再试"
             if hasattr(e, 'message'):
                 r_msg = e.message
-            logger.error(f"Elysia Chat 处理失败：{str(e)}")
-            await check.finish(f"Elysia Chat 处理失败：{r_msg}")
-
+            logger.error(f"Elysia Chat 处理失败：{str(e)}", exc_info=True)
+            try:
+                await check.send(f"Elysia Chat 处理失败：{r_msg}")
+            finally:
+                # 确保清理资源
+                if 'output_silk_path' in locals():
+                    await delete_file(output_silk_path)
+                if 'file_path' in locals():
+                    await delete_file(file_path)
     # 创建后台任务不阻塞当前处理
-    asyncio.create_task(_Elysia_Chat_task())
+    task = asyncio.create_task(_Elysia_Chat_task())
+    # 添加异常回调处理
+    def handle_task_exception(task: asyncio.Task):
+        if task.exception():
+            logger.error(f"后台任务异常：{task.exception()}", exc_info=True)
+    task.add_done_callback(handle_task_exception)
+    await check.finish()
 
 async def Transcoding(file_path: str, output_filename: str) -> str:
     """

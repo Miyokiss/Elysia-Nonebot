@@ -10,7 +10,7 @@ from typing import List, Optional
 from src.configs.path_config import temp_path
 from playwright.async_api import async_playwright
 from nonebot_plugin_htmlrender import template_to_pic
-from src.clover_music.cloud_music.cloud_music import music_download, netease_music_download
+from src.clover_music.cloud_music.cloud_music import music_download, netease_music_download, netease_music_search
 from src.clover_music.cloud_music.data_base import netease_music_info_img
 from src.utils.date_info import DateInfo
 
@@ -85,13 +85,15 @@ async def elysia_command(result)-> list:
 
         logger.debug(f"cloud_music:song:{song} singer:{singer}")
         
+        session = requests.session()
         temp_file = os.path.join(temp_path, f"{datetime.now().date()}_{uuid.uuid4().hex}.png")
-        music_info = await netease_music_info_img(keyword, session, idx=1, temp_file=temp_file)
+        song_lists = await netease_music_search(keyword, session)
+        song_id=song_lists[0]["song_id"]
+        music_info = await netease_music_info_img(song_id=song_id, temp_file=temp_file)
         if music_info is None:
             return{
                 "txt": "\n没有找到歌曲，或检索到的歌曲为付费/无版权喔qwq\n这绝对不是我的错，绝对不是！",
             }
-        song_id = music_info['song_id']
         output_silk_path = await music_download(song_id)
         if output_silk_path is None:
             # 降级下载
