@@ -18,7 +18,7 @@ __name__ = "plugins | cloud_music"
 
 unikey_cache = {'unikey': None, 'expires': 0}
 
-music = on_command("点歌", rule=to_me(), priority=10, block=False)
+music = on_command("点歌", rule=to_me(), priority=10, block=True)
 @music.handle()
 async def handle_function(msg: MessageEvent) -> None:
     try:
