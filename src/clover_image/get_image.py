@@ -39,7 +39,7 @@ async def get_juhe_image_url():
 """
 async def get_anosu_image(keyword: str, is_r18: int, num: int, proxy: str = "i.pixiv.re"):
     url = anosu_url + f"?keyword={keyword}&r18={is_r18}&num={num}&proxy={proxy}"
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
         async with session.get(url) as response:
             data = await response.json()
             urls = [item['url'] for item in data]
