@@ -4,7 +4,7 @@ from nonebot.plugin import on_keyword
 from nonebot.adapters.qq import Message
 
 
-nai_loong = on_keyword({"奶龙"}, rule=to_me(), priority=1, block=True)
+nai_loong = on_keyword({"奶龙"}, rule=to_me(), priority=20, block=True)
 @nai_loong.handle()
 async def not_nai_loong():
     await nai_loong.finish(message=Message(random.choice(text_list_nailoong)))

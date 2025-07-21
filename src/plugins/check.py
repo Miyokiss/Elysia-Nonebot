@@ -269,8 +269,7 @@ async def check_value_in_menu(message: MessageEvent) -> bool:
     await UserList.insert_user(message.author.id, group_id)
     return value[0] not in menu and not value[0].isdigit() and value[0] != "#"
 
-check = on_message(rule=to_me() & Rule(check_value_in_menu), priority=20, block=True)
-
+check = on_message(rule=to_me() & Rule(check_value_in_menu), priority=15, block=True)
 @check.handle()
 async def handle_function(message: MessageEvent):
     # 默认模式
@@ -380,7 +379,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
     async def _Elysia_Chat_task():
         try:
             result = await on_bl_chat(user_id, content)
-            if not result:
+            if result is None:
                 logger.error(f"API Chat R Data：结果为空")
                 await check.finish("Chat回复为空，请稍后再试...")
             if has_elysia_command_regex(result):
