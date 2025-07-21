@@ -39,7 +39,7 @@ class BLChatRole(Model):
         await BLChatRole.create_chat_role(user_id=["12345"], is_session_id="session_123", memory_id="memory_123")
         """
         try:
-            logger.info(f"Creating chat role for user_id: {user_id}, session_id: {is_session_id}, memory_id: {memory_id}, like_value: {like_value}")
+            logger.debug(f"Creating chat role for user_id: {user_id}, session_id: {is_session_id}, memory_id: {memory_id}, like_value: {like_value}")
             return await cls.create(user_id=user_id, is_session_id=is_session_id, memory_id=memory_id, like_value=like_value)
         except IntegrityError as e:
             logger.error(f"Failed to create chat role due to integrity error: {e}")
@@ -59,7 +59,7 @@ class BLChatRole(Model):
         chat_role = await BLChatRole.get_chat_role_by_user_id(user_id=["12345"])
         """
         try:
-            logger.info(f"Fetching chat role for user_id: {user_id}")
+            logger.debug(f"Fetching chat role for user_id: {user_id}")
             return await cls.get(user_id=user_id)
         except MultipleObjectsReturned as e:
             # 处理多对象返回异常
@@ -93,7 +93,7 @@ class BLChatRole(Model):
         success = await BLChatRole.update_chat_role_by_user_id(user_id=["12345"], is_session_id="new_session_id")
         """
         try:
-            logger.info(f"Updating chat role for user_id: {user_id} with data: {kwargs}")
+            logger.debug(f"Updating chat role for user_id: {user_id} with data: {kwargs}")
             await cls.filter(user_id=user_id).update(**kwargs)
             return True
         except Exception as e:
@@ -110,7 +110,7 @@ class BLChatRole(Model):
         :return: 是否更新成功
         """
         try:
-            logger.info(f"Updating ban status for user_id: {user_id}, is_banned: {is_banned}")
+            logger.debug(f"Updating ban status for user_id: {user_id}, is_banned: {is_banned}")
             update_data = {
                 'is_banned': is_banned,
                 'ban_reason': reason,
@@ -133,7 +133,7 @@ class BLChatRole(Model):
         success = await BLChatRole.delete_chat_role_by_user_id(user_id=["12345"])
         """
         try:
-            logger.info(f"Deleting chat role for user_id: {user_id}")
+            logger.debug(f"Deleting chat role for user_id: {user_id}")
             await cls.filter(user_id=user_id).delete()
             return True
         except Exception as e:
