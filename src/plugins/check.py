@@ -379,11 +379,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
 
     async def _Elysia_Chat_task():
         try:
-            loop = asyncio.get_running_loop()
-            result = await loop.run_in_executor(
-                None, 
-                lambda: asyncio.run(on_bl_chat(user_id, content))
-            )
+            result = await on_bl_chat(user_id, content)
             if not result:
                 logger.error(f"API Chat R Data：结果为空")
                 await check.finish("Chat回复为空，请稍后再试...")
@@ -432,6 +428,10 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                     tts = TTSProvider()
                     # 移除（）和()和括号内文本
                     text = re.sub(r'[\(\（][^()（）]*[\)\）]', '', txt)
+                    # 处理后无内容警告
+                    if not text.strip():
+                        logger.warning("Elysia Chat 处理后文本内容为空，可能是因为文本被括号清除")
+                        await check.finish()
                     result = await tts.to_tts(text ,tone)
                     if not result:
                         raise Exception("TTS 生成失败，结果为空")
