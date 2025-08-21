@@ -290,6 +290,8 @@ async def handle_function(message: MessageEvent):
 
     if len(content) > 30:
         await check.finish("请勿发送过长的内容")
+    # 暂时关闭
+    await check.finish("由于业务调整，AI聊天暂时关闭~恢复时间待定，请关注群公告~")
     content = MarkdownCleaner.clean_markdown(content)
     
     if content.startswith("新的对话") or content.startswith("新的记忆"):
