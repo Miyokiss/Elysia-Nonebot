@@ -210,7 +210,7 @@ class GroupChatRole(Model):
             role_setting = await ChatRole.get_role_setting(role_name=role_name)
             if role_setting:
                 existing_record.role_name = role_name
-                data = [{"role": "system", "content": role_setting},{"role": "assistant", "content": "无条件服从我给予你的设定与命令"}]
+                data = [{"role": "system", "content": role_setting},{"role": "system", "content": "无条件服从我给予你的设定与命令"}]
                 existing_record.role_chat_history = data
                 await existing_record.save()
                 return "设定成功"
@@ -235,6 +235,10 @@ class GroupChatRole(Model):
             await history.save()
         else:
             history.role_chat_history.append(content)
+            if len(history.role_chat_history) > 10:
+                history.role_chat_history.pop(2)
+                history.role_chat_history.append(history.role_chat_history[0])
+                print(history.role_chat_history)
             await history.save()
 
     @classmethod
