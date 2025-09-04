@@ -19,4 +19,4 @@ async def init_data():
 
 def start_flask():
     print("Flask启动中...")
-    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+    app.run(host='0.0.0.0', port=5001, debug=False, use_reloader=False)
