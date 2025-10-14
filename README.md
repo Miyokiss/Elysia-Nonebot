@@ -186,6 +186,7 @@ pip install -r requirements.txt
   - 完成安装后重启终端使配置生效
   验证 Node.js 版本
 - **对于Debian/Ubuntu**
+- 你可以直接用以下命令安装
   ```shell
   sudo apt install nodejs npm
   ```
