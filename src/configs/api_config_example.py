@@ -14,6 +14,14 @@ qq_email = "xxxxxxxxxx@qq.com"
 qq_password = "123456789123456789" #应用码
 
 """
+自建邮箱配置
+"""
+server_smtp_server = "example.com"
+server_email = ""
+server_password = "xxx"
+server_port = 587
+
+"""
 图床配置
 """
 # SMMS图床相关配置
