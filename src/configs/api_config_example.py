@@ -2,6 +2,14 @@ app_id="" # 上线前 配置 正确 Bot_ID 号
 bot_account= "" # 上线前 配置 正确 QQ 号
 
 """
+自建邮箱配置
+"""
+server_smtp_server = "example.com"
+server_email = ""
+server_password = "xxx"
+server_port = 587
+
+"""
 图床配置
 """
 # SMMS图床相关配置
