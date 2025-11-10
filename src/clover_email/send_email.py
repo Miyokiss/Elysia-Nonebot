@@ -219,7 +219,7 @@ async def send_email_by_server(receiver_email: str, file_path: str):
                 hostname=server_smtp_server,
                 port=server_port,
                 start_tls=True,
-                timeout=1200
+                timeout=120
         ) as server:
             await server.login(server_email, server_password)
             await server.send_message(msg)
