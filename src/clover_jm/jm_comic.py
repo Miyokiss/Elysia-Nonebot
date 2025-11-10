@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from src.configs.path_config import jm_path,jm_config_path
 from src.clover_providers.cloud_file_api.kukufile import Kukufile
 from src.clover_image.delete_file import delete_folder,delete_file
-from src.clover_email.send_email import send_email_by_google,send_email_by_qq
+from src.clover_email.send_email import send_email_by_google, send_email_by_qq, send_email_by_server
 
 __name__ = "clover | jm_comic"
 

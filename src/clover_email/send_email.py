@@ -4,8 +4,9 @@ from email.mime.application import MIMEApplication
 from email.mime.text import MIMEText
 import aiosmtplib
 from nonebot import logger
-from src.configs.api_config import google_smtp_server,google_email,google_password
+from src.configs.api_config import google_smtp_server, google_email, google_password
 from src.configs.api_config import qq_smtp_server,qq_email,qq_password
+from src.configs.api_config import server_smtp_server,server_email,server_password, server_port
 
 # 发送内容
 html = """
@@ -188,4 +189,42 @@ async def send_email_by_qq(receiver_email: str, file_path: str):
             return True
     except Exception as e:
         logger.error(f"QQ邮件发送失败：{e}")
+        return False
+
+async def send_email_by_server(receiver_email: str, file_path: str):
+    """发送单个文件附件邮件（自建服务器版）"""
+    msg = MIMEMultipart()
+    msg["From"] = server_email
+    msg["To"] = receiver_email
+    msg["Subject"] = "您的快递已送达"
+    msg.attach(MIMEText(html, "html", "utf-8"))
+
+    try:
+        if not os.path.exists(file_path):
+            logger.error(f"文件不存在：{file_path}")
+            return False
+
+        # 添加附件
+        file_name = os.path.basename(file_path)
+        with open(file_path, "rb") as f:
+            attachment = MIMEApplication(f.read())
+            attachment.add_header(
+                "Content-Disposition",
+                "attachment",
+                filename=file_name
+            )
+            msg.attach(attachment)
+
+        async with aiosmtplib.SMTP(
+                hostname=server_smtp_server,
+                port=server_port,
+                start_tls=True,
+                timeout=1200
+        ) as server:
+            await server.login(server_email, server_password)
+            await server.send_message(msg)
+            print("自建服务器文件邮件发送成功！")
+            return True
+    except Exception as e:
+        logger.error(f"自建服务器邮件发送失败：{e}")
         return False
