@@ -22,7 +22,7 @@ zhdate
 chinese_calendar
 lunardate
 playwright
-nonebot-plugin-htmlrender
+nonebot-plugin-htmlrender==0.6
 tenacity
 paramiko
 
