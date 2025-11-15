@@ -36,3 +36,4 @@ runtime
 /src/configs/tts
 bot.pid
 .vscode
+logging.conf
