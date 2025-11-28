@@ -1,0 +1,120 @@
+#######################################
+# 如果您已经配置好了，请将此字段改为 ‘False’#
+#######################################
+default: "True" # 配置完成后，请将这个字段改为 False
+
+############################
+#        Bot基本信息        #
+############################
+# 请填写这部分内容
+# 包括获取群成员头像等功能需要此字段
+bot:
+  app_id: ""
+  bot_account: ""
+
+############################
+#     三叶草邮箱发信设置      #
+############################
+# 此内容用于配置三叶草发送邮件的邮箱及账号密码
+# 目前支持三种邮箱，分别为gmail、qq邮箱、自建服务器邮局
+# 如果你需要启用此邮箱，请将该邮箱下的 ‘enabled’ 字段修改为 'True'
+# 请至少启用一个邮箱，若三个邮箱均启用，则优先级为gmail > qq邮箱 > 自建邮箱 （按照此配置文件中的顺序）
+mail:
+  google: #gmail
+    enabled: 'False'
+    smtp_server: 'smtp.gmail.com'
+    email: 'xxxxxx@gmail.com'
+    password: '1234567891234567' # 16 位应用码
+
+  qq: # qq邮箱
+    enabled: 'False' # 请至少启用一个邮箱
+    smtp_server: 'smtp.qq.com'
+    email: 'xxxxxxxx@qq.com'
+    password: '1234567891234567' # qq邮箱应用码
+
+  server: # 自建服务器
+    enabled: 'False'
+    smtp_server: 'mail.example.com' # 自建邮局域名
+    email: 'user_name@example.com'
+    password: '123456'
+    port: '587'
+
+############################
+#       三叶草图床设置       #
+############################
+# 目前三叶草现成的功能中暂未使用到这些内容
+# 暂时不配置也不会影响使用
+# 如果你希望使用图床，可以调用 src/clover_image/get_image.py 中的现成方法
+image_hosting:
+  smms: # sm.ms图床
+    enabled: 'False'
+    token: '<KEY>'
+    smms_image_upload_history: "https://sm.ms/api/v2/upload_history"
+
+  superbed: # 聚合图床
+    enabled: 'False'
+    token: '<KEY>'
+    superbed_image_list: "https://api.superbed.cn/timeline"
+
+  random_pic: "https://image.anosu.top/pixiv/json"
+
+  animetrace:
+    url: "https://api.animetrace.com/v1/search"
+
+############################
+#        三叶草AI设置        #
+############################
+# 此内容用于配置ai聊天
+# 目前支持三种api,分别为vveai、deepseek api、硅基流动
+# 但是理论上只要你的api支持openai格式的接口，你可以把硅基流动那一栏换成任意api
+# 如果你想使用ai聊天功能，请至少启用其中一个api
+# 如果启用多个，则优先级为 v3 > deepseek > silicon flow （按照顺序进行优先级排序）
+#
+# ai聊天功能分群聊开启，若你想在某个群聊中启用三叶草的ai功能，请在该群聊中 @机器人 并发送 “/管理员注册 <密码>”
+ai:
+  admin:
+    password: '123456' # 默认管理员密码
+
+  api:
+    v3:
+      enabled: "False"
+      url: "https://api.vveai.com/v1/chat/completions"
+      key: '<KEY>'
+
+    deepseek:
+      enabled: "False"
+      url: "https://api.deepseek.com"
+      key: '<KEY>'
+
+    silicon_flow:
+      enabled: "True"
+      url: "https://api.siliconflow.cn/v1/chat/completions"
+      model: "Pro/deepseek-ai/DeepSeek-V3"
+      key: '<KEY>'
+
+############################
+#       其他时尚小功能       #
+############################
+
+wenku8:
+  # 通过wenku8.net获取最新轻小说咨询
+  # 此功能可能需要启用代理
+  enabled: 'False'
+  user_name: '<user_name>'
+  password: '<passwd>'
+
+proxy:
+  # 目前代码中仅支持多米HTTP代理
+  enabled: 'False'
+  key: '<KEY>'
+
+qr:
+  # 二维码生成api
+  url: "https://api.qrserver.com/v1/create-qr-code/"
+  size: "200x200"
+
+codeforces:
+  # 查询codeforces比赛列表
+  # 但如果仅查询比赛列表或个人rating，本内容可以不用配置
+  key: "<KEY>"
+  secret: "<KEY>"
