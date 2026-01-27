@@ -14,17 +14,16 @@ from src.clover_openai import ai_chat
 from src.utils.tts import MarkdownCleaner
 from src.clover_html.help import help_info_img
 from src.clover_sqlite.models.user import UserList
-from src.providers.llm.AliBL.base import BLChatRole
 from src.clover_image.delete_file import delete_file
-from src.providers.llm.AliBL.base import on_bl_chat
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
 from nonebot.plugin import on_command, on_keyword, on_fullmatch
 from nonebot.exception import FinishedException, PausedException
 from nonebot.adapters.qq import MessageSegment, MessageEvent, Message
-from src.providers.llm.elysiacmd import has_elysia_command_regex, elysia_command
-from src.configs.path_config import temp_path, image_local_qq_image_path, AUDIO_PATH
 from src.providers.waf.llm_waf import LLMWAF
+from src.configs.path_config import temp_path, image_local_qq_image_path, AUDIO_PATH
+from src.providers.llm.Dify.base import DifyChatRole ,on_chat
+from src.providers.llm.elysiacmd import has_elysia_command_regex, elysia_command
 
 waf = LLMWAF()
 
@@ -290,8 +289,6 @@ async def handle_function(message: MessageEvent):
 
     if len(content) > 30:
         await check.finish("请勿发送过长的内容")
-    # 暂时关闭
-    await check.finish("由于业务调整，AI聊天暂时关闭~恢复时间待定，请关注群公告~")
     content = MarkdownCleaner.clean_markdown(content)
     
     if content.startswith("新的对话") or content.startswith("新的记忆"):
@@ -318,7 +315,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
     """Elysia Chat 响应"""
     user_id = message.get_user_id()
     content = message.get_plaintext() or "空内容"
-    user_msg = await BLChatRole.get_chat_role_by_user_id(user_id)
+    user_msg = await DifyChatRole.get_chat_role_by_user_id(user_id)
     if user_msg is None:
         # 发送等待回复
         r_msg = Message([
@@ -353,7 +350,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                 else:
                     await check.send("回答正确，欢迎您！舰长~"
                                      +"\nTips：如果在对话中遇到问题/错误/不想聊的话题/遇到胡言乱语，请尝试使用：/爱莉希雅 新的对话。"
-                                     +"\n如果爱莉记住了些奇怪的东西可以使用：/爱莉新希雅 新的记忆")
+                                     +"\n如果爱莉记住了些奇怪的东西可以使用：/爱莉希雅 新的记忆")
                     content = "你好呀"
             except asyncio.TimeoutError:
                 logger.info(f"check | 回复等待超时 User: {user_id} Content: {content}")
@@ -378,7 +375,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
 
     async def _Elysia_Chat_task():
         try:
-            result = await on_bl_chat(user_id, content)
+            result = await on_chat(user_id, content)
             if result is None:
                 logger.error(f"API Chat R Data：结果为空")
                 await check.finish("Chat回复为空，请稍后再试...")
@@ -393,7 +390,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                 like_value = r_msg.get("like_value") or None
                 if like_value is not None:
                     # 更新用户喜好值
-                    await BLChatRole.update_chat_role_by_user_id(user_id, like_value=like_value)
+                    await DifyChatRole.update_chat_role_by_user_id(user_id, like_value=like_value)
                 if txt is not None:
                     logger.debug(f"Elysia txt：{txt}")
                     if imgs is not None:

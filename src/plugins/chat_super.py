@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 from nonebot.rule import Rule, to_me
 from nonebot.plugin import on_command
-from src.providers.llm.AliBL import BLChatRole
+from src.providers.llm.Dify import DifyChatRole
 from src.clover_image.delete_file import delete_file
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.configs.path_config import image_local_qq_image_path
@@ -10,7 +10,7 @@ from src.clover_sqlite.models.chat import MODE_ELYSIA, MODE_OFF
 from nonebot.exception import FinishedException, PausedException
 from nonebot.adapters.qq import MessageEvent, Message, MessageSegment
 from src.providers.llm.elysiacmd  import has_elysia_command_regex,elysia_command
-from src.providers.llm.AliBL.base import on_bl_new_session_id,on_bl_new_memory_id
+from src.providers.llm.Dify.base import on_new_session_id,on_new_memory_id
 from nonebot import logger
 
 Elysia_super = on_command("爱莉希雅",aliases={"妖精爱莉"},rule=to_me(),priority=1,block=True)
@@ -25,7 +25,7 @@ async def handle_function(message: MessageEvent):
         user_id,content = message.get_user_id(), message.get_plaintext().split()
 
     logger.debug(f"\n{content}")
-    user_msg = await BLChatRole.get_chat_role_by_user_id(user_id)
+    user_msg = await DifyChatRole.get_chat_role_by_user_id(user_id)
     if user_msg is None:
         # 发送等待回复
         r_msg = Message([
@@ -92,7 +92,7 @@ async def handle_function(message: MessageEvent):
                         await Elysia_super.finish("当前群已是爱莉希雅对话~")
             elif len(values) == 1:
                 if values[0] == "新的对话":
-                    msg = await on_bl_new_session_id(user_id)
+                    msg = await on_new_session_id(user_id)
                     if msg["code"] is True:
                         if has_elysia_command_regex(msg["msg"]):
                             r_msg = await elysia_command(msg["msg"])
@@ -108,7 +108,7 @@ async def handle_function(message: MessageEvent):
                     else:
                         await Elysia_super.finish(msg["msg"])
                 if values[0] == "新的记忆":
-                    msg =await on_bl_new_memory_id(user_id)
+                    msg =await on_new_memory_id(user_id)
                     if msg is True:
                         await Elysia_super.finish("开始新的记忆啦！~")
                     else:
@@ -146,9 +146,9 @@ async def handle_function(message: MessageEvent):
     try:
         if len(content)==1:
             await Elysia_super_deban.finish("请输入UserID")
-        if await BLChatRole.get_chat_role_by_user_id(content[1]) is None:
+        if await DifyChatRole.get_chat_role_by_user_id(content[1]) is None:
             await Elysia_super_deban.finish("用户不存在")
-        await BLChatRole.filter(user_id=content[1]).update(is_banned=False)
+        await DifyChatRole.filter(user_id=content[1]).update(is_banned=False)
         await Elysia_super_deban.finish("解封成功")
     except Exception as e:
        if isinstance(e, FinishedException):
