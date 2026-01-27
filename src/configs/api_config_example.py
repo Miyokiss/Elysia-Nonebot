@@ -47,6 +47,14 @@ workspaceId= "your_workspace_id" # 阿里百炼工作空间ID
 silicon_flow_key = "<KEY>"
 
 """
+Dify配置
+"""
+# Dify API Key (使用必填)
+dify_api_key = "app-XXX"  # 请替换为实际的API Key
+# Dify Base URL (使用必填)
+dify_base_url = "http://127.0.0.1/v1"
+
+"""
 Wenku8账号
 """
 wenku8_username = "<user_name>"
