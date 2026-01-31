@@ -28,53 +28,7 @@ async def handle_function(message: MessageEvent):
     logger.debug(f"{content}")
     user_msg = await DifyChatRole.get_chat_role_by_user_id(user_id)
     if user_msg is None:
-        # 发送等待回复
-        r_msg = Message([
-            MessageSegment.file_image((Path(image_local_qq_image_path) / "AIchat.png")),
-            MessageSegment.text("请认真阅读并同意《AI服务使用协议与安全规范》相关内容后"
-                                +"\n回答此问题：本爱莉希雅出自那款游戏？"
-                                +"\n回复要求使用中文，不得使用其他语言符号或外号"
-                                +"\n回答正确即视为已阅读并同意遵守相关协议！")
-        ])
-        try:
-            await Elysia_super.send(r_msg)
-            
-            # 创建异步消息接收器
-            future = asyncio.get_event_loop().create_future()
-            
-            # 定义临时 matcher 处理用户回复
-            from nonebot.matcher import Matcher
-            protocol_matcher = Matcher.new(
-                rule=Rule(lambda event: event.get_user_id() == user_id),
-                handlers=[lambda bot, event: future.set_result(event)],
-                priority=0,
-                block=True
-            )
-            
-            try:
-                # 等待用户回复（超时240秒）
-                r_content = await asyncio.wait_for(future, timeout=240)
-                # 显式获取消息内容
-                answer = r_content.get_plaintext().strip() if hasattr(r_content, 'get_plaintext') else str(r_content).strip()
-                if answer.lower() not in {"崩坏三", "崩坏3"}:
-                    await Elysia_super.finish("回答错误，请重新开始对话。")
-                else:
-                    await Elysia_super.send("回答正确，欢迎您！舰长~"
-                                     +"\nTips：如果在对话中遇到问题/错误/不想聊的话题/遇到胡言乱语，请尝试使用：/爱莉希雅 新的对话。"
-                                     +"\n如果爱莉记住了些奇怪的东西可以使用：/爱莉新希雅 新的记忆")
-                    content = "你好呀"
-            except asyncio.TimeoutError:
-                logger.info(f"check | 回复等待超时 User: {user_id} Content: {content}")
-                return
-            finally:
-                # 清理临时 matcher
-                protocol_matcher.destroy()
-            
-        except Exception as e:
-            if isinstance(e, (FinishedException, PausedException)):
-                return
-            logger.error(f"处理用户协议交互时发生错误: {e}", exc_info=True)
-            await Elysia_super.finish("发生错误，请稍后再试。")
+        await Elysia_super.finish("你还没有聊过诶，请先发送任意消息与爱莉希雅对话一次哦~")
     
     if content[0] == "/爱莉希雅":
         raw_text = message.get_plaintext().strip()
@@ -102,7 +56,7 @@ async def handle_function(message: MessageEvent):
             # Case 2: 子命令
             cmd = values[0]
 
-            if cmd == "新的对话":
+            if cmd == "新的对话" and user_msg.is_banned is not True:
                 msg = await on_new_session_id(user_id)
                 if msg["code"] is True:
                     if has_elysia_command_regex(msg["msg"]):
@@ -119,14 +73,14 @@ async def handle_function(message: MessageEvent):
                 else:
                     await Elysia_super.finish(msg["msg"])
             
-            elif cmd == "新的记忆":
+            if cmd == "新的记忆" and user_msg.is_banned is not True:
                 msg = await on_new_memory_id(user_id)
                 if msg is True:
                     await Elysia_super.finish("开始新的记忆啦！~")
                 else:
                     await Elysia_super.finish(msg)
             
-            elif cmd in ["ban", "deban"]:
+            if cmd in ["ban", "deban"]:
                 # 管理员且是群聊环境
                 if not hasattr(message, 'group_openid'):
                     await Elysia_super.finish("此功能仅限群聊使用")
@@ -159,6 +113,8 @@ async def handle_function(message: MessageEvent):
                     logger.error(f"Elysia_super_{cmd} Error: {e}", exc_info=True)
                     await Elysia_super.finish("操作失败")
             
+            elif user_msg.is_banned is True:
+                await Elysia_super.finish("您已被封禁，无法使用此功能。")
             else:
                 await Elysia_super.finish("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
 
