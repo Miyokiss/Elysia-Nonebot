@@ -2,7 +2,6 @@ import os
 import glob
 import threading
 import nonebot
-import logging.config
 import subprocess
 from pathlib import Path
 from nonebot import logger
@@ -16,16 +15,9 @@ __name__ = "Bot"
 # 记录 PID 到文件
 with open("bot.pid", "w") as f:
     f.write(str(os.getpid()))
-    
-# 加载全局日志配置文件
-config_path = os.path.normpath(os.path.abspath(r'logging.conf'))
-logging.config.fileConfig(config_path)
-
+# 初始化 NoneBot
 nonebot.init()
-
 from backend import start_flask
-
-
 driver = nonebot.get_driver()
 driver.register_adapter(QQAdapter)  # 注册QQ适配器
 nonebot.load_from_toml("pyproject.toml")
@@ -64,5 +56,3 @@ if __name__ == "Bot":
     flask_thread.start()
     scheduler.start()
     nonebot.run()
-
-

@@ -7,6 +7,7 @@ from src.clover_image.delete_file import delete_file
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.configs.path_config import image_local_qq_image_path
 from src.clover_sqlite.models.chat import MODE_ELYSIA, MODE_OFF
+from src.providers.memory.memobase.base import MemoBaseHandler
 from nonebot.exception import FinishedException, PausedException
 from nonebot.adapters.qq import MessageEvent, Message, MessageSegment
 from src.providers.llm.elysiacmd  import has_elysia_command_regex,elysia_command
@@ -154,3 +155,44 @@ async def handle_function(message: MessageEvent):
        if isinstance(e, FinishedException):
            return
        logger.error(f"Elysia_super_deban Error: {e}")
+
+
+# Memo Base 相关操作指令
+Elysia_super_memobase = on_command("爱莉记忆",rule=to_me(),priority=1,block=True)
+@Elysia_super_memobase.handle()
+async def handle_function(message: MessageEvent):
+    user_id, group_openid, content = message.get_user_id(), message.group_openid, message.get_plaintext().split()
+    if hasattr(message, 'group_openid'):
+        logger.debug("群聊环境")
+    else:
+        logger.debug("私聊环境")
+        group_openid = "C2C"
+
+    # 处理指令逻辑
+    if content[0] == "/爱莉记忆":
+        values = message.get_plaintext().replace("/爱莉记忆", "").split()
+        try:
+            if len(values) == 0 or not all(values[1:len(values)]):
+                await Elysia_super_memobase.finish("指令格式错误！")
+
+            logger.debug(f"MemoBase Command Values: {values}")
+            if values[0] == "查询所有用户":
+                logger.debug("查询所有用户指令触发")
+                if group_openid != "C2C":
+                    logger.debug("群聊环境")
+                    # 判断是否为管理员
+                    if not await GroupChatRole.get_admin_list(group_openid, user_id):
+                        await Elysia_super_memobase.finish("您没有权限使用此功能。")
+                    results = await MemoBaseHandler.get_all_users()
+                    if results:
+                        response = "查询结果：\n" + "\n".join([f"- {res['text']}" for res in results])
+                        await Elysia_super_memobase.finish(response)
+                else:
+                    await Elysia_super_memobase.finish("暂未在当前场景下开放此功能。")
+            else:
+                await Elysia_super_memobase.finish("请输入正确的指令！")
+        except Exception as e:
+            if isinstance(e, FinishedException):
+                return
+            logger.error(f"处理请求时发生错误: {e}")
+            await Elysia_super_memobase.finish("处理请求时发生错误，请稍后重试")    

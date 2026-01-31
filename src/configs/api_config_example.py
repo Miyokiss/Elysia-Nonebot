@@ -55,6 +55,13 @@ dify_api_key = "app-XXX"  # 请替换为实际的API Key
 dify_base_url = "http://127.0.0.1/v1"
 
 """
+Memobase配置
+"""
+Memobase_ACCESS_TOKEN = "XXX"  # 请替换为实际的API token
+Memobase_API_Url = "http://192.168.5.31:8019"  # 请替换为实际的服务地址
+
+
+"""
 Wenku8账号
 """
 wenku8_username = "<user_name>"
