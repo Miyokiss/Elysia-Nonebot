@@ -25,7 +25,7 @@ async def handle_function(message: MessageEvent):
         logger.debug("私聊环境")
         user_id,content = message.get_user_id(), message.get_plaintext().split()
 
-    logger.debug(f"\n{content}")
+    logger.debug(f"{content}")
     user_msg = await DifyChatRole.get_chat_role_by_user_id(user_id)
     if user_msg is None:
         # 发送等待回复
@@ -77,45 +77,91 @@ async def handle_function(message: MessageEvent):
             await Elysia_super.finish("发生错误，请稍后再试。")
     
     if content[0] == "/爱莉希雅":
-        values = message.get_plaintext().replace("/爱莉希雅", "").split()
+        raw_text = message.get_plaintext().strip()
+        if raw_text.startswith("/爱莉希雅"):
+            args_text = raw_text[len("/爱莉希雅"):].strip()
+        else:
+            args_text = raw_text.replace("/爱莉希雅", "", 1).strip()
+        values = args_text.split()
+
         try:
-            if len(values) == 0 or not all(values[1:len(values)]):
+            # Case 1: 无参数 (开启/关闭/状态)
+            if not values:
                 if not hasattr(message, 'group_openid'):
                     await Elysia_super.finish("暂未在当前场景下开放开启功能。建议使用\n/爱莉希雅 新的对话 \n创建新的对话\n/爱莉希雅 新的记忆\n创建新的记忆")
-                    # 判断是否为管理员
+                
                 if not await GroupChatRole.get_admin_list(group_openid, user_id):
                     await Elysia_super.finish("您没有权限使用此功能，你可以通过指令：\n/爱莉希雅 新的对话 \n创建新的对话\n/爱莉希雅 新的记忆\n创建新的记忆")
+                
+                if current_mode != MODE_ELYSIA:
+                    await GroupChatRole.ai_mode(group_openid, MODE_ELYSIA)
+                    await Elysia_super.finish("成功开启爱莉希雅对话~")
                 else:
-                    if current_mode != MODE_ELYSIA:
-                        await GroupChatRole.ai_mode(group_openid, MODE_ELYSIA)
-                        await Elysia_super.finish("成功开启爱莉希雅对话~")
+                    await Elysia_super.finish("当前群已是爱莉希雅对话~")
+
+            # Case 2: 子命令
+            cmd = values[0]
+
+            if cmd == "新的对话":
+                msg = await on_new_session_id(user_id)
+                if msg["code"] is True:
+                    if has_elysia_command_regex(msg["msg"]):
+                        r_msg = await elysia_command(msg["msg"])
+                        msg = Message([
+                            MessageSegment.file_image(Path(r_msg['imgs'])),
+                            MessageSegment.text(r_msg['txt'])
+                        ])
+                        await Elysia_super.send(msg)
+                        await delete_file(r_msg['imgs'])
+                        await Elysia_super.finish("开始新的对话啦！~")
                     else:
-                        await Elysia_super.finish("当前群已是爱莉希雅对话~")
-            elif len(values) == 1:
-                if values[0] == "新的对话":
-                    msg = await on_new_session_id(user_id)
-                    if msg["code"] is True:
-                        if has_elysia_command_regex(msg["msg"]):
-                            r_msg = await elysia_command(msg["msg"])
-                            msg = Message([
-                                MessageSegment.file_image(Path(r_msg['imgs'])),
-                                MessageSegment.text(r_msg['txt'])
-                            ])
-                            await Elysia_super.send(msg)
-                            await delete_file(r_msg['imgs'])
-                            await Elysia_super.finish("开始新的对话啦！~")
-                        else:
-                            await Elysia_super.finish("未定义内容，建议 新的对话")
-                    else:
-                        await Elysia_super.finish(msg["msg"])
-                if values[0] == "新的记忆":
-                    msg =await on_new_memory_id(user_id)
-                    if msg is True:
-                        await Elysia_super.finish("开始新的记忆啦！~")
-                    else:
-                        await Elysia_super.finish(msg)
+                        await Elysia_super.finish("未定义内容，建议 新的对话")
                 else:
-                    await Elysia_super.finish("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
+                    await Elysia_super.finish(msg["msg"])
+            
+            elif cmd == "新的记忆":
+                msg = await on_new_memory_id(user_id)
+                if msg is True:
+                    await Elysia_super.finish("开始新的记忆啦！~")
+                else:
+                    await Elysia_super.finish(msg)
+            
+            elif cmd in ["ban", "deban"]:
+                # 管理员且是群聊环境
+                if not hasattr(message, 'group_openid'):
+                    await Elysia_super.finish("此功能仅限群聊使用")
+                
+                if not await GroupChatRole.get_admin_list(group_openid, user_id):
+                    await Elysia_super.finish("您没有权限使用该类功能。")
+
+                if len(values) < 2:
+                    await Elysia_super.finish("请输入UserID")
+
+                target_uid = values[1]
+                if await DifyChatRole.get_chat_role_by_user_id(target_uid) is None:
+                    await Elysia_super.finish("用户不存在")
+
+                try:
+                    if cmd == "ban":
+                        if len(values) < 3:
+                            await Elysia_super.finish("请输入封禁原因")
+                        # 支持带空格的原因
+                        reason = " ".join(values[2:])
+                        reason += f"--管理员操作 by {user_id}"
+                        await DifyChatRole.filter(user_id=target_uid).update(is_banned=True, ban_reason=reason)
+                        await Elysia_super.finish("封禁成功")
+                    elif cmd == "deban":
+                        await DifyChatRole.filter(user_id=target_uid).update(is_banned=False)
+                        await Elysia_super.finish("解封成功")
+                except Exception as e:
+                    if isinstance(e, FinishedException):
+                        return
+                    logger.error(f"Elysia_super_{cmd} Error: {e}", exc_info=True)
+                    await Elysia_super.finish("操作失败")
+            
+            else:
+                await Elysia_super.finish("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
+
         except Exception as e:
             if isinstance(e, FinishedException):
                 return
@@ -133,29 +179,6 @@ async def handle_function(message: MessageEvent):
                 await Elysia_super.finish("成功关闭爱莉希雅对话~")
             else:
                 await Elysia_super.finish("当前群已开启妖精爱莉聊天~")
-
-
-Elysia_super_deban = on_command("deban",rule=to_me(),priority=1,block=True)
-@Elysia_super_deban.handle()
-async def handle_function(message: MessageEvent):
-    user_id, group_openid, content = message.get_user_id(), message.group_openid, message.get_plaintext().split()
-    if not hasattr(message, 'group_openid'):
-        await Elysia_super_deban.finish("暂未在当前场景下开放开启功能。")
-        # 判断是否为管理员
-    if not await GroupChatRole.get_admin_list(group_openid, user_id):
-        await Elysia_super_deban.finish("您没有权限使用此功能。")
-    try:
-        if len(content)==1:
-            await Elysia_super_deban.finish("请输入UserID")
-        if await DifyChatRole.get_chat_role_by_user_id(content[1]) is None:
-            await Elysia_super_deban.finish("用户不存在")
-        await DifyChatRole.filter(user_id=content[1]).update(is_banned=False)
-        await Elysia_super_deban.finish("解封成功")
-    except Exception as e:
-       if isinstance(e, FinishedException):
-           return
-       logger.error(f"Elysia_super_deban Error: {e}")
-
 
 # Memo Base 相关操作指令
 Elysia_super_memobase = on_command("爱莉记忆",rule=to_me(),priority=1,block=True)
