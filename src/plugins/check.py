@@ -378,7 +378,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
             result = await on_chat(user_id, content)
             if result is None:
                 logger.error(f"API Chat R Data：结果为空")
-                await check.finish("Chat回复为空，请稍后再试...")
+                await check.finish("Chat回复为空，请联系管理员处理...")
             if has_elysia_command_regex(result):
                 r_msg = await elysia_command(result)
                 logger.debug(f"Elysia Chat R Data：{r_msg}")
@@ -440,7 +440,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                     await delete_file(output_silk_path)
                     await delete_file(file_path)
             else:
-                await check.send("未定义内容/超出最大回复token，建议开启 新的对话")
+                await check.send(result)
             await check.finish()
             
         except Exception as e:

@@ -10,13 +10,7 @@ __name__ = "Dify_API"
 
 class DifyAPI:
     def __init__(self):
-        pass
-
-    @staticmethod
-    async def Get_Memory_Id() -> None:
-        # 记忆功能暂未实现
-        return None
-    
+        pass    
     @staticmethod
     async def Post_chat_api(
         user_id: str,
@@ -25,9 +19,9 @@ class DifyAPI:
         memory_id : str = None,
         Like_value : int = 100) -> Dict[str, any]:
         """调用Dify API进行聊天"""
-        if user_id is None or content is None:
-            logger.error("用户ID或内容为空，无法调用Dify API")
-            return
+        if user_id is None or content is None or memory_id is None:
+            logger.error("用户ID、内容或记忆UUID为空，无法调用Dify API")
+            return None
         try:
             # 构造调用参数
             etime = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
@@ -42,6 +36,7 @@ class DifyAPI:
 
             payload = {
                 "inputs": {
+                    "Memory_id": memory_id,
                     "Etime": etime,
                     "Weekday": week,
                     "Holiday": holiday,

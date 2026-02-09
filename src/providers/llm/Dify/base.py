@@ -1,7 +1,9 @@
+import uuid
 from datetime import datetime
 from typing import Dict, List, Optional
 from src.providers.llm.Dify import DifyChatRoleLog, DifyChatRole
 from src.providers.llm.Dify.Dify_API import DifyAPI
+from src.providers.memory.memobase.base import MemoBaseHandler
 from src.providers.llm.elysiacmd import parse_elysia, get_elysia_commands
 from nonebot import logger
 
@@ -9,9 +11,11 @@ __name__ = "Dify_Base"
 
 async def _handle_new_user(user_id: str, content: str) -> str:
     """处理新用户"""
-    # memory_id = await DifyAPI.Get_Memory_Id(user_id=user_id)
-    # 暂时不启用记忆功能
-    memory_id = "Memory"
+    memory_id = str(uuid.uuid4())
+    if not await MemoBaseHandler.create_user(uuid=memory_id):
+        logger.error(f"用户 {user_id} 的 MemoBase UUID：{memory_id} 创建失败")
+        return "系统错误，无法创建用户，请稍后再试~"
+    
     chat_msg = await DifyAPI.Post_chat_api(user_id=user_id, content=content, memory_id=memory_id)
     # 响应有效性校验
     if chat_msg.get("error") or not chat_msg.get("content"):

@@ -136,7 +136,7 @@ async def handle_function(message: MessageEvent):
             else:
                 await Elysia_super.finish("当前群已开启妖精爱莉聊天~")
 
-# Memo Base 相关操作指令
+# Memo Base 相关操作指令 测试
 Elysia_super_memobase = on_command("爱莉记忆",rule=to_me(),priority=1,block=True)
 @Elysia_super_memobase.handle()
 async def handle_function(message: MessageEvent):
@@ -146,6 +146,10 @@ async def handle_function(message: MessageEvent):
     else:
         logger.debug("私聊环境")
         group_openid = "C2C"
+        await Elysia_super_memobase.finish("暂未在当前场景下开放此功能。")
+    # 判断是否为管理员
+    if not await GroupChatRole.get_admin_list(group_openid, user_id):
+        await Elysia_super_memobase.finish("您没有权限使用此功能。")
 
     # 处理指令逻辑
     if content[0] == "/爱莉记忆":
@@ -157,17 +161,25 @@ async def handle_function(message: MessageEvent):
             logger.debug(f"MemoBase Command Values: {values}")
             if values[0] == "查询所有用户":
                 logger.debug("查询所有用户指令触发")
-                if group_openid != "C2C":
-                    logger.debug("群聊环境")
-                    # 判断是否为管理员
-                    if not await GroupChatRole.get_admin_list(group_openid, user_id):
-                        await Elysia_super_memobase.finish("您没有权限使用此功能。")
-                    results = await MemoBaseHandler.get_all_users()
-                    if results:
-                        response = "查询结果：\n" + "\n".join([f"- {res['text']}" for res in results])
+                results = await MemoBaseHandler.get_all_users()
+                if results:
+                    response = f"当前共有 {len(results)} 位用户：\n"
+                    for i, user in enumerate(results, start=1):
+                        response += f"{i}、用户ID: {user['id']}\n创建时间: {user['created_at']}\n更新时间: {user['updated_at']}\n资料数: {user['profile_count']}\n事件数: {user['event_count']}\n"
                         await Elysia_super_memobase.finish(response)
                 else:
-                    await Elysia_super_memobase.finish("暂未在当前场景下开放此功能。")
+                    await Elysia_super_memobase.finish(f"获取用户列表失败:{results}")
+            elif values[0] == "查询用户":
+                logger.debug("查询用户记忆指令触发")
+                if len(values) < 2:
+                    await Elysia_super_memobase.finish("请提供用户ID，指令格式：/爱莉记忆 查询用户 <用户ID>")
+                target_user_id = values[1]
+                user_info = await MemoBaseHandler.get_user_memory_info(target_user_id)
+                if user_info:
+                    # response = f"用户ID: {user_info['id']}\n创建时间: {user_info['created_at']}\n更新时间: {user_info['updated_at']}\n资料数: {user_info['profile_count']}\n事件数: {user_info['event_count']}\n"
+                    await Elysia_super_memobase.finish(user_info)
+                else:
+                    await Elysia_super_memobase.finish(f"获取用户 {target_user_id} 记忆信息失败或用户不存在。")
             else:
                 await Elysia_super_memobase.finish("请输入正确的指令！")
         except Exception as e:
