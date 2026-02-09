@@ -286,6 +286,8 @@ async def handle_function(message: MessageEvent):
         if status == 0:
             # 未开启退出
             return
+    else:
+        await check.finish("收到官方通知已对AIGC相关功能移除！")
 
     if len(content) > 30:
         await check.finish("请勿发送过长的内容")
