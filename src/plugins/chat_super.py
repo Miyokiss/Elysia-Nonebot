@@ -164,12 +164,22 @@ async def handle_function(message: MessageEvent):
             logger.debug(f"MemoBase Command Values: {values}")
             if values[0] == "查询所有用户":
                 logger.debug("查询所有用户指令触发")
-                results = await MemoBaseHandler.get_all_users()
+                if len(values) >= 2 and values[1].isdigit():
+                    limit = int(values[1])
+                else:
+                    limit = 10
+                results = await MemoBaseHandler.get_all_users(limit=limit)
                 if results:
-                    response = f"当前共有 {len(results)} 位用户：\n"
-                    for i, user in enumerate(results, start=1):
-                        response += f"{i}、用户ID: {user['id']}\n创建时间: {user['created_at']}\n更新时间: {user['updated_at']}\n资料数: {user['profile_count']}\n事件数: {user['event_count']}\n"
+                    count = len(results)
+                    if count <= 1000:
+                        response = f"当前获取到 {count} 位最近用户"
+                        values_indx = 0
+                        for user in results:
+                            values_indx += 1
+                            response += f"{values_indx}、用户ID: {user['id']}\n创建时间: {user['created_at']}\n更新时间: {user['updated_at']}\n资料数: {user['profile_count']}\n事件数: {user['event_count']}\n"
                         await Elysia_super_memobase.finish(response)
+                    else:
+                        await Elysia_super_memobase.finish(f"用户数量过多，当前获取到 {count} 位用户，请使用参数限制数量。")
                 else:
                     await Elysia_super_memobase.finish(f"获取用户列表失败:{results}")
             elif values[0] == "查询用户":

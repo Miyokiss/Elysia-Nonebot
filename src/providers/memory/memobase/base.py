@@ -31,9 +31,11 @@ class MemoBaseHandler:
         return cls._client
 
     @classmethod
-    async def get_all_users(cls) -> Optional[List[Dict[str, Any]]]:
+    async def get_all_users(cls,limit: int = 10) -> Optional[List[Dict[str, Any]]]:
         """
         获取所有用户
+        :param limit: 获取用户的数量限制，默认为10
+        :return: 用户列表或None
         """
         client = cls._get_client()
         if client is None:
@@ -43,7 +45,7 @@ class MemoBaseHandler:
         try:
             # 使用 run_in_executor 避免阻塞事件循环
             loop = asyncio.get_running_loop()
-            users = await loop.run_in_executor(None, client.get_all_users)
+            users = await loop.run_in_executor(None, functools.partial(client.get_all_users, limit=limit))
             logger.debug(f"获取到的用户数量: {len(users)}:{users}")
             return users
         except Exception as e:
