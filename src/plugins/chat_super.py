@@ -21,8 +21,14 @@ async def handle_function(message: MessageEvent):
         logger.debug("群聊环境")
         user_id, group_openid, content = message.get_user_id(), message.group_openid, message.get_plaintext().split()
         current_mode = await GroupChatRole.is_on(group_openid)
-        if current_mode == MODE_OFF:
+        if current_mode == MODE_ELYSIA:
+            pass
+        elif current_mode == MODE_OFF:
+             await Elysia_super.finish("未开放此功能。")
+        elif not await GroupChatRole.get_admin_list(group_openid, user_id):
             await Elysia_super.finish("未开放此功能。")
+        else:
+            pass
     else:
         logger.debug("私聊环境")
         user_id,content = message.get_user_id(), message.get_plaintext().split()
