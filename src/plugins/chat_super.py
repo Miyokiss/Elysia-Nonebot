@@ -299,30 +299,30 @@ async def handle_chat_approve(message: MessageEvent):
                     response += f"群ID: {app['group_id']}\n"
                 response += f"申请理由: {app['reason']}\n"
                 response += f"申请时间: {app['apply_time']}\n"
-                response += f"- 用法：\n/审批chat {app['applicant_id']} 同意\n 或 \n/审批chat {app['applicant_id']} 拒绝 [理由]\n"
+                response += f"- 用法：\n/审批chat {app['group_id']} {app['applicant_id']} 同意\n 或 \n/审批chat {app['group_id']} {app['applicant_id']} 拒绝 [理由]\n"
 
             await ChatApprove.finish(response)
 
         # Case 2: 审批申请 - 有参数
         values = args_text.split()
-        if len(values) < 2:
-            await ChatApprove.finish("指令格式错误！\n查看申请列表：/审批chat\n审批申请：/审批chat 申请人ID 同意/拒绝 [拒绝理由]")
-
-        applicant_id = values[0]
-        action = values[1]
+        if len(values) < 3:
+            await ChatApprove.finish("指令格式错误！\n查看申请列表：/审批chat\n审批申请：/审批chat <群ID/C2C> 申请人ID 同意/拒绝 [拒绝理由]")
+        set_group_openid = values[0]
+        applicant_id = values[1]
+        action = values[2]
 
         if action not in ["同意", "拒绝"]:
             await ChatApprove.finish("请选择 同意 或 拒绝")
 
         # 获取拒绝理由（如果有）
         refuse_reason = None
-        if action == "拒绝" and len(values) > 2:
-            refuse_reason = " ".join(values[2:])
+        if action == "拒绝" and len(values) > 3:
+            refuse_reason = " ".join(values[3:])
 
         # 审批申请
         result = await ChatAdminHandler.approve_application_by_user_id(
             applicant_id=applicant_id,
-            group_id=group_openid,
+            group_id=set_group_openid,
             admin_id=user_id,
             approve=(action == "同意"),
             refuse_reason=refuse_reason
