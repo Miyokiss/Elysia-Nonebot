@@ -286,16 +286,10 @@ async def handle_chat_approve(message: MessageEvent):
     try:
         # Case 1: 无参数 - 查看申请列表
         if not args_text:
-            applications = await ChatAdminHandler.get_applications(group_openid if group_openid != "C2C" else None)
-
-            if not applications:
-                await ChatApprove.finish("当前没有待审批的申请。")
-
-            # 只显示待审批的申请
-            pending_apps = [app for app in applications if app["status"] == 0]
+            pending_apps = await ChatAdminHandler.get_applications(status=0)
 
             if not pending_apps:
-                await ChatApprove.finish("当前没有待审批的申请。")
+                await ChatApprove.finish("当前没有待审批的申请。") 
 
             response = "当前待审批的申请列表：\n"
             for i, app in enumerate(pending_apps, 1):
