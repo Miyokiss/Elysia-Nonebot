@@ -22,13 +22,20 @@ async def handle_function(message: MessageEvent):
         logger.debug("群聊环境")
         user_id, group_openid, content = message.get_user_id(), message.group_openid, message.get_plaintext().split()
         current_mode = await GroupChatRole.is_on(group_openid)
-        if current_mode < MODE_ELYSIA and not await GroupChatRole.get_admin_list(group_openid, user_id):
+
+        # 检查是否为管理员（使用新的权限系统）
+        is_admin = await ChatAdminHandler.is_admin(user_id, group_openid)
+        if current_mode < MODE_ELYSIA and not is_admin:
             await Elysia_super.finish("已关闭此功能")
 
     else:
         logger.debug("私聊环境")
         user_id,content = message.get_user_id(), message.get_plaintext().split()
-        await Elysia_super.finish("未开放此功能。")
+
+        # 检查私聊权限（使用新的权限系统）
+        permission_check = await ChatAdminHandler.check_chat_permission(user_id, None)
+        if not permission_check["allowed"]:
+            await Elysia_super.finish(permission_check["reason"])
 
     logger.debug(f"{content}")
     user_msg = await DifyChatRole.get_chat_role_by_user_id(user_id)
@@ -89,8 +96,10 @@ async def handle_function(message: MessageEvent):
                 # 管理员且是群聊环境
                 if not hasattr(message, 'group_openid'):
                     await Elysia_super.finish("此功能仅限群聊使用")
-                
-                if not await GroupChatRole.get_admin_list(group_openid, user_id):
+
+                # 检查是否为管理员
+                is_admin = await ChatAdminHandler.is_admin(user_id, group_openid)
+                if not is_admin:
                     await Elysia_super.finish("您没有权限使用该类功能。")
 
                 if len(values) < 2:
@@ -152,8 +161,9 @@ async def handle_function(message: MessageEvent):
         logger.debug("私聊环境")
         group_openid = "C2C"
         await Elysia_super_memobase.finish("暂未在当前场景下开放此功能。")
-    # 判断是否为管理员
-    if not await GroupChatRole.get_admin_list(group_openid, user_id):
+    # 判断是否为管理员（使用新的权限系统）
+    is_admin = await ChatAdminHandler.is_admin(user_id, group_openid if group_openid != "C2C" else None)
+    if not is_admin:
         await Elysia_super_memobase.finish("您没有权限使用此功能。")
 
     # 处理指令逻辑
@@ -220,18 +230,16 @@ async def handle_chat_apply(message: MessageEvent):
         group_openid = "C2C"
         logger.debug("私聊环境 - 申请chat")
 
-    # 检查用户权限
-    permission_check = await ChatAdminHandler.check_chat_permission(user_id, group_openid if group_openid != "C2C" else None)
-    if not permission_check["allowed"] and permission_check["reason"] != "暂未在私聊开放此功能":
-        await ChatApply.finish(permission_check["reason"])
-
     # 处理指令逻辑
     if raw_text.startswith("/申请chat"):
         args_text = raw_text[len("/申请chat"):].strip()
     else:
         args_text = raw_text.replace("/申请chat", "", 1).strip()
 
-    reason = args_text if args_text else "无理由"
+    if args_text is None or args_text == "":
+        await ChatApply.finish("请输入申请理由，指令格式：/申请chat <申请理由/备注>")
+
+    reason = args_text
 
     try:
         # 创建申请

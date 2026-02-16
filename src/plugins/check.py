@@ -24,6 +24,7 @@ from src.providers.waf.llm_waf import LLMWAF
 from src.configs.path_config import temp_path, image_local_qq_image_path, AUDIO_PATH
 from src.providers.llm.Dify.base import DifyChatRole ,on_chat
 from src.providers.llm.elysiacmd import has_elysia_command_regex, elysia_command
+from src.providers.chat_admin.handler import ChatAdminHandler
 
 waf = LLMWAF()
 
@@ -273,6 +274,7 @@ async def handle_function(message: MessageEvent):
     # 默认模式
     status = 2
     group_openid = message.group_openid if hasattr(message, "group_openid") else "C2C"
+    user_id = message.get_user_id()
     
     content = message.get_plaintext() or "空内容"
 
@@ -282,12 +284,15 @@ async def handle_function(message: MessageEvent):
 
     # 检查是否开启了AI聊天
     if group_openid != "C2C":
-        status = await GroupChatRole.is_on(group_openid)
-        if status == 0:
-            # 未开启退出
+        permission_check = await ChatAdminHandler.check_chat_permission(user_id, group_openid)
+        if not permission_check["allowed"]:
+            logger.info(f"群聊 {group_openid} 权限检查未通过: {permission_check['reason']}")
             return
     else:
-        await check.finish("收到官方通知已对AIGC相关功能移除！")
+        # 检查私聊权限
+        permission_check = await ChatAdminHandler.check_chat_permission(user_id, None)
+        if not permission_check["allowed"]:
+            await check.finish(permission_check["reason"])
 
     if len(content) > 30:
         await check.finish("请勿发送过长的内容")

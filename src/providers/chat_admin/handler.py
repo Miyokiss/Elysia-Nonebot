@@ -406,13 +406,13 @@ class ChatAdminHandler:
             # 检查是否有群权限
             if group_id:
                 group_permission = await cls.get_group_permission(group_id)
-                if group_permission and not group_permission["is_allowed"]:
+                if group_permission and not group_permission["is_allowed"] or group_permission is None:
                     return {"allowed": False, "reason": "该群组未授权使用此功能"}
 
             # 如果是私聊，检查用户是否有私聊权限
             if not group_id:
                 if user_permission is None or not user_permission["allow_private_chat"]:
-                    return {"allowed": False, "reason": "暂未在私聊开放此功能"}
+                    return {"allowed": False, "reason": "收到QQ官方通知已对AIGC相关功能进移除！如有疑问**请加入反馈群**咨询！指令：/help"}
 
             return {"allowed": True, "reason": ""}
 
