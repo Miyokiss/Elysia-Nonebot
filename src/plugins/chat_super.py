@@ -1,13 +1,14 @@
 import asyncio
+import uuid
 from pathlib import Path
 from nonebot.rule import Rule, to_me
 from nonebot.plugin import on_command
 from src.providers.llm.Dify import DifyChatRole
 from src.clover_image.delete_file import delete_file
 from src.clover_sqlite.models.chat import GroupChatRole
-from src.configs.path_config import image_local_qq_image_path
 from src.clover_sqlite.models.chat import MODE_ELYSIA, MODE_OFF
 from src.providers.memory.memobase.base import MemoBaseHandler
+from src.providers.chat_admin.handler import ChatAdminHandler
 from nonebot.exception import FinishedException, PausedException
 from nonebot.adapters.qq import MessageEvent, Message, MessageSegment
 from src.providers.llm.elysiacmd  import has_elysia_command_regex,elysia_command
@@ -200,4 +201,196 @@ async def handle_function(message: MessageEvent):
             if isinstance(e, FinishedException):
                 return
             logger.error(f"处理请求时发生错误: {e}")
-            await Elysia_super_memobase.finish("处理请求时发生错误，请稍后重试")    
+            await Elysia_super_memobase.finish("处理请求时发生错误，请稍后重试")
+
+
+# 用户申请功能
+ChatApply = on_command("申请chat", priority=1, block=True)
+@ChatApply.handle()
+async def handle_chat_apply(message: MessageEvent):
+    """处理用户申请chat功能"""
+    user_id = message.get_user_id()
+    raw_text = message.get_plaintext().strip()
+
+    # 判断是群聊还是私聊
+    if hasattr(message, "group_openid"):
+        group_openid = message.group_openid
+        logger.debug("群聊环境 - 申请chat")
+    else:
+        group_openid = "C2C"
+        logger.debug("私聊环境 - 申请chat")
+
+    # 检查用户权限
+    permission_check = await ChatAdminHandler.check_chat_permission(user_id, group_openid if group_openid != "C2C" else None)
+    if not permission_check["allowed"] and permission_check["reason"] != "暂未在私聊开放此功能":
+        await ChatApply.finish(permission_check["reason"])
+
+    # 处理指令逻辑
+    if raw_text.startswith("/申请chat"):
+        args_text = raw_text[len("/申请chat"):].strip()
+    else:
+        args_text = raw_text.replace("/申请chat", "", 1).strip()
+
+    reason = args_text if args_text else "无理由"
+
+    try:
+        # 创建申请
+        result = await ChatAdminHandler.create_application(user_id, group_openid, reason)
+        if result["code"]:
+            await ChatApply.finish(result["msg"])
+        else:
+            await ChatApply.finish(f"申请失败：{result['msg']}")
+
+    except Exception as e:
+        if isinstance(e, FinishedException):
+            return
+        logger.error(f"处理申请chat时发生错误: {e}", exc_info=True)
+        await ChatApply.finish("处理请求时发生错误，请稍后重试")
+
+
+# 管理员审批功能
+ChatApprove = on_command("审批chat", priority=1, block=True)
+@ChatApprove.handle()
+async def handle_chat_approve(message: MessageEvent):
+    """处理管理员审批chat申请"""
+    user_id = message.get_user_id()
+    raw_text = message.get_plaintext().strip()
+
+    # 判断是群聊还是私聊
+    if hasattr(message, "group_openid"):
+        group_openid = message.group_openid
+        logger.debug("群聊环境 - 审批chat")
+    else:
+        group_openid = "C2C"
+        logger.debug("私聊环境 - 审批chat")
+
+    # 检查是否为管理员
+    is_admin = await ChatAdminHandler.is_admin(user_id, group_openid if group_openid != "C2C" else None)
+    if not is_admin:
+        await ChatApprove.finish("您没有权限使用此功能。")
+
+    # 处理指令逻辑
+    if raw_text.startswith("/审批chat"):
+        args_text = raw_text[len("/审批chat"):].strip()
+    else:
+        args_text = raw_text.replace("/审批chat", "", 1).strip()
+
+    try:
+        # Case 1: 无参数 - 查看申请列表
+        if not args_text:
+            applications = await ChatAdminHandler.get_applications(group_openid if group_openid != "C2C" else None)
+
+            if not applications:
+                await ChatApprove.finish("当前没有待审批的申请。")
+
+            # 只显示待审批的申请
+            pending_apps = [app for app in applications if app["status"] == 0]
+
+            if not pending_apps:
+                await ChatApprove.finish("当前没有待审批的申请。")
+
+            response = "当前待审批的申请列表：\n"
+            for i, app in enumerate(pending_apps, 1):
+                response += f"\n--- 申请 {i} ---\n"
+                response += f"申请人ID: {app['applicant_id']}\n"
+                if group_openid != "C2C":
+                    response += f"群ID: {app['group_id']}\n"
+                response += f"申请理由: {app['reason']}\n"
+                response += f"申请时间: {app['apply_time']}\n"
+                response += f"- 用法：\n/审批chat {app['applicant_id']} 同意\n 或 \n/审批chat {app['applicant_id']} 拒绝 [理由]\n"
+
+            await ChatApprove.finish(response)
+
+        # Case 2: 审批申请 - 有参数
+        values = args_text.split()
+        if len(values) < 2:
+            await ChatApprove.finish("指令格式错误！\n查看申请列表：/审批chat\n审批申请：/审批chat 申请人ID 同意/拒绝 [拒绝理由]")
+
+        applicant_id = values[0]
+        action = values[1]
+
+        if action not in ["同意", "拒绝"]:
+            await ChatApprove.finish("请选择 同意 或 拒绝")
+
+        # 获取拒绝理由（如果有）
+        refuse_reason = None
+        if action == "拒绝" and len(values) > 2:
+            refuse_reason = " ".join(values[2:])
+
+        # 审批申请
+        result = await ChatAdminHandler.approve_application_by_user_id(
+            applicant_id=applicant_id,
+            group_id=group_openid,
+            admin_id=user_id,
+            approve=(action == "同意"),
+            refuse_reason=refuse_reason
+        )
+
+        if result["code"]:
+            await ChatApprove.finish(result["msg"])
+        else:
+            await ChatApprove.finish(f"审批失败：{result['msg']}")
+
+    except Exception as e:
+        if isinstance(e, FinishedException):
+            return
+        logger.error(f"处理审批chat时发生错误: {e}", exc_info=True)
+        await ChatApprove.finish("处理请求时发生错误，请稍后重试")
+
+
+# 超管注册功能
+ChatAdminRegister = on_command("chat超管注册", priority=1, block=True)
+@ChatAdminRegister.handle()
+async def handle_chat_admin_register(message: MessageEvent):
+    """处理超管注册功能"""
+    user_id = message.get_user_id()
+    # 创建异步消息接收器
+    future = asyncio.get_event_loop().create_future()
+    # 定义临时 matcher 处理用户回复
+    from nonebot.matcher import Matcher
+    protocol_matcher = Matcher.new(
+        rule=Rule(lambda event: event.get_user_id() == user_id),
+        handlers=[lambda bot, event: future.done() or future.set_result(event)],
+        priority=0,
+        block=True
+    )
+    
+    try:
+        info_key = str(uuid.uuid4())
+        logger.info(f"生成超管注册密钥: {info_key}，请提供给管理员使用。")
+        await ChatAdminRegister.send(f"请提供控制台输出的注册密钥和管理员名称。\n有效时间：120秒，回复格式：<密钥> <管理员名称>")
+        # 等待用户回复（超时120秒）
+        r_content = await asyncio.wait_for(future, timeout=120)
+        # 显式获取消息内容
+        answer = r_content.get_plaintext().strip() if hasattr(r_content, 'get_plaintext') else str(r_content).strip()
+        logger.debug(f"收到用户回复: {answer}")
+        # 获取需要求的参数
+        values = answer.split()
+        logger.debug(f"解析用户回复参数: {values}")
+        if len(values) != 2:
+            future.cancel()
+            await ChatAdminRegister.finish("参数格式：<密钥> <管理员名称>\n请重新开始注册流程。")
+        info_key_received = values[0]
+        admin_name = " ".join(values[1:])
+        if info_key_received != info_key:
+            future.cancel()
+            await ChatAdminRegister.finish("密钥不正确！请重新开始注册流程。")
+        result = await ChatAdminHandler.register_admin(
+            admin_id=user_id,
+            admin_name=admin_name,
+            permission_level=2
+        )
+        if result["code"]:
+            await ChatAdminRegister.finish(result["msg"])
+        else:
+            await ChatAdminRegister.finish(f"注册失败：{result['msg']}")
+    except asyncio.TimeoutError:
+        logger.info(f"管理员注册回复等待超时 User: {user_id}")
+        return
+    except Exception as e:
+        if isinstance(e, FinishedException):
+            return
+        logger.error(f"处理chat超管注册时发生错误: {e}", exc_info=True)
+        await ChatAdminRegister.finish("处理请求时发生错误，请稍后重试")
+    finally:
+        protocol_matcher.destroy()
