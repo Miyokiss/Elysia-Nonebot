@@ -10,7 +10,6 @@ from nonebot.exception import FinishedException
 from playwright.async_api import async_playwright
 from nonebot_plugin_htmlrender import template_to_pic
 from nonebot.adapters.qq import Message, MessageEvent, MessageSegment
-from src.configs.Keyboard_config import Keyboard_fortune
 from src.clover_sqlite.models.fortune import QrFortune
 from src.clover_sqlite.models.tarot import TarotExtractLog
 from src.clover_music.cloud_music.data_base import save_img
@@ -53,7 +52,7 @@ async def get_today_fortune(message: MessageEvent):
         await browser.close()
         await fortune_by_sqlite.send(MessageSegment.file_image(Path(temp_file)))
         await delete_file(temp_file)
-        await fortune_by_sqlite.finish(MessageSegment.keyboard(Keyboard_fortune))
+        await fortune_by_sqlite.finish()
     except Exception as e:
         if isinstance(e, FinishedException):
             return
@@ -85,8 +84,7 @@ async def get_tarot(message: MessageEvent):
             MessageSegment.text(content),
         ])
         try:
-            await tarot.send(msg)
-            await tarot.finish(MessageSegment.keyboard(Keyboard_fortune))
+            await tarot.finish(msg)
         except Exception as e:
             if isinstance(e, FinishedException):
                 return

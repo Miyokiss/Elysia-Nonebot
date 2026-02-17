@@ -1,6 +1,8 @@
 import os
 import glob
+import threading
 import nonebot
+import subprocess
 import logging.config
 from pathlib import Path
 from nonebot import logger
@@ -14,12 +16,9 @@ __name__ = "Bot"
 # 记录 PID 到文件
 with open("bot.pid", "w") as f:
     f.write(str(os.getpid()))
-    
-# 加载全局日志配置文件
-config_path = os.path.normpath(os.path.abspath(r'logging.conf'))
-logging.config.fileConfig(config_path)
-
+# 初始化 NoneBot
 nonebot.init()
+from backend import start_flask
 driver = nonebot.get_driver()
 driver.register_adapter(QQAdapter)  # 注册QQ适配器
 nonebot.load_from_toml("pyproject.toml")
@@ -40,12 +39,21 @@ def clean_temp_cache():
             os.remove(file)
     logger.info("清理完成")
 
+def reboot():
+    """重启Bot"""
+    logger.info("开始重启...")
+    subprocess.Popen(["runtime/python", "Reboot.py"]) # 如果你使用了集成环境，请将python路径替换为集成环境路径
+
 def get_files_in_folder(folder_path: Path):
     return [Path(f) for f in glob.glob(str(folder_path / "*")) if Path(f).is_file()]
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(clean_temp_cache, 'cron', hour=0, minute=0)
+# 每隔两小时重启
+scheduler.add_job(reboot, 'interval', hours=2)
 
 if __name__ == "Bot":
+    flask_thread = threading.Thread(target=start_flask, daemon=True)
+    flask_thread.start()
     scheduler.start()
     nonebot.run()

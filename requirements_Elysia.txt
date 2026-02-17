@@ -128,3 +128,5 @@ win32_setctime==1.2.0
 wsproto==1.2.0
 yarl==1.18.3
 zhdate==0.1
+flask[async]
+memobase ==0.0.27

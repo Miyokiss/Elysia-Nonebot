@@ -1,0 +1,13 @@
+{
+  "name": "bot-start",
+  "description": "启动 Elysia Nonebot 机器人\n\n功能说明：\n- 启动 Nonebot2 主程序（bot.py）\n- 自动创建 PID 文件用于进程管理\n- 初始化 SQLite 数据库连接\n- 启动定时任务（每2小时自动重启、每日0点清理缓存）\n- 同时启动 Flask 后端服务（端口 5001）\n- 日志输出到 src/resources/log/ 目录\n\n使用场景：\n- 首次启动\n- 更新代码后重新启动\n- 手动停止后恢复运行",
+  "command": "python bot.py",
+  "workingDirectory": "$PROJECT_ROOT",
+  "environment": {
+    "PYTHONPATH": "$PROJECT_ROOT/src"
+  },
+  "options": {
+    "confirm": true,
+    "message": "即将启动 Elysia Bot，确保已配置 .env.prod 和 api_config.py"
+  }
+}

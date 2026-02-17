@@ -3,7 +3,7 @@ import re
 from loguru import logger
 from datetime import datetime
 from typing import Optional, Tuple, List
-from src.providers.llm.AliBL import BLChatRole
+from src.providers.llm.Dify.base import DifyChatRole
 
 class LLMWAF:
     def __init__(self):
@@ -38,7 +38,7 @@ class LLMWAF:
         try:
             logger.info(f"检测到封禁信息：用户{user_id} 输入包含 '{word}'")
             # 更新用户封禁状态
-            await BLChatRole.update_ban_status(user_id, True, word)
+            await DifyChatRole.update_ban_status(user_id, True, word)
             return True, f"封禁成功 包含：{word}"
         except Exception as e:
             logger.error(f"封禁用户失败: {str(e)}", exc_info=True)
@@ -51,7 +51,7 @@ class LLMWAF:
         :return: 是否被封禁
         """
         try:
-            chat_role = await BLChatRole.get_chat_role_by_user_id(user_id)
+            chat_role = await DifyChatRole.get_chat_role_by_user_id(user_id)
             if chat_role and chat_role.is_banned:
                 logger.info(f"用户 {user_id} 当前处于封禁状态")
                 return True
@@ -67,7 +67,7 @@ class LLMWAF:
         :return: 格式化的封禁原因（包含时间和具体原因）
         """
         try:
-            chat_role = await BLChatRole.get_chat_role_by_user_id(user_id)
+            chat_role = await DifyChatRole.get_chat_role_by_user_id(user_id)
             if chat_role and chat_role.is_banned:
                 ban_time = datetime.fromtimestamp(chat_role.ban_time) if chat_role.ban_time else '未知时间'
                 ban_r = chat_role.ban_reason

@@ -2,6 +2,14 @@ app_id="" # 上线前 配置 正确 Bot_ID 号
 bot_account= "" # 上线前 配置 正确 QQ 号
 
 """
+自建邮箱配置
+"""
+server_smtp_server = "example.com"
+server_email = ""
+server_password = "xxx"
+server_port = 587
+
+"""
 图床配置
 """
 # SMMS图床相关配置
@@ -37,6 +45,21 @@ workspaceId= "your_workspace_id" # 阿里百炼工作空间ID
 
 #硅基流动
 silicon_flow_key = "<KEY>"
+
+"""
+Dify配置
+"""
+# Dify API Key (使用必填)
+dify_api_key = "app-XXX"  # 请替换为实际的API Key
+# Dify Base URL (使用必填)
+dify_base_url = "http://127.0.0.1/v1"
+
+"""
+Memobase配置
+"""
+Memobase_ACCESS_TOKEN = "XXX"  # 请替换为实际的API token
+Memobase_API_Url = "http://192.168.5.31:8019"  # 请替换为实际的服务地址
+
 
 """
 Wenku8账号
