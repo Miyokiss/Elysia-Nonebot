@@ -83,3 +83,11 @@ qrserver_size= "200x200"
 """
 afdian_user_id = "your_afdian_user_id"
 afdian_token = "your_afdian_token"
+
+"""
+openlist配置
+"""
+url: str = "https://XXX.com"  # 替换为你的Openlist实例URL
+openlist_storage_file_path: str = "/BOT/" # 替换为你希望存储文件的路径
+username: str = ""
+password: str = "" # 需要请求API的password字段
