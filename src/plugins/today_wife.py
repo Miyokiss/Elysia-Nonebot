@@ -1,14 +1,18 @@
+import asyncio
 from pathlib import Path
-from nonebot.adapters.qq import Message, MessageEvent
 from nonebot import logger
-from nonebot.adapters.qq import  MessageSegment
-from nonebot.plugin import on_command
 from nonebot.rule import to_me
-from src.configs.Keyboard_config import Keyboard_fortune, Keyboard_mate
-from src.clover_image.qq_image import  download_qq_image
-from src.clover_image.delete_file import delete_file
-from src.clover_sqlite.models.user import UserList, Wife
 from src.clover_image.rua import rua
+from nonebot.plugin import on_command
+from src.utils.Message import delete_msg
+from nonebot.adapters.qq import  MessageSegment
+from src.clover_image.delete_file import delete_file
+from src.clover_image.qq_image import  download_qq_image
+from nonebot.adapters.qq.message import MessageMarkdown
+from src.clover_sqlite.models.user import UserList, Wife
+from nonebot.adapters.qq import Message, MessageEvent, Bot
+from src.clover_providers.cloud_file_api.openlist import OpenlistAPI
+from src.configs.Keyboard_config import Keyboard_fortune, Keyboard_mate
 
 today_group_wife = on_command("群老婆", rule=to_me(), priority=10)
 @today_group_wife.handle()
@@ -77,16 +81,39 @@ async def post_wife_function(user_id) -> None:
 
 today_wife = on_command("今日老婆", rule=to_me(), priority=10)
 @today_wife.handle()
-async def handle_function(message: MessageEvent):
+async def handle_function(bot: Bot, message: MessageEvent):
       member_openid = message.get_user_id()
 
-      local_image_path = await download_qq_image(member_openid)
-      msg = Message([
-            MessageSegment.file_image(Path(local_image_path)),
+      qq_user_img_path = await download_qq_image(member_openid)
+      openlist_api = OpenlistAPI()
+      await openlist_api.upload_file(qq_user_img_path, overwrite=True)
+      await delete_file(qq_user_img_path)
+      openlist_file_url = await openlist_api.get_download_url(f"{member_openid}.jpg")
+      params = [
+            {
+                  "key": "width",
+                  "values": ["140"]
+            },
+            {
+                  "key": "height",
+                  "values": ["140"]
+            },
+            {
+                  "key": "url",
+                  "values": [f"{openlist_file_url}"]
+            },
+            {
+                  "key": "content",
+                  "values": [f"@{member_openid}"]
+            }
+      ]
+      markdown_image = MessageMarkdown(custom_template_id="102735560_1771313464", params=params)
+
+      rmsg = Message([
+            MessageSegment.markdown(markdown_image),
+            MessageSegment.keyboard(Keyboard_fortune)
         ])
-
-      await delete_file(local_image_path)
-      await today_wife.send(msg)
-      await today_wife.finish(MessageSegment.keyboard(Keyboard_fortune))
-
-
+      sent_msg = await today_wife.send(rmsg)
+      await openlist_api.delete_file(f"{member_openid}.jpg")
+      asyncio.create_task(delete_msg(bot, message, sent_msg))
+      await today_wife.finish()

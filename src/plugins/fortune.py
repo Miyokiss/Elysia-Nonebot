@@ -13,6 +13,7 @@ from nonebot.adapters.qq import Message, MessageEvent, MessageSegment
 from src.clover_sqlite.models.fortune import QrFortune
 from src.clover_sqlite.models.tarot import TarotExtractLog
 from src.clover_music.cloud_music.data_base import save_img
+from src.configs.Keyboard_config import Keyboard_fortune
 from src.clover_image.delete_file import delete_file
 from src.configs.path_config import temp_path
 
