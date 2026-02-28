@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 import chinese_calendar as calendar
 import lunardate
+from nonebot import logger
 
 # 定义2025年农历节日的农历日期
 lunar_festivals = {
@@ -10,12 +11,12 @@ lunar_festivals = {
     "中秋节": (8, 15),  # 中秋节 (农历八月十五)
 }
 
-# 固定日期的节日
-fixed_festivals_dates = {
-    "劳动节": date(2025, 5, 1),  # 劳动节
-    "国庆节": date(2025, 10, 1),  # 国庆节
-    "元旦": date(2025, 1, 1),  # 元旦
-}
+def get_fixed_festivals_dates(year: int) -> dict[str, date]:
+    return {
+        "劳动节": date(year, 5, 1),  # 劳动节
+        "国庆节": date(year, 10, 1),  # 国庆节
+        "元旦": date(year, 1, 1),  # 元旦
+    }
 
 
 def get_next_year_festival_date(
@@ -27,6 +28,8 @@ def get_next_year_festival_date(
         next_year = current_festival_date.year + 1
         month, day = lunar_festivals[festival_name]
         next_festival_date = lunardate.LunarDate(next_year, month, day).toSolarDate()
+    elif festival_name == "清明节":
+        next_festival_date = find_tomb_sweeping_day(current_festival_date.year + 1)
     else:
         # 对于固定日期的节日，直接增加一年
         next_festival_date = current_festival_date.replace(
@@ -37,19 +40,26 @@ def get_next_year_festival_date(
 
 
 def find_tomb_sweeping_day(year: int) -> date:
-    # 春分通常在3月20日或21日
-    start_date = date(year, 3, 20)
+    try:
+        # 春分通常在3月20日或21日
+        start_date = date(year, 3, 20)
 
-    # 查找春分的确切日期
-    spring_equinox = next(
-        (
-            start_date + timedelta(days=i)
-            for i in range(3)
-            if calendar.get_holiday_detail(start_date + timedelta(days=i))[1] == "春分"
-        ),
-        start_date,
-    )
-    return spring_equinox + timedelta(days=15)
+        # 查找春分的确切日期
+        spring_equinox = next(
+            (
+                start_date + timedelta(days=i)
+                for i in range(3)
+                if calendar.get_holiday_detail(start_date + timedelta(days=i))[1] == "春分"
+            ),
+            start_date,
+        )
+        return spring_equinox + timedelta(days=15)
+    except Exception as e:
+        logger.warning(f"获取清明节日期失败，使用近似公式计算: {e}")
+        # 21世纪清明节近似计算公式 (Y*D+C)-L
+        y = year % 100
+        day = int(y * 0.2422 + 4.81) - (y // 4)
+        return date(year, 4, day)
 
 
 def days_until_festival(festival_name: str, today: date, festival_date: date) -> int:
@@ -79,6 +89,7 @@ def get_festivals_dates() -> list[tuple[int, str]]:
     lunar_festivals_dates["清明节"] = find_tomb_sweeping_day(today.year)
 
     # 合并两个字典
+    fixed_festivals_dates = get_fixed_festivals_dates(today.year)
     festivals_dates = {**lunar_festivals_dates, **fixed_festivals_dates}
 
     sort_name = ["春节", "端午节", "中秋节", "清明节", "劳动节", "国庆节", "元旦"]

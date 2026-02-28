@@ -104,21 +104,27 @@ class Report:
                 return image_file.read()
         zhdata = ZhDate.from_datetime(now)
         result = await asyncio.gather(
-            *[
-                cls.get_hitokoto(),
-                cls.get_bili(),
-                cls.get_six(),
-                cls.get_anime(),
-                cls.get_it(),
-            ]
+            cls.get_hitokoto(),
+            cls.get_bili(),
+            cls.get_six(),
+            cls.get_anime(),
+            cls.get_it(),
+            return_exceptions=True
         )
+
+        def handle_result(res, default):
+            if isinstance(res, Exception):
+                logger.error(f"Data fetch failed: {res}")
+                return default
+            return res
+
         data = {
             "data_festival": get_festivals_dates(),
-            "data_hitokoto": result[0],
-            "data_bili": result[1],
-            "data_six": result[2],
-            "data_anime": result[3],
-            "data_it": result[4],
+            "data_hitokoto": handle_result(result[0], "获取失败"),
+            "data_bili": handle_result(result[1], ["获取失败"]),
+            "data_six": handle_result(result[2], ["获取失败"]),
+            "data_anime": handle_result(result[3], []),
+            "data_it": handle_result(result[4], ["获取失败"]),
             "week": cls.week[now.weekday()],
             "date": now.date(),
             "zh_date": zhdata.chinese().split()[0][5:],
@@ -170,12 +176,14 @@ class Report:
     @classmethod
     async def get_six(cls) -> list[str]:
         """获取60s数据"""
-        if True:
+        try:
             return await cls.get_alapi_data()
-        res = await AsyncHttpx.get(cls.six_url)
-        data = SixData(**res.json())
-        return data.data.news[:11] if len(
-            data.data.news) > 11 else data.data.news
+        except Exception as e:
+            logger.warning(f"Alapi data fetch failed, trying fallback: {e}")
+            res = await AsyncHttpx.get(cls.six_url)
+            data = SixData(**res.json())
+            return data.data.news[:11] if len(
+                data.data.news) > 11 else data.data.news
 
     @classmethod
     async def get_it(cls) -> list[str]:
