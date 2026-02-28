@@ -15,11 +15,11 @@ from src.utils.tts import MarkdownCleaner
 from src.clover_html.help import help_info_img
 from src.clover_sqlite.models.user import UserList
 from src.clover_image.delete_file import delete_file
-from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
 from nonebot.plugin import on_command, on_keyword, on_fullmatch
 from nonebot.exception import FinishedException, PausedException
 from nonebot.adapters.qq import MessageSegment, MessageEvent, Message
+from nonebot.matcher import Matcher
 from src.providers.waf.llm_waf import LLMWAF
 from src.configs.path_config import temp_path, image_local_qq_image_path, AUDIO_PATH
 from src.providers.llm.Dify.base import DifyChatRole ,on_chat
@@ -488,6 +488,42 @@ async def Transcoding(file_path: str, output_filename: str) -> str:
         lambda: silkcoder.encode(file_path, output_silk_path, rate=32000, tencent=True)
     )
     return str(output_silk_path)
+
+
+
+mute_list: set[str] = set()
+
+all_check = on_message(priority=0, block=False)
+@all_check.handle()
+async def handle_global_check(matcher: Matcher, message: MessageEvent):
+    # 全局消息检查，检查是否在禁音列表中
+    if hasattr(message, 'group_openid'):
+        check_id = message.group_openid
+    else:
+        check_id = message.get_user_id()
+        
+    if check_id in mute_list:
+        logger.info(f"用户 {check_id} 在禁音列表中，忽略消息。")
+        matcher.stop_propagation()
+        return
+    else:
+        logger.debug(f"用户 {check_id} 不在禁音列表中，继续处理消息。")
+
+mute_cmd = on_command("Mute", rule=to_me(), priority=0, block=True)
+@mute_cmd.handle()
+async def handle_mute_toggle(message: MessageEvent):
+    if hasattr(message, 'group_openid'):
+        check_id = message.group_openid
+    else:
+        check_id = message.get_user_id()
+    
+    if check_id not in mute_list:
+        mute_list.add(check_id)
+        await mute_cmd.finish("已加入禁音列表")
+    else:
+        mute_list.remove(check_id)
+        await mute_cmd.finish("已解除禁音")
+
 
 
 get_help = on_command("help", rule=to_me(), priority=10, block=True)
