@@ -149,7 +149,8 @@ async def handle_function(bot: Bot, message: MessageEvent):
                          "\nTips: 指令：/今日助理 <角色关键字/ID>\n例：/今日助理 979 或 /今日助理 粉色妖精小姐"),
                          MessageSegment.file_image(temp_info_img_path)
                      ])
-                     await bh3_valkyries.send(r_msg)
+                     sent_msg = await bh3_valkyries.send(r_msg)
+                     asyncio.create_task(delete_msg(bot, message, sent_msg))
                      await delete_file(temp_info_img_path)
                      await bh3_valkyries.finish()
                 else:
@@ -370,7 +371,8 @@ async def handle_function(bot: Bot, message: MessageEvent):
                          "\nTips: 指令：/我的助理 <角色关键字/ID>\n例：/我的助理 979 或 /我的助理 粉色妖精小姐"),
                          MessageSegment.file_image(temp_info_img_path)
                      ])
-                     await bh3_valkyries.send(r_msg)
+                     sent_msg = await bh3_valkyries.send(r_msg)
+                     asyncio.create_task(delete_msg(bot, message, sent_msg))
                      await delete_file(temp_info_img_path)
                      await bh3_valkyries.finish()
                 else:
@@ -402,7 +404,8 @@ async def handle_function(bot: Bot, message: MessageEvent):
             temp_info_img_path, 
             "女武神图鉴"
             ):
-             await bh3_valkyries.send(MessageSegment.file_image(temp_info_img_path))
+             sent_msg = await bh3_valkyries.send(MessageSegment.file_image(temp_info_img_path))
+             asyncio.create_task(delete_msg(bot, message, sent_msg))
              await delete_file(temp_info_img_path)
              await bh3_valkyries.finish()
         else:
