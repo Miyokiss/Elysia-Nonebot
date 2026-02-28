@@ -10,8 +10,9 @@ from src.configs.path_config import temp_path
 from nonebot import on_command
 from nonebot.rule import Rule, to_me
 from nonebot.exception import FinishedException, PausedException
-from nonebot.adapters.qq import MessageSegment, MessageEvent, Message
+from nonebot.adapters.qq import MessageSegment, MessageEvent, Message, Bot
 from src.clover_image.delete_file import delete_file
+from src.utils.Message import delete_msg
 from nonebot import logger
 
 __name__ = "plugins | cloud_music"
@@ -20,7 +21,7 @@ unikey_cache = {'unikey': None, 'expires': 0}
 
 music = on_command("点歌", rule=to_me(), priority=10, block=True)
 @music.handle()
-async def handle_function(msg: MessageEvent) -> None:
+async def handle_function(bot: Bot, msg: MessageEvent) -> None:
     try:
         keyword = msg.get_plaintext().removeprefix("/点歌").strip()
         session = requests.session()
@@ -45,7 +46,7 @@ async def handle_function(msg: MessageEvent) -> None:
                 MessageSegment.text("\n请直接回复要听的歌曲序号哦！(1-10)")
             ])
             try:
-                await music.send(r_msg)
+                sent_msg = await music.send(r_msg)
                 # 创建异步等待
                 future = asyncio.get_event_loop().create_future()
 
@@ -62,6 +63,7 @@ async def handle_function(msg: MessageEvent) -> None:
                 choice = reply_event.get_plaintext().strip()
 
                 if not choice.isdigit() or int(choice) < 1 or int(choice) > len(song_lists):
+                    asyncio.create_task(delete_msg(bot=bot,message=msg,sent_msg=sent_msg,delay=0))
                     await music.finish(f"请输入1-{len(song_lists)}之间的数字")
                 idx = choice
                 song_id = None
@@ -73,6 +75,7 @@ async def handle_function(msg: MessageEvent) -> None:
                             song_id = s_list["song_id"]
                             break
                 if song_id is None:
+                    asyncio.create_task(delete_msg(bot=bot,message=msg,sent_msg=sent_msg,delay=0))
                     await music.finish("\n未获取到歌曲信息可能是序号有误！")
             finally:
                 choice_matcher.destroy()
@@ -81,8 +84,10 @@ async def handle_function(msg: MessageEvent) -> None:
         logger.debug(f"歌曲ID获取成功: {song_id}")
         img_task = post_netease_music_info_img(song_id, temp_file)
         music_task = post_music_download(song_id, session)
+        asyncio.create_task(delete_msg(bot=bot,message=msg,sent_msg=sent_msg,delay=0))
         await asyncio.gather(img_task, music_task)
     except asyncio.TimeoutError:
+        asyncio.create_task(delete_msg(bot=bot,message=msg,sent_msg=sent_msg,delay=0))
         logger.info(f"点歌选择超时 User: {msg.get_user_id()} Keyword: {keyword}")
     except Exception as e:
         if isinstance(e, (FinishedException, PausedException)):
