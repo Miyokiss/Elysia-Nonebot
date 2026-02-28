@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from pathlib import Path
 from nonebot import logger
 from nonebot.rule import to_me
@@ -83,20 +84,23 @@ today_wife = on_command("今日老婆", rule=to_me(), priority=10)
 @today_wife.handle()
 async def handle_function(bot: Bot, message: MessageEvent):
       member_openid = message.get_user_id()
+      index_uuid = uuid.uuid4()
+      img_name = f"{member_openid}_{index_uuid}.jpg"
+      size = 640
 
-      qq_user_img_path = await download_qq_image(member_openid)
+      qq_user_img_path = await download_qq_image(member_openid, size=size)
       openlist_api = OpenlistAPI()
-      await openlist_api.upload_file(qq_user_img_path, overwrite=True)
+      await openlist_api.upload_file(qq_user_img_path, overwrite=True , file_name=img_name)
       await delete_file(qq_user_img_path)
-      openlist_file_url = await openlist_api.get_download_url(f"{member_openid}.jpg")
+      openlist_file_url = await openlist_api.get_download_url(img_name)
       params = [
             {
                   "key": "width",
-                  "values": ["140"]
+                  "values": [f"{size}"]
             },
             {
                   "key": "height",
-                  "values": ["140"]
+                  "values": [f"{size}"]
             },
             {
                   "key": "url",
@@ -104,7 +108,7 @@ async def handle_function(bot: Bot, message: MessageEvent):
             },
             {
                   "key": "content",
-                  "values": [f"@{member_openid}"]
+                  "values": [f"<@{member_openid}>"]
             }
       ]
       markdown_image = MessageMarkdown(custom_template_id="102735560_1771313464", params=params)
@@ -114,6 +118,6 @@ async def handle_function(bot: Bot, message: MessageEvent):
             MessageSegment.keyboard(Keyboard_fortune)
         ])
       sent_msg = await today_wife.send(rmsg)
-      await openlist_api.delete_file(f"{member_openid}.jpg")
+      await openlist_api.delete_file(img_name)
       asyncio.create_task(delete_msg(bot, message, sent_msg))
       await today_wife.finish()

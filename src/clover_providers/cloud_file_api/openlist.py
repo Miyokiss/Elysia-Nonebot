@@ -42,14 +42,14 @@ class OpenlistAPI:
                     raise ValueError(f"Failed to get download URL: {response.status}")
 
     # 上传文件
-    async def upload_file(self, file_path: str , overwrite: bool = False) -> dict:
+    async def upload_file(self, file_path: str , overwrite: bool = False , file_name: str = None) -> dict:
         """
         :param file_path: 本地文件路径
         :param overwrite: 是否覆盖已存在的文件
         :return: 服务器响应
         """
         await self._ensure_auth()
-        file_name = os.path.basename(file_path)
+        file_name = file_name or os.path.basename(file_path)
         
         # 处理中文文件名，建议进行 URL 编码，防止 header 乱码问题
         remote_path = f"{self.storage_file_path}{file_name}"

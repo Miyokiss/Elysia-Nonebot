@@ -7,12 +7,17 @@ from src.configs.api_config import app_id,bot_account
 
 
 """获取QQ头像"""
-async def download_qq_image(member_open_id):
+async def download_qq_image(member_open_id, size = 140):
+    """
+    获取QQ头像
+    :param member_open_id: QQ加密后的openid
+    :param size: 头像尺寸，默认为140，支持40、100、140、640
+    :return: 本地保存的头像路径
+    """
     if not os.path.exists(image_local_qq_image_path):
         os.makedirs(image_local_qq_image_path)
 
     save_path = image_local_qq_image_path + '/' + member_open_id + '.jpg'
-    size = 140 #尺寸 40、100、140、640
     url = f"https://q.qlogo.cn/qqapp/{app_id}/{member_open_id}/{size}"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
