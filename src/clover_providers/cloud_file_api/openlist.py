@@ -2,13 +2,16 @@
 import asyncio
 import aiohttp
 import os
+from nonebot import logger
 from urllib.parse import quote
 from src.configs.api_config import url, openlist_storage_file_path, username, password
 
+__name__ = "openlist_api"
+
 class OpenlistAPI:
     def __init__(self, url: str = url, storage_file_path: str = openlist_storage_file_path, username: str = username, password: str = password):
-        self.url = url
-        self.storage_file_path = storage_file_path
+        self.url = url.rstrip("/")
+        self.storage_file_path = storage_file_path if storage_file_path.endswith("/") else f"{storage_file_path}/"
         self.username = username
         self.password = password
         self.Authorization = None
@@ -131,3 +134,14 @@ class OpenlistAPI:
                     return result
                 else:
                     raise ValueError(f"Failed to check login status: {response.status}")
+                
+    # 延迟删除文件
+    async def delayed_delete_file(self, file_name: str, delay: int = 60):
+        await asyncio.sleep(delay)
+        try:
+            await self.delete_file(file_name)
+        except Exception as e:
+            logger.warning(f"Failed to delete remote file {file_name}: {e}")
+
+
+openlist_api = OpenlistAPI()

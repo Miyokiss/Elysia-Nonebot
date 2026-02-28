@@ -12,7 +12,7 @@ from src.clover_image.qq_image import  download_qq_image
 from nonebot.adapters.qq.message import MessageMarkdown
 from src.clover_sqlite.models.user import UserList, Wife
 from nonebot.adapters.qq import Message, MessageEvent, Bot
-from src.clover_providers.cloud_file_api.openlist import OpenlistAPI
+from src.clover_providers.cloud_file_api.openlist import openlist_api
 from src.configs.Keyboard_config import Keyboard_fortune, Keyboard_mate
 
 today_group_wife = on_command("群老婆", rule=to_me(), priority=10)
@@ -76,8 +76,8 @@ async def post_wife_function(user_id) -> None:
             MessageSegment.text(f"您的今日群老婆"),
             MessageSegment.file_image(Path(local_image_path)),
         ])
-      await delete_file(local_image_path)
       await today_group_wife.send(msg)
+      await delete_file(local_image_path)
       await today_group_wife.finish(MessageSegment.keyboard(Keyboard_mate))
 
 today_wife = on_command("今日老婆", rule=to_me(), priority=10)
@@ -89,7 +89,6 @@ async def handle_function(bot: Bot, message: MessageEvent):
       size = 640
 
       qq_user_img_path = await download_qq_image(member_openid, size=size)
-      openlist_api = OpenlistAPI()
       await openlist_api.upload_file(qq_user_img_path, overwrite=True , file_name=img_name)
       await delete_file(qq_user_img_path)
       openlist_file_url = await openlist_api.get_download_url(img_name)
@@ -118,6 +117,6 @@ async def handle_function(bot: Bot, message: MessageEvent):
             MessageSegment.keyboard(Keyboard_fortune)
         ])
       sent_msg = await today_wife.send(rmsg)
-      await openlist_api.delete_file(img_name)
+      asyncio.create_task(openlist_api.delayed_delete_file(img_name))
       asyncio.create_task(delete_msg(bot, message, sent_msg))
       await today_wife.finish()
