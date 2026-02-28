@@ -90,7 +90,7 @@ async def post_wife_function(member_openid, wife_id, bot, message) -> None:
 
     await openlist_api.upload_file(local_image_path, overwrite=True, file_name=img_name)
     await delete_file(local_image_path)
-    openlist_file_url = await openlist_api.get_download_url(img_name)
+    openlist_file_url = await openlist_api.get_download_url(openlist_file_name=img_name)
 
     params = [
         {"key": "width", "values": [f"{size}"]},
@@ -119,7 +119,7 @@ async def handle_function(bot: Bot, message: MessageEvent):
       qq_user_img_path = await download_qq_image(member_openid, size=size)
       await openlist_api.upload_file(qq_user_img_path, overwrite=True , file_name=img_name)
       await delete_file(qq_user_img_path)
-      openlist_file_url = await openlist_api.get_download_url(img_name)
+      openlist_file_url = await openlist_api.get_download_url(openlist_file_name=img_name)
       params = [
         {"key": "width", "values": [f"{size}"]},
         {"key": "height", "values": [f"{size}"]},

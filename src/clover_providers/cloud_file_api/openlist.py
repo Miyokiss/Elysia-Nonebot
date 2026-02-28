@@ -22,7 +22,7 @@ class OpenlistAPI:
             await self.get_Authorization()
 
     # 获取下载链接
-    async def get_download_url(self, openlist_file_path: str, password: str = "") -> str:
+    async def get_download_url(self, openlist_file_name, openlist_file_path: str = None, password: str = "", ) -> str:
         """
         :param openlist_file_path: openlist 文件路径
         :param password: 文件密码（可选）
@@ -31,7 +31,7 @@ class OpenlistAPI:
         await self._ensure_auth()
         data = {
             "password": f"{password}",
-            "path": f"{self.storage_file_path}{openlist_file_path}"
+            "path": f"{openlist_file_path or self.storage_file_path}{openlist_file_name}"
         }
         async with aiohttp.ClientSession() as session:
             async with session.post(f"{self.url}/api/fs/get", json=data, headers={"Authorization": self.Authorization}) as response:

@@ -11,6 +11,7 @@ from datetime import datetime
 from nonebot import on_message
 from nonebot.rule import Rule, to_me
 from src.clover_openai import ai_chat
+from src.utils.Message import delete_msg
 from src.utils.tts import MarkdownCleaner
 from src.clover_html.help import help_info_img
 from src.clover_sqlite.models.user import UserList
@@ -19,9 +20,11 @@ from src.providers.llm.AliBL.base import on_bl_chat
 from src.clover_image.delete_file import delete_file
 from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
+from nonebot.adapters.qq.message import MessageMarkdown
 from nonebot.plugin import on_command, on_keyword, on_fullmatch
 from nonebot.exception import FinishedException, PausedException
-from nonebot.adapters.qq import MessageSegment, MessageEvent, Message
+from src.clover_providers.cloud_file_api.openlist import openlist_api
+from nonebot.adapters.qq import MessageSegment, MessageEvent, Message, Bot
 from nonebot.matcher import Matcher
 from src.providers.waf.llm_waf import LLMWAF
 from src.configs.path_config import temp_path, image_local_qq_image_path, AUDIO_PATH
@@ -274,7 +277,7 @@ async def check_value_in_menu(message: MessageEvent) -> bool:
 
 check = on_message(rule=to_me() & Rule(check_value_in_menu), priority=15, block=True)
 @check.handle()
-async def handle_function(message: MessageEvent):
+async def handle_function(bot: Bot, message: MessageEvent):
     # 默认模式
     status = 2
     group_openid = message.group_openid if hasattr(message, "group_openid") else "C2C"
@@ -306,9 +309,9 @@ async def handle_function(message: MessageEvent):
         await check.finish("请输入正确的指令！\n指令格式：\n/爱莉希雅\n/爱莉希雅 <新的对话/新的记忆>")
     elif status == 2 or status == 3:
         if status == 2:
-            await asyncio.wait_for(handle_Elysia_response(message), timeout=250)
+            await asyncio.wait_for(handle_Elysia_response(bot=bot, message=message), timeout=250)
         elif status == 3:
-            await asyncio.wait_for(handle_Elysia_response(message,on_tts = True), timeout=250)
+            await asyncio.wait_for(handle_Elysia_response(bot=bot, message=message,on_tts = True), timeout=250)
     elif status == 1:
         msg = await ai_chat.deepseek_chat(group_openid, content)
         await check.finish(msg)
@@ -322,7 +325,7 @@ text_list = [
     "【妖精爱莉回复】难道是新指令吗？哎呀，一脸茫然呢♪ \n哎呀，一脸茫然呢♪",
 ]
 
-async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
+async def handle_Elysia_response(bot: Bot, message: MessageEvent, on_tts: bool = False):
     """Elysia Chat 响应"""
     user_id = message.get_user_id()
     content = message.get_plaintext() or "空内容"
@@ -384,7 +387,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
             logger.info(f"用户：{user_id} {is_i} content：{content}")
             return
 
-    async def _Elysia_Chat_task():
+    async def _Elysia_Chat_task(bot, message):
         try:
             result = await on_chat(user_id, content)
             if result is None:
@@ -451,8 +454,20 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                     await delete_file(output_silk_path)
                     await delete_file(file_path)
             else:
-                await check.send("未定义内容/超出最大回复token，建议开启 新的对话")
-                await check.finish(MessageSegment.keyboard(Keyboard_ai))
+                openlist_file_url = await openlist_api.get_download_url(openlist_file_path="/Resources/", openlist_file_name="614eac5c0a6f75a2beff6b428e1e4b80.png")
+                params = [
+                    {"key": "width", "values": ["260"]},
+                    {"key": "height", "values": ["180"]},
+                    {"key": "url", "values": [f"{openlist_file_url}"]},
+                    {"key": "content", "values": [f"未定义内容/超出最大回复token，建议开启 新的对话"]}
+                ]
+                markdown_image = MessageMarkdown(custom_template_id="102735560_1771313464", params=params)
+                msg = Message([
+                    MessageSegment.markdown(markdown_image),
+                    MessageSegment.keyboard(Keyboard_ai)
+                ])
+                sent_msg = await check.send(msg)
+                asyncio.create_task(delete_msg(bot, message, sent_msg))
             await check.finish()
             
         except Exception as e:
@@ -471,7 +486,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
                 if 'file_path' in locals():
                     await delete_file(file_path)
     # 创建后台任务不阻塞当前处理
-    task = asyncio.create_task(_Elysia_Chat_task())
+    task = asyncio.create_task(_Elysia_Chat_task(bot=bot, message=message))
     # 添加异常回调处理
     def handle_task_exception(task: asyncio.Task):
         if task.exception():

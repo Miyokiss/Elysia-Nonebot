@@ -4,9 +4,11 @@ from nonebot.adapters.qq import GroupAtMessageCreateEvent, C2CMessageCreateEvent
 
 __name__ = "MessageUtils"
 
-async def delete_msg(bot, message, sent_msg):
-    # 等待110秒后撤回消息
-    await asyncio.sleep(110)
+async def delete_msg(bot, message, sent_msg, delay: int = 110):
+    """
+    :param delay : 撤回延迟（不能低于110秒）
+    """
+    await asyncio.sleep(delay)
     try:
           if isinstance(message, GroupAtMessageCreateEvent):
                 await bot.delete_group_message(group_openid=message.group_openid, message_id=sent_msg.id)
