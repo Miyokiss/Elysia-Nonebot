@@ -1,15 +1,19 @@
 import os
 import glob
 import threading
+import logging
 import nonebot
 import subprocess
-import logging.config
 from pathlib import Path
 from nonebot import logger
 from nonebot.log import default_format
 from nonebot.adapters.qq import Adapter as QQAdapter
 from apscheduler.schedulers.background import BackgroundScheduler
 from src.configs.path_config import log_path,temp_path,video_path,yuc_wiki_path
+
+# 禁用第三方库日志
+for lib in ["websockets", "httpx", "httpcore", "hpack", "asyncio","aiosqlite","tortoise","urllib3","tzlocal"]:
+    logging.getLogger(lib).setLevel(logging.WARNING)
 
 __name__ = "Bot"
 
