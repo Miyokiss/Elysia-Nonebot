@@ -24,7 +24,8 @@ class OpenlistAPI:
     # 获取下载链接
     async def get_download_url(self, openlist_file_name, openlist_file_path: str = None, password: str = "", ) -> str:
         """
-        :param openlist_file_path: openlist 文件路径
+        :param openlist_file_path: openlist 文件路径(可选)
+        :param openlist_file_name: openlist 文件名
         :param password: 文件密码（可选）
         :return: 下载链接
         """
@@ -49,19 +50,17 @@ class OpenlistAPI:
         """
         :param file_path: 本地文件路径
         :param overwrite: 是否覆盖已存在的文件
+        :param file_name: 上传的文件名（可选）
         :return: 服务器响应
         """
         await self._ensure_auth()
         file_name = file_name or os.path.basename(file_path)
-        
-        # 处理中文文件名，建议进行 URL 编码，防止 header 乱码问题
         remote_path = f"{self.storage_file_path}{file_name}"
-        encoded_path = quote(remote_path)
 
         # 构造请求数据
         headers = {
             "Authorization": self.Authorization,
-            "File-Path": encoded_path,
+            "File-Path": remote_path,
             "overwrite": "true" if overwrite else "false",
         }
         # 上传文件

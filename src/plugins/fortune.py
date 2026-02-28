@@ -1,5 +1,6 @@
 import os
 import time
+import asyncio
 from os import getcwd
 from pathlib import Path
 from nonebot import logger
@@ -9,13 +10,17 @@ from nonebot.utils import logger_wrapper
 from nonebot.exception import FinishedException
 from playwright.async_api import async_playwright
 from nonebot_plugin_htmlrender import template_to_pic
-from nonebot.adapters.qq import Message, MessageEvent, MessageSegment
+from nonebot.adapters.qq import Message, MessageEvent, MessageSegment, Bot
 from src.clover_sqlite.models.fortune import QrFortune
 from src.clover_sqlite.models.tarot import TarotExtractLog
 from src.clover_music.cloud_music.data_base import save_img
 from src.configs.Keyboard_config import Keyboard_fortune
 from src.clover_image.delete_file import delete_file
 from src.configs.path_config import temp_path
+from src.clover_providers.cloud_file_api.openlist import openlist_api
+from nonebot.adapters.qq.message import MessageMarkdown
+from src.utils.Message import delete_msg
+from src.clover_image.delete_file import delete_file
 
 logger_wrapper("fortune")
 
@@ -63,7 +68,7 @@ async def get_today_fortune(message: MessageEvent):
 
 tarot = on_command("今日塔罗", rule=to_me(), priority=10)
 @tarot.handle()
-async def get_tarot(message: MessageEvent):
+async def get_tarot(bot: Bot, message: MessageEvent):
     #extract_type : 1大阿尔克纳牌 2小阿尔克纳牌 3 混合牌组 4三角牌阵 5六芒星牌阵 6凯尔特十字牌阵 7恋人牌阵
     value = message.get_plaintext().strip().split(" ")
     if len(value) < 2 or len(value) > 2 or value[1] == "" or value[1] not in ["1","2","3","4","5"]:
@@ -85,12 +90,33 @@ async def get_tarot(message: MessageEvent):
             MessageSegment.text(content),
         ])
         try:
-            await tarot.finish(msg)
+            sent_msg = await tarot.send(msg)
+            asyncio.create_task(delete_msg(bot, message, sent_msg))
+            await delete_file(result.image)
+            await tarot.finish()
         except Exception as e:
             if isinstance(e, FinishedException):
                 return
             logger.error(f"获取塔罗牌失败：{e}")
             await tarot.finish("您的塔罗牌被未来人抢走啦，请重试。这绝对不是咱的错，绝对不是！")
     else:
-        await tarot.send(MessageSegment.file_image(Path(result.image)))
-        await tarot.finish(MessageSegment.keyboard(Keyboard_fortune))
+        img_path = Path(result.image)
+        await openlist_api.upload_file(file_path=img_path, overwrite=True)
+        openlist_file_url = await openlist_api.get_download_url(openlist_file_name=img_path.name)
+        params = [
+            {"key": "width", "values": ["180"]},
+            {"key": "height", "values": [f"230"]},
+            {"key": "url", "values": [f"{openlist_file_url}"]},
+            {"key": "content", "values": [f"<@{message.get_user_id()}>"]}
+        ]
+        markdown_image = MessageMarkdown(custom_template_id="102735560_1771313464", params=params)
+
+        rmsg = Message([
+              MessageSegment.markdown(markdown_image),
+              MessageSegment.keyboard(Keyboard_fortune)
+          ])
+        sent_msg = await tarot.send(rmsg)
+        asyncio.create_task(openlist_api.delayed_delete_file(img_path.name))
+        asyncio.create_task(delete_msg(bot, message, sent_msg))
+        await tarot.finish()
+
