@@ -65,9 +65,10 @@ async def handle_function(message: MessageEvent, bot: Bot):
                 r_msg = Message([
                     MessageSegment.file_image(Path(local_gif))
                 ])
-                await today_group_wife.send(r_msg)
+                sent_msg = await today_group_wife.send(r_msg)
                 await delete_file(local_image_path)
                 await delete_file(local_gif)
+                asyncio.create_task(delete_msg(bot, message, sent_msg))
             else:
                 await today_group_wife.send("获取老婆头像失败...")
             await today_group_wife.finish()
