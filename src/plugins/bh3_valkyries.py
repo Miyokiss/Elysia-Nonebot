@@ -79,9 +79,10 @@ async def generate_and_send_response(
                 MessageSegment.keyboard(Keyboard_valkyrie)
             ])
             sent_msg = await bh3_valkyries.send(r_msg)
+            sent_silk = await bh3_valkyries.send(MessageSegment.file_audio(Path(output_silk_path)))
             asyncio.create_task(openlist_api.delayed_delete_file(img_name))
             asyncio.create_task(delete_msg(bot, message, sent_msg))
-            await bh3_valkyries.send(MessageSegment.file_audio(Path(output_silk_path)))
+            asyncio.create_task(delete_msg(bot, message, sent_silk))
             
         # 清理资源
         await delete_file(output_silk_path)
@@ -190,7 +191,7 @@ async def handle_function(bot: Bot, message: MessageEvent):
                         user_id,
                         valkyrie_info,
                         ids_valkyries,
-                        f"\n已设置女武神：{valkyrie_info['summary']}，好感度+1"
+                        f"已设置女武神：{valkyrie_info['summary']}，好感度+1"
                     )
                     return
                 else:
@@ -234,7 +235,7 @@ async def handle_function(bot: Bot, message: MessageEvent):
                             user_id,
                             valkyrie_info,
                             ids_valkyries,
-                            f"\n已设置女武神{valkyrie_info['summary']}\n当前连续设置次数：{days_diff}次，好感度减少 \n女武神也需要休息哦~！"
+                            f"已设置女武神{valkyrie_info['summary']} 当前连续设置次数：{days_diff}次，好感度减少 女武神也需要休息哦~！"
                         )
                         return
                     else:
@@ -253,7 +254,7 @@ async def handle_function(bot: Bot, message: MessageEvent):
                             user_id,
                             valkyrie_info,
                             ids_valkyries,
-                            f"\n已设置女武神：{valkyrie_info['summary']}\n当前连续设置次数：{days_diff}次，好感度+{update_favorability}"
+                            f"已设置女武神：{valkyrie_info['summary']} 当前连续设置次数：{days_diff}次，好感度+{update_favorability}"
                         )
                         return
         
@@ -270,35 +271,17 @@ async def handle_function(bot: Bot, message: MessageEvent):
                     assistant_id = user_assistant.assistant_id
                     logger.debug(f"当前助理角色为: {assistant_id}")
                     valkyrie_info =await get_today_valkyrie_file(today=today, content_id=assistant_id)
-                    # 获取音频
-                    audio_list = await get_valkyrie_audio_info(valkyrie_info)
-                    if audio_list is None:
-                        logger.error("获取音频信息失败")
-                        await bh3_valkyries.finish("获取音频信息失败...")
-                    # 随机音频
-                    audio_info = random.choice(audio_list)
-                    output_silk_path = await download_audio(audio_info['url'])
-                    # 获取图片
-                    temp_file = Path(temp_path) / f"bh3_valkyrie_info_{user_id}_{assistant_id}_{uuid.uuid4().hex}.png"
-                    img = await user_valkyrie_info_img(
-                        temp_file=temp_file,
-                        valkyrie_info=valkyrie_info,
-                        user_valkyrie_info = await BH3_User_Valkyries.get_user_valkyrie_data(user_id, assistant_id),
-                        text = audio_info['text']
+                    
+                    user_valkyrie_data = await BH3_User_Valkyries.get_user_valkyrie_data(user_id, assistant_id)
+                    await generate_and_send_response(
+                        bot,
+                        message,
+                        user_id,
+                        valkyrie_info,
+                        user_valkyrie_data,
+                        f"当前助理角色为：{valkyrie_info['summary']}"
                     )
-                    if output_silk_path is not None and img is True:
-                        r_msg = Message([
-                            MessageSegment.file_image(temp_file),
-                            MessageSegment.text(f"当前助理角色为：{valkyrie_info['summary']}")
-                        ])
-                        await bh3_valkyries.send(r_msg)
-                        await bh3_valkyries.send(MessageSegment.file_audio(Path(output_silk_path)))
-                        await delete_file(output_silk_path)
-                        await delete_file(temp_file)
-                        await bh3_valkyries.finish()
-                    else:
-                        logger.error("获取图片/音频信息失败")
-                        await bh3_valkyries.finish("获取图片/音频信息失败，请稍后再试...")
+                    return
                 else:
                     await bh3_valkyries.finish(f"今日还未设置助理角色！~\nTips: 指令：/今日助理 <角色关键字/ID> \n例：/今日助理 979 来设定今日助理哦~!")
 
@@ -338,34 +321,14 @@ async def handle_function(bot: Bot, message: MessageEvent):
                 )
 
             valkyrie_info = await get_today_valkyrie_file(today=today, content_id=content_id)
-            # 获取音频
-            audio_list = await get_valkyrie_audio_info(valkyrie_info)
-            if audio_list is None:
-                logger.error("音频获取失败")
-                await bh3_valkyries.finish("音频获取失败...")
-            # 随机音频
-            audio_info = random.choice(audio_list)
-            output_silk_path = await download_audio(audio_info['url'])
-            # 获取图片
-            temp_file = Path(temp_path) / f"bh3_valkyrie_info_{user_id}_{content_id}_{uuid.uuid4().hex}.png"
-            img = await valkyrie_info_img(
-                temp_file = temp_file,
-                valkyrie_info = valkyrie_info,
-                text = audio_info['text']
+            await generate_and_send_response(
+                bot,
+                message,
+                user_id,
+                valkyrie_info,
+                None,
+                f"今日获得女武神：{valkyrie_info['summary']}"
             )
-            if output_silk_path is not None and img is True:
-                r_msg = Message([
-                     MessageSegment.file_image(Path(temp_file)),
-                     MessageSegment.text(f"\n今日获得女武神：{valkyrie_info['summary']}")
-                ])
-                await bh3_valkyries.send(r_msg)
-                await bh3_valkyries.send(MessageSegment.file_audio(Path(output_silk_path)))
-                await delete_file(output_silk_path)
-                await delete_file(temp_file)
-                await bh3_valkyries.finish()
-            else:
-                logger.error("获取图片/音频信息失败")
-                await bh3_valkyries.finish("获取图片/音频信息失败，请稍后再试...")
 
         else:
             logger.error("数据格式不正确或为空")
