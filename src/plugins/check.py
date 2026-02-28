@@ -15,6 +15,7 @@ from src.utils.tts import MarkdownCleaner
 from src.clover_html.help import help_info_img
 from src.clover_sqlite.models.user import UserList
 from src.clover_image.delete_file import delete_file
+from src.clover_sqlite.models.chat import GroupChatRole
 from src.providers.tts.gpt_sovits_v2 import TTSProvider
 from nonebot.plugin import on_command, on_keyword, on_fullmatch
 from nonebot.exception import FinishedException, PausedException
