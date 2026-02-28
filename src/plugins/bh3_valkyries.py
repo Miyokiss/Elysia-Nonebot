@@ -10,15 +10,21 @@ from nonebot.plugin import on_command
 from src.utils.audio import download_audio
 from src.configs.path_config import temp_path
 from nonebot.exception import FinishedException
+from src.utils.Message import delete_msg
 from src.clover_image.delete_file import delete_file
 from src.bh3_valkyries.data_base import BH3_Data_base
+from src.configs.Keyboard_config import Keyboard_valkyrie
+from src.clover_providers.cloud_file_api.openlist import openlist_api
 from src.bh3_valkyries import BH3_User_Assistant, BH3_User_Valkyries, BH3_User_Valkyrie_Log
-from nonebot.adapters.qq import   MessageSegment,MessageEvent, Message
+from nonebot.adapters.qq import   MessageSegment,MessageEvent, Message, Bot
+from nonebot.adapters.qq.message import MessageMarkdown
 from src.bh3_valkyries.base import valkyries_info_img, valkyrie_info_img, user_valkyrie_info_img, get_valkyrie_audio_info, get_today_valkyrie_file
 
 bh3_valkyries = on_command("今日助理",aliases={"我的助理"},rule=to_me(),priority=1,block=True)
 
 async def generate_and_send_response(
+    bot: Bot,
+    message: MessageEvent,
     user_id: str,
     valkyrie_info: dict,
     user_valkyrie_info: Optional[BH3_User_Valkyries] = None,
@@ -38,7 +44,8 @@ async def generate_and_send_response(
         # 生成图片路径时增加容错处理
         if image_path is None:
             content_id = valkyrie_info.get('content_id', 'unknown')
-            image_path = Path(temp_path) / f"bh3_valkyrie_info_{user_id}_{content_id}_{uuid.uuid4().hex}.png"
+            img_name = f"bh3_valkyrie_info_{user_id}_{content_id}_{uuid.uuid4().hex}.png"
+            image_path = Path(temp_path) / img_name
         
         if user_valkyrie_info:
             img = await user_valkyrie_info_img(
@@ -56,11 +63,24 @@ async def generate_and_send_response(
         
         # 发送消息
         if output_silk_path and img:
+            img_name = f"{user_id}_{uuid.uuid4().hex}.jpg"
+            await openlist_api.upload_file(image_path, overwrite=True, file_name=img_name)
+            openlist_file_url = await openlist_api.get_download_url(openlist_file_name=img_name)
+
+            params = [
+                {"key": "width", "values": ["230"]},
+                {"key": "height", "values": ["120"]},
+                {"key": "url", "values": [f"{openlist_file_url}"]},
+                {"key": "content", "values": [f"<@{user_id}> {text}"]}
+            ]
+            markdown_image = MessageMarkdown(custom_template_id="102735560_1771313464", params=params)
             r_msg = Message([
-                MessageSegment.file_image(image_path),
-                MessageSegment.text(text)
+                MessageSegment.markdown(markdown_image),
+                MessageSegment.keyboard(Keyboard_valkyrie)
             ])
-            await bh3_valkyries.send(r_msg)
+            sent_msg = await bh3_valkyries.send(r_msg)
+            asyncio.create_task(openlist_api.delayed_delete_file(img_name))
+            asyncio.create_task(delete_msg(bot, message, sent_msg))
             await bh3_valkyries.send(MessageSegment.file_audio(Path(output_silk_path)))
             
         # 清理资源
@@ -77,7 +97,7 @@ async def generate_and_send_response(
         await bh3_valkyries.finish(f"{r_msg}，请稍后再试...")
 
 @bh3_valkyries.handle()
-async def handle_function(message: MessageEvent):
+async def handle_function(bot: Bot, message: MessageEvent):
     cmd = message.get_plaintext().split()
     user_id = message.get_user_id()
     # 获取当前时间戳
@@ -165,6 +185,8 @@ async def handle_function(message: MessageEvent):
                     logger.debug(f"已设置女武神ID:{ids}，好感度+1")
                     valkyrie_info = await get_today_valkyrie_file(today=today, content_id=ids)
                     await generate_and_send_response(
+                        bot,
+                        message,
                         user_id,
                         valkyrie_info,
                         ids_valkyries,
@@ -207,6 +229,8 @@ async def handle_function(message: MessageEvent):
                         logger.debug(f"已设置女武神ID:{ids}\n当前连续设置次数：{days_diff}")
                         valkyrie_info = await get_today_valkyrie_file(today=today, content_id=ids)
                         await generate_and_send_response(
+                            bot,
+                            message,
                             user_id,
                             valkyrie_info,
                             ids_valkyries,
@@ -224,6 +248,8 @@ async def handle_function(message: MessageEvent):
                         logger.debug(f"用户{user_id} 当前连续设置次数:{days_diff}好感+{update_favorability}")
                         valkyrie_info =await get_today_valkyrie_file(today=today, content_id=ids)
                         await generate_and_send_response(
+                            bot,
+                            message,
                             user_id,
                             valkyrie_info,
                             ids_valkyries,
@@ -395,6 +421,8 @@ async def handle_function(message: MessageEvent):
                         logger.debug(f"查询助理ID: {ids}")
                         valkyrie_info = await get_today_valkyrie_file(today=today, content_id=ids)
                         await generate_and_send_response(
+                            bot,
+                            message,
                             user_id,
                             valkyrie_info = valkyrie_info,
                             user_valkyrie_info = item
