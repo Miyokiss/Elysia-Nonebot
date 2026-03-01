@@ -1,13 +1,15 @@
+import asyncio
 from nonebot import logger
 from pathlib import Path
 from nonebot.rule import to_me
 from nonebot.plugin import on_command
-from nonebot.adapters.qq import Message, MessageEvent, MessageSegment
+from src.utils.Message import delete_msg
+from nonebot.adapters.qq import Message, MessageEvent, MessageSegment, Bot
 from src.today_superpowers import Today_superpowers, Today_User_superpowers
 
 today_superpowers = on_command("今日超能力", rule=to_me(), priority=1, block=True)
 @today_superpowers.handle()
-async def handle_today_superpowers(msg: MessageEvent):
+async def handle_today_superpowers(bot: Bot, msg: MessageEvent):
     user_id = msg.get_user_id()
     keyword = msg.get_plaintext().replace("/今日超能力", "").split()
     keyword_len = len(keyword)
@@ -55,7 +57,9 @@ async def handle_today_superpowers(msg: MessageEvent):
                     + f"\n已有{today_superpowers_data.not_press_count}人选择了不按"
                     )
                 ])
-        await today_superpowers.finish(r_msg)
+        sent_msg = await today_superpowers.send(r_msg)
+        asyncio.create_task(delete_msg(bot, msg, sent_msg))
+        await today_superpowers.finish()
     else:
         await today_superpowers.finish(MessageSegment.text(
             "指令格式错误，请使用：\n"
