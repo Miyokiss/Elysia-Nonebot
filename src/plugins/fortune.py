@@ -26,14 +26,15 @@ logger_wrapper("fortune")
 
 fortune_by_sqlite = on_command("今日运势", rule=to_me(), priority=10)
 @fortune_by_sqlite.handle()
-async def get_today_fortune(message: MessageEvent):
+async def get_today_fortune(bot: Bot, message: MessageEvent):
     try:
         user_id = message.get_user_id()
         result = await QrFortune.get_fortune(user_id)
+        temp_file_name = f"{user_id}_{time.time()}.png"
         if result is None:
             logger.error("今日运势获取失败")
             await fortune_by_sqlite.finish("今日运势获取失败")
-        temp_file = os.path.join(temp_path, f"{user_id}_{time.time()}.png")
+        temp_file = os.path.join(temp_path, temp_file_name)
         data = {
              "fortune_summary": result.fortune_summary,
              "lucky_star": result.lucky_star,
@@ -56,8 +57,24 @@ async def get_today_fortune(message: MessageEvent):
         )
         await save_img(image_bytes,temp_file)
         await browser.close()
-        await fortune_by_sqlite.send(MessageSegment.file_image(Path(temp_file)))
+        await openlist_api.upload_file(file_path=temp_file, overwrite=True)
         await delete_file(temp_file)
+        openlist_file_url = await openlist_api.get_download_url(openlist_file_name=temp_file_name)
+        params = [
+            {"key": "width", "values": ["1080"]},
+            {"key": "height", "values": [f"1920"]},
+            {"key": "url", "values": [f"{openlist_file_url}"]},
+            {"key": "content", "values": [f"<@{user_id}>"]}
+        ]
+        markdown_image = MessageMarkdown(custom_template_id="102735560_1771313464", params=params)
+
+        rmsg = Message([
+              MessageSegment.markdown(markdown_image),
+              MessageSegment.keyboard(Keyboard_fortune)
+          ])
+        sent_msg = await fortune_by_sqlite.send(rmsg)
+        asyncio.create_task(openlist_api.delayed_delete_file(temp_file_name))
+        asyncio.create_task(delete_msg(bot, message, sent_msg))
         await fortune_by_sqlite.finish()
     except Exception as e:
         if isinstance(e, FinishedException):
