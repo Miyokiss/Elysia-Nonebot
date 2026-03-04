@@ -3,7 +3,7 @@ import random
 import aiohttp
 
 from src.configs.path_config import image_local_path
-from src.configs.api_config import smms_token,smms_image_upload_history,ju_he_token,ju_he_image_list,anosu_url
+from src.configs.api_config import smms_token,smms_image_upload_history,ju_he_token,ju_he_image_list,anosu_url,xjh_url
 
 """本地图片"""
 async def get_image_names():
@@ -44,3 +44,10 @@ async def get_anosu_image(keyword: str, is_r18: int, num: int, proxy: str = "i.p
             data = await response.json()
             urls = [item['url'] for item in data]
             return urls
+
+async def get_xjh_image():
+    url = xjh_url
+    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+        async with session.get(url) as response:
+            data = await response.json()
+            return f"https:{data['img']}"
