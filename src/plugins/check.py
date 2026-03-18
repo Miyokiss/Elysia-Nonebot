@@ -386,7 +386,7 @@ async def handle_Elysia_response(message: MessageEvent, on_tts: bool = False):
             result = await on_chat(user_id, content)
             if result is None:
                 logger.error(f"API Chat R Data：结果为空")
-                await check.finish("Chat回复为空，请联系管理员处理...")
+                await check.finish("Chat回复为空/已超时，请联系管理员处理...")
             if has_elysia_command_regex(result):
                 r_msg = await elysia_command(result)
                 logger.debug(f"Elysia Chat R Data：{r_msg}")
