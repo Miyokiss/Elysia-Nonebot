@@ -32,7 +32,7 @@ async def get_afdian_data():
         "sign": sign
     }
 
-    url = "https://afdian.com/api/open/query-sponsor"
+    url = "https://ifdian.net/api/open/query-sponsor"
     headers = {
         'Content-Type': 'application/json'
     }
