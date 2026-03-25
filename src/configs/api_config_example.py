@@ -93,3 +93,12 @@ url: str = "https://XXX.com"  # 替换为你的Openlist实例URL
 openlist_storage_file_path: str = "/BOT/" # 替换为你希望存储文件的路径
 username: str = ""
 password: str = "" # 需要请求API的password字段
+
+"""
+Boto3配置
+"""
+endpoint_url = "https://xxx.com"
+aws_access_key_id = "key"
+aws_secret_access_key = "access_key"
+signature_version = "s3v4"
+bucket_name = ""
