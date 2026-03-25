@@ -85,3 +85,20 @@ qrserver_size= "200x200"
 """
 afdian_user_id = "your_afdian_user_id"
 afdian_token = "your_afdian_token"
+
+"""
+openlist配置
+"""
+url: str = "https://xxx.com"
+openlist_storage_file_path: str = "/BOT/"
+username: str = "username"
+password: str = "password"
+
+"""
+Boto3配置
+"""
+endpoint_url = "https://xxx.com"
+aws_access_key_id = "key"
+aws_secret_access_key = "access_key"
+signature_version = "s3v4"
+bucket_name = ""
