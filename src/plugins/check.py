@@ -23,7 +23,7 @@ from src.providers.tts.gpt_sovits_v2 import TTSProvider
 from nonebot.adapters.qq.message import MessageMarkdown
 from nonebot.plugin import on_command, on_keyword, on_fullmatch
 from nonebot.exception import FinishedException, PausedException
-from src.clover_providers.cloud_file_api.openlist import openlist_api
+from src.clover_providers.cloud_file_api.rustfs import rustfs_api
 from nonebot.adapters.qq import MessageSegment, MessageEvent, Message, Bot
 from nonebot.matcher import Matcher
 from src.providers.waf.llm_waf import LLMWAF
@@ -454,7 +454,7 @@ async def handle_Elysia_response(bot: Bot, message: MessageEvent, on_tts: bool =
                     await delete_file(output_silk_path)
                     await delete_file(file_path)
             else:
-                openlist_file_url = await openlist_api.get_download_url(openlist_file_path="/Resources/", openlist_file_name="614eac5c0a6f75a2beff6b428e1e4b80.png")
+                openlist_file_url = await rustfs_api.get_download_url(object_key="Resources/614eac5c0a6f75a2beff6b428e1e4b80.png")
                 params = [
                     {"key": "width", "values": ["260"]},
                     {"key": "height", "values": ["180"]},

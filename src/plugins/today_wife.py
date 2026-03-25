@@ -12,7 +12,7 @@ from src.clover_image.qq_image import  download_qq_image
 from nonebot.adapters.qq.message import MessageMarkdown
 from src.clover_sqlite.models.user import UserList, Wife
 from nonebot.adapters.qq import Message, MessageEvent, Bot
-from src.clover_providers.cloud_file_api.openlist import openlist_api
+from src.clover_providers.cloud_file_api.rustfs import rustfs_api
 from src.configs.Keyboard_config import Keyboard_fortune, Keyboard_mate
 
 today_group_wife = on_command("群老婆", rule=to_me(), priority=10)
@@ -88,9 +88,9 @@ async def post_wife_function(member_openid, wife_id, bot, message) -> None:
     if not local_image_path:
         await today_group_wife.finish("获取图片失败")
 
-    await openlist_api.upload_file(local_image_path, overwrite=True, file_name=img_name)
+    await rustfs_api.upload_file(local_path=str(local_image_path), object_key=img_name)
     await delete_file(local_image_path)
-    openlist_file_url = await openlist_api.get_download_url(openlist_file_name=img_name)
+    openlist_file_url = await rustfs_api.get_download_url(object_key=img_name)
 
     params = [
         {"key": "width", "values": [f"{size}"]},
@@ -104,7 +104,6 @@ async def post_wife_function(member_openid, wife_id, bot, message) -> None:
         MessageSegment.keyboard(Keyboard_mate)
     ])
     sent_msg = await today_group_wife.send(msg)
-    asyncio.create_task(openlist_api.delayed_delete_file(img_name))
     asyncio.create_task(delete_msg(bot, message, sent_msg))
     await today_group_wife.finish()
 
@@ -117,9 +116,9 @@ async def handle_function(bot: Bot, message: MessageEvent):
       size = 640
 
       qq_user_img_path = await download_qq_image(member_openid, size=size)
-      await openlist_api.upload_file(qq_user_img_path, overwrite=True , file_name=img_name)
+      await rustfs_api.upload_file(local_path=str(qq_user_img_path), object_key=img_name)
       await delete_file(qq_user_img_path)
-      openlist_file_url = await openlist_api.get_download_url(openlist_file_name=img_name)
+      openlist_file_url = await rustfs_api.get_download_url(object_key=img_name)
       params = [
         {"key": "width", "values": [f"{size}"]},
         {"key": "height", "values": [f"{size}"]},
@@ -133,6 +132,5 @@ async def handle_function(bot: Bot, message: MessageEvent):
             MessageSegment.keyboard(Keyboard_fortune)
         ])
       sent_msg = await today_wife.send(rmsg)
-      asyncio.create_task(openlist_api.delayed_delete_file(img_name))
       asyncio.create_task(delete_msg(bot, message, sent_msg))
       await today_wife.finish()

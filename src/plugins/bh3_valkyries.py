@@ -14,7 +14,7 @@ from src.utils.Message import delete_msg
 from src.clover_image.delete_file import delete_file
 from src.bh3_valkyries.data_base import BH3_Data_base
 from src.configs.Keyboard_config import Keyboard_valkyrie
-from src.clover_providers.cloud_file_api.openlist import openlist_api
+from src.clover_providers.cloud_file_api.rustfs import rustfs_api
 from src.bh3_valkyries import BH3_User_Assistant, BH3_User_Valkyries, BH3_User_Valkyrie_Log
 from nonebot.adapters.qq import   MessageSegment,MessageEvent, Message, Bot
 from nonebot.adapters.qq.message import MessageMarkdown
@@ -64,8 +64,8 @@ async def generate_and_send_response(
         # 发送消息
         if output_silk_path and img:
             img_name = f"{user_id}_{uuid.uuid4().hex}.jpg"
-            await openlist_api.upload_file(image_path, overwrite=True, file_name=img_name)
-            openlist_file_url = await openlist_api.get_download_url(openlist_file_name=img_name)
+            await rustfs_api.upload_file(local_path=str(image_path), object_key=img_name)
+            openlist_file_url = await rustfs_api.get_download_url(object_key=img_name)
 
             params = [
                 {"key": "width", "values": ["230"]},
@@ -80,7 +80,6 @@ async def generate_and_send_response(
             ])
             sent_msg = await bh3_valkyries.send(r_msg)
             sent_silk = await bh3_valkyries.send(MessageSegment.file_audio(Path(output_silk_path)))
-            asyncio.create_task(openlist_api.delayed_delete_file(img_name))
             asyncio.create_task(delete_msg(bot, message, sent_msg))
             asyncio.create_task(delete_msg(bot, message, sent_silk))
             

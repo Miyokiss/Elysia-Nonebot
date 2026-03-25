@@ -17,7 +17,7 @@ from src.clover_music.cloud_music.data_base import save_img
 from src.configs.Keyboard_config import Keyboard_fortune
 from src.clover_image.delete_file import delete_file
 from src.configs.path_config import temp_path
-from src.clover_providers.cloud_file_api.openlist import openlist_api
+from src.clover_providers.cloud_file_api.rustfs import rustfs_api
 from nonebot.adapters.qq.message import MessageMarkdown
 from src.utils.Message import delete_msg
 from src.clover_image.delete_file import delete_file
@@ -57,9 +57,9 @@ async def get_today_fortune(bot: Bot, message: MessageEvent):
         )
         await save_img(image_bytes,temp_file)
         await browser.close()
-        await openlist_api.upload_file(file_path=temp_file, overwrite=True)
+        await rustfs_api.upload_file(local_path=temp_file, object_key=temp_file_name)
         await delete_file(temp_file)
-        openlist_file_url = await openlist_api.get_download_url(openlist_file_name=temp_file_name)
+        openlist_file_url = await rustfs_api.get_download_url(object_key=temp_file_name)
         params = [
             {"key": "width", "values": ["1080"]},
             {"key": "height", "values": [f"1920"]},
@@ -73,7 +73,6 @@ async def get_today_fortune(bot: Bot, message: MessageEvent):
               MessageSegment.keyboard(Keyboard_fortune)
           ])
         sent_msg = await fortune_by_sqlite.send(rmsg)
-        asyncio.create_task(openlist_api.delayed_delete_file(temp_file_name))
         asyncio.create_task(delete_msg(bot, message, sent_msg))
         await fortune_by_sqlite.finish()
     except Exception as e:
@@ -118,8 +117,8 @@ async def get_tarot(bot: Bot, message: MessageEvent):
             await tarot.finish("您的塔罗牌被未来人抢走啦，请重试。这绝对不是咱的错，绝对不是！")
     else:
         img_path = Path(result.image)
-        await openlist_api.upload_file(file_path=img_path, overwrite=True)
-        openlist_file_url = await openlist_api.get_download_url(openlist_file_name=img_path.name)
+        await rustfs_api.upload_file(local_path=str(img_path), object_key=img_path.name)
+        openlist_file_url = await rustfs_api.get_download_url(object_key=img_path.name)
         params = [
             {"key": "width", "values": ["180"]},
             {"key": "height", "values": [f"230"]},
@@ -133,7 +132,6 @@ async def get_tarot(bot: Bot, message: MessageEvent):
               MessageSegment.keyboard(Keyboard_fortune)
           ])
         sent_msg = await tarot.send(rmsg)
-        asyncio.create_task(openlist_api.delayed_delete_file(img_path.name))
         asyncio.create_task(delete_msg(bot, message, sent_msg))
         await tarot.finish()
 
