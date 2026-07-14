@@ -1,15 +1,15 @@
 import os
-import glob
 import threading
 import logging
 import nonebot
-import subprocess
 from pathlib import Path
 from nonebot import logger
 from nonebot.log import default_format
 from nonebot.adapters.qq import Adapter as QQAdapter
 from apscheduler.schedulers.background import BackgroundScheduler
 from src.configs.path_config import log_path,temp_path,video_path,yuc_wiki_path
+from src.utils.cache_cleanup import get_stale_files
+from src.utils.log_sanitizer import sanitize_log_record
 
 # 禁用第三方库日志
 for lib in ["websockets", "httpx", "httpcore", "hpack", "asyncio","aiosqlite","tortoise","urllib3","tzlocal"]:
@@ -26,8 +26,23 @@ from backend import start_flask
 driver = nonebot.get_driver()
 driver.register_adapter(QQAdapter)  # 注册QQ适配器
 nonebot.load_from_toml("pyproject.toml")
-logger.add(log_path+"error.log", level="ERROR", format=default_format, rotation="1 week")
-logger.add(log_path+"log.log", level="INFO", format=default_format, rotation="1 week")
+
+
+logger.configure(patcher=sanitize_log_record)
+
+
+log_options = {
+    "format": default_format,
+    "rotation": "50 MB",
+    "retention": "30 days",
+    "compression": "zip",
+    "encoding": "utf-8",
+    "enqueue": True,
+    "backtrace": False,
+    "diagnose": False,
+}
+logger.add(Path(log_path) / "error.log", level="ERROR", **log_options)
+logger.add(Path(log_path) / "log.log", level="INFO", **log_options)
 
 from src.clover_sqlite.data_init.db_connect import disconnect, init
 driver.on_startup(init)
@@ -38,23 +53,16 @@ def clean_temp_cache():
     path_list =  [Path(temp_path), Path(video_path),Path(yuc_wiki_path)]
     logger.info("开始清理文件")
     for folder_path in path_list:
-        files = get_files_in_folder(folder_path)
+        files = get_stale_files(folder_path, max_age_seconds=3600)
         for file in files:
-            os.remove(file)
+            try:
+                file.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.warning(f"清理缓存文件失败 {file}: {exc}")
     logger.info("清理完成")
-
-def reboot():
-    """重启Bot"""
-    logger.info("开始重启...")
-    subprocess.Popen(["runtime/python", "Reboot.py"]) # 如果你使用了集成环境，请将python路径替换为集成环境路径
-
-def get_files_in_folder(folder_path: Path):
-    return [Path(f) for f in glob.glob(str(folder_path / "*")) if Path(f).is_file()]
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(clean_temp_cache, 'cron', hour=0, minute=0)
-# 每隔两小时重启
-scheduler.add_job(reboot, 'interval', hours=2)
 
 if __name__ == "Bot":
     flask_thread = threading.Thread(target=start_flask, daemon=True)

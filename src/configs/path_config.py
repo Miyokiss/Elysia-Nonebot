@@ -1,7 +1,8 @@
 import os
 from pathlib import Path
 
-path = os.getcwd()+'/src/resources'
+src_path = Path(__file__).resolve().parents[1]
+path = str(src_path / 'resources')
 
 
 # 塔罗牌图片路径
@@ -42,11 +43,11 @@ video_path = path+'/video/'
 os.makedirs(video_path, exist_ok=True)
 
 #jm配置文件路径
-jm_config_path = os.getcwd()+'/src/configs/jm_config.yml'
+jm_config_path = str(Path(__file__).resolve().with_name('jm_config.yml'))
 
 # 音频路径
 AUDIO_PATH = path+'/aduio/'
-os.makedirs(video_path, exist_ok=True)
+os.makedirs(AUDIO_PATH, exist_ok=True)
 # # 文本路径
 # TEXT_PATH = Path() / "src" / "resources" / "text"
 # # 数据路径
