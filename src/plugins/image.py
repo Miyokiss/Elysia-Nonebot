@@ -4,7 +4,7 @@ from nonebot.rule import to_me
 from nonebot.plugin import on_command
 from nonebot.exception import FinishedException
 from nonebot.adapters.qq import  MessageSegment,MessageEvent,Message
-from src.clover_image.get_image import get_image_names,get_anosu_image, get_xjh_image
+from src.clover_image.get_image import get_image_names, get_xjh_image
 from src.clover_image.download_image import download_image
 from src.clover_image.animetrace import animetrace_search_by_url
 from src.clover_image.delete_file import delete_file
@@ -16,7 +16,7 @@ __name__ = "plugins_image"
 
 image = on_command("图", rule=to_me(), priority=10,block=True)
 @image.handle()
-async def handle_function():
+async def handle_image():
 
     local_image_path = await get_image_names()
     await image.finish(MessageSegment.file_image(Path(local_image_path)))
@@ -25,7 +25,7 @@ async def handle_function():
 
 random_keyword_image = on_command("随机图", rule=to_me(), priority=10, block=True)
 @random_keyword_image.handle()
-async def handle_function(message: MessageEvent):
+async def handle_random_image(message: MessageEvent):
 
     # values = message.get_plaintext().replace("/随机图", "").split(" ")
     # keyword,is_r18,num = "",0,1
@@ -55,11 +55,12 @@ async def handle_function(message: MessageEvent):
     #     # 删除所有临时文件
     #     for file_path in file_paths:
     #         await delete_file(file_path)
+    filename = f"{message.get_user_id()}{random.randint(0, 10000)}.jpg"
+    image_path = temp_path + filename
     try:
-        filename = f"{message.get_user_id()}{random.randint(0, 10000)}.jpg"
-        image_path = temp_path + filename
         url = await get_xjh_image()
-        await download_image(url,image_path)
+        if not await download_image(url, image_path):
+            await random_keyword_image.finish("图片服务暂时不可用，请稍后重试。")
         await random_keyword_image.finish(MessageSegment.file_image(Path(image_path)))
     except Exception as e:
         if isinstance(e, FinishedException):
@@ -73,27 +74,19 @@ async def handle_function(message: MessageEvent):
 
 search_image = on_command("搜番", rule=to_me(), priority=10, block=True)
 @search_image.handle()
-async def handle_function(message: MessageEvent):
+async def handle_search_image(message: MessageEvent):
     if not message.attachments:
-        msg = Message([
-            MessageSegment.image(),   
-            MessageSegment.text("没有图片诶？你想让我搜什么呀~♪")
-        ])
-        await search_image.send(msg)
+        await search_image.finish("没有图片诶？你想让我搜什么呀~♪")
     fig_url = message.attachments[0].url
 
-    logger.debug(f"接收到url："+fig_url)
+    logger.debug("接收到url：" + fig_url)
     # API识图
     result = await animetrace_search_by_url(fig_url)
     if result is None:
-        msg = Message([
-            #MessageSegment.image(fig_url),
-            MessageSegment.text("未找到结果")
-        ])
-        await search_image.send(msg)
+        await search_image.finish("未找到结果")
     msg = Message([
             #MessageSegment.image(fig_url),   
             MessageSegment.text('\n 搜索结果\n'+result)
         ])
-    await search_image.send(msg)
+    await search_image.finish(msg)
 

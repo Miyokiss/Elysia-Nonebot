@@ -1,4 +1,5 @@
-import os
+import uuid
+from pathlib import Path
 from PIL import Image, ImageDraw
 
 from src.configs.path_config import image_local_qq_image_path,rua_png
@@ -7,14 +8,16 @@ from src.configs.path_config import image_local_qq_image_path,rua_png
 """ rua 头动图生成"""
 class rua():
     def __init__(self, img_file):
-        self.author = Image.open(img_file)
+        with Image.open(img_file) as image:
+            self.author = image.convert("RGBA")
 
     def add_png(self, png_d):
         # 重置图片大小
         author = self.author.resize((png_d[0], png_d[1] - png_d[2]))
 
         # 载入素材
-        rua_p1 = Image.open(png_d[3])
+        with Image.open(png_d[3]) as overlay:
+            rua_p1 = overlay.convert("RGBA")
 
         # 创建背景模板
         rua_png1 = Image.new('RGBA', (110, 110), (255, 255, 255, 255))
@@ -22,14 +25,22 @@ class rua():
         # 使用预定义的参数：jd，合成一帧的样例
         rua_png1.paste(author, (110 - png_d[0], 110 - png_d[1] + png_d[2]), author)
         rua_png1.paste(rua_p1, (0, 110 - png_d[1] - png_d[2]), rua_p1)
+        rua_p1.close()
         return rua_png1
 
     def add_gif(self):
 
         # 获取素材列表
-        pst = os.listdir(rua_png)
-        for i in range(len(pst)):
-            pst[i] = rua_png + pst[i]
+        overlay_paths = [path for path in Path(rua_png).iterdir() if path.is_file()]
+        overlay_paths.sort(
+            key=lambda path: (
+                not path.stem.isdigit(),
+                int(path.stem) if path.stem.isdigit() else path.name,
+            )
+        )
+        pst = [str(path) for path in overlay_paths]
+        if len(pst) < 10:
+            raise FileNotFoundError("rua 动图素材不足，需要至少 10 帧")
 
         # 预调试好的参数，传入素材列表
         jd = [[90, 90, 5, pst[0]],
@@ -60,6 +71,9 @@ class rua():
             gifs.append(self.add_png(jd[i]))
 
         # 文件名,是否保存所有,图片列表,fps/ms
-        gifs[0].save(image_local_qq_image_path + '/rua.gif', "GIF", save_all=True, append_images=gifs, duration=35, loop=0)
+        output_path = Path(image_local_qq_image_path) / f"rua_{uuid.uuid4().hex}.gif"
+        gifs[0].save(output_path, "GIF", save_all=True, append_images=gifs, duration=35, loop=0)
+        for frame in gifs:
+            frame.close()
         self.author.close()
-        return image_local_qq_image_path + '/rua.gif'
+        return str(output_path)
