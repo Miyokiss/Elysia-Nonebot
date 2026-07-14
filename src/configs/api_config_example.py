@@ -72,6 +72,7 @@ wenku8_password = "<passwd>"
 """
 多米HTTP代理api
 """
+proxy_api_enabled = True  # False 时 Wenku8 直接连接，不请求代理 API
 proxy_api = "<KEY>"
 
 """

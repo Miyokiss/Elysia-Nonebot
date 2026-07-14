@@ -168,12 +168,12 @@ conda activate chatbot
 
 <br>
 
-此机器人运行所需依赖已全部打包至***requirements.txt***，您只需回到项目根目录
+此机器人运行所需依赖已全部打包至***requirements_Elysia.txt***，您只需回到项目根目录
 
 在终端输入：
 
 ```powershell
-pip install -r requirements.txt
+pip install -r requirements_Elysia.txt
 ```
 <br>
 
@@ -275,6 +275,7 @@ wenku8_password = "<passwd>"
 """
 多米HTTP代理api
 """
+proxy_api_enabled = True  # False 时 Wenku8 直接连接，不请求代理 API
 proxy_api = "<KEY>"
 ```
 
@@ -311,7 +312,7 @@ SanYeCao-Nonebot:.
 │  package.json
 │  pyproject.toml
 │  README.md
-│  requirements.txt
+│  requirements_Elysia.txt
 │          
 ├─node_modules
 │  └─crypto-js
@@ -419,7 +420,7 @@ SanYeCao-Nonebot:.
   - `package.json`: npm 依赖配置文件。
   - `pyproject.toml`: Python 项目配置文件。
   - `README.md`: 项目说明文档。
-  - `requirements.txt`: Python 依赖配置文件。
+  - `requirements_Elysia.txt`: Python 依赖配置文件。
 
 - **node_modules**
   - `crypto-js`: 加密库。
