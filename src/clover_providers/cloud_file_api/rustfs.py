@@ -1,7 +1,8 @@
-import asyncio
+from pathlib import Path
 import boto3
 from nonebot import logger
 from src.configs.api_config import endpoint_url, aws_access_key_id, aws_secret_access_key, bucket_name, signature_version
+from src.utils.async_utils import run_sync
 from botocore.client import Config
 
 __name__ = "rustfs_api"
@@ -9,6 +10,7 @@ __name__ = "rustfs_api"
 class RustFSAPI:
     def __init__(self):
         self.bucket_name = bucket_name
+        self.s3 = None
         try:
             # 创建链接
             self.s3 = boto3.client(
@@ -20,7 +22,10 @@ class RustFSAPI:
                     signature_version=signature_version,
                     connect_timeout=5,     # 连接超时时间（秒）
                     read_timeout=10,       # 读取超时时间（秒）
-                    retries={'max_attempts': 1} # 失败重试次数
+                    retries={'max_attempts': 3, 'mode': 'standard'},
+                    request_checksum_calculation='when_required',
+                    response_checksum_validation='when_required',
+                    s3={'addressing_style': 'path'},
                 ),
                 region_name='qq-bot'
             )
@@ -30,8 +35,14 @@ class RustFSAPI:
 
     async def upload_file(self, local_path: str, object_key: str, bucket: str = None) -> bool:
         bucket = bucket or self.bucket_name
+        if self.s3 is None:
+            logger.error("RustFS client is not initialized")
+            return False
+        if not object_key or not Path(local_path).is_file():
+            logger.warning(f"跳过 RustFS 上传，无效文件或对象名: {local_path}, {object_key}")
+            return False
         try:
-            await asyncio.to_thread(self.s3.upload_file, local_path, bucket, object_key)
+            await run_sync(self.s3.upload_file, local_path, bucket, object_key)
             logger.debug(f"Uploaded {local_path} to s3://{bucket}/{object_key}")
             return True
         except Exception as e:
@@ -40,8 +51,17 @@ class RustFSAPI:
 
     async def download_file(self, object_key: str, local_path: str, bucket: str = None) -> bool:
         bucket = bucket or self.bucket_name
+        if self.s3 is None:
+            logger.error("RustFS client is not initialized")
+            return False
         try:
-            await asyncio.to_thread(self.s3.download_file, bucket, object_key, local_path)
+            await run_sync(
+                self.s3.download_file,
+                bucket,
+                object_key,
+                local_path,
+                _cancel_cleanup=lambda _: _remove_local_file(local_path),
+            )
             logger.debug(f"Downloaded s3://{bucket}/{object_key} to {local_path}")
             return True
         except Exception as e:
@@ -50,8 +70,11 @@ class RustFSAPI:
 
     async def delete_file(self, object_key: str, bucket: str = None) -> bool:
         bucket = bucket or self.bucket_name
+        if self.s3 is None:
+            logger.error("RustFS client is not initialized")
+            return False
         try:
-            await asyncio.to_thread(self.s3.delete_object, Bucket=bucket, Key=object_key)
+            await run_sync(self.s3.delete_object, Bucket=bucket, Key=object_key)
             logger.debug(f"Deleted s3://{bucket}/{object_key}")
             return True
         except Exception as e:
@@ -60,8 +83,11 @@ class RustFSAPI:
 
     async def get_download_url(self, object_key: str, bucket: str = None, expires_in: int = 3600) -> str:
         bucket = bucket or self.bucket_name
+        if self.s3 is None or not object_key:
+            logger.error("RustFS client is not initialized or object key is empty")
+            return ""
         try:
-            url = await asyncio.to_thread(
+            url = await run_sync(
                 self.s3.generate_presigned_url,
                 'get_object',
                 Params={'Bucket': bucket, 'Key': object_key},
@@ -71,5 +97,13 @@ class RustFSAPI:
         except Exception as e:
             logger.error(f"RustFS Generate URL Error: {e}")
             return ""
+
+
+def _remove_local_file(path: str) -> None:
+    try:
+        Path(path).unlink(missing_ok=True)
+    except OSError as exc:
+        logger.warning(f"清理 RustFS 下载临时文件失败 {path}: {exc}")
+
 
 rustfs_api = RustFSAPI()

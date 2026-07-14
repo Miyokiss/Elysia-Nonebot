@@ -1,4 +1,5 @@
 import re
+import uuid
 from pathlib import Path
 from nonebot import logger
 from nonebot.rule import to_me
@@ -26,19 +27,24 @@ async def handle_qrcode_download(album_id: str):
     """处理二维码发送载逻辑"""
     await jm.send("正在下载中，请稍等~")
     msgs = await jm_qr(album_id=album_id)
-    qr_url = msgs["qr_code"]
-    logger.debug(f"二维码链接{qr_url}")
-    qr_path = Path(temp_path) / f"qr{album_id}.png"
-    await download_image(qr_url, qr_path)
-    if "qr_code" not in msgs:
-        await jm.finish(msgs["msg"])
-    msg = Message([
-        MessageSegment.text(msgs["msg"]),
-        MessageSegment.file_image(qr_path)
-    ])
-    await jm.send(msg)
-    await delete_file(qr_path)
-    await jm.finish()
+    if not isinstance(msgs, dict):
+        await jm.finish("生成下载链接失败，请稍后重试。")
+    qr_url = msgs.get("qr_code")
+    if not qr_url:
+        await jm.finish(msgs.get("msg", "生成下载链接失败，请稍后重试。"))
+
+    qr_path = Path(temp_path) / f"qr_{album_id}_{uuid.uuid4().hex}.png"
+    try:
+        if not await download_image(qr_url, qr_path):
+            await jm.finish("二维码生成失败，请稍后重试。")
+        msg = Message([
+            MessageSegment.text(msgs.get("msg", "获取成功")),
+            MessageSegment.file_image(qr_path),
+        ])
+        await jm.finish(msg)
+    finally:
+        if qr_path.is_file():
+            await delete_file(qr_path)
 
 @jm.handle()
 async def handle_function(message: MessageEvent):

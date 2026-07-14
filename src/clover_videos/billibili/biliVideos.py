@@ -5,6 +5,7 @@ import ffmpeg
 import requests
 import hashlib
 import urllib.parse
+from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from src.configs.path_config import video_path
@@ -72,9 +73,11 @@ def get_video_info(keyword):
     query = urllib.parse.urlencode(signed_params)
     url = f"https://api.bilibili.com/x/web-interface/search/type?keyword={keyword}&"
 
-    session = requests.session()
-    session.get("https://www.bilibili.com/", headers=headers)
-    response = session.get(url + query, headers=headers).json()
+    with requests.Session() as session:
+        session.get("https://www.bilibili.com/", headers=headers, timeout=15)
+        api_response = session.get(url + query, headers=headers, timeout=15)
+        api_response.raise_for_status()
+        response = api_response.json()
     # print(response['code'])
     return response
 
@@ -86,11 +89,13 @@ def get_video_info_bv(keyword):
     signed_params = appsign(params, appkey, appsec)
     query = urllib.parse.urlencode(signed_params)
     url = "https://api.bilibili.com/x/web-interface/view?&"
-    session = requests.session()
-    session.get("https://www.bilibili.com/", headers=headers)
-    response = session.get(url + query, headers=headers).json()
+    with requests.Session() as session:
+        session.get("https://www.bilibili.com/", headers=headers, timeout=15)
+        api_response = session.get(url + query, headers=headers, timeout=15)
+        api_response.raise_for_status()
+        response = api_response.json()
     if response['code'] != 0:
-        logger.error(f"获取视频信息失败，状态码：{response['code']}  message:{response['message']}")
+        logger.warning(f"获取视频信息失败，状态码：{response['code']}  message:{response['message']}")
         return None
     return response
 
@@ -132,27 +137,48 @@ def get_video_file_url(bvid, cid):
     query = urllib.parse.urlencode(signed_params)
     url = "https://api.bilibili.com/x/player/playurl?&"
 
-    session = requests.session()
-    session.get("https://www.bilibili.com/", headers=headers)
-    response = session.get(url + query, headers=headers).json()
+    with requests.Session() as session:
+        session.get("https://www.bilibili.com/", headers=headers, timeout=15)
+        api_response = session.get(url + query, headers=headers, timeout=15)
+        api_response.raise_for_status()
+        response = api_response.json()
 
-    file_url = response['data']['durl'][0]['url']
+    data = response.get('data') if isinstance(response, dict) else None
+    durl = data.get('durl') if isinstance(data, dict) else None
+    if not isinstance(durl, list) or not durl or not isinstance(durl[0], dict):
+        logger.warning(f"B站播放地址接口返回异常: {response!r}")
+        return None
+    file_url = durl[0].get('url')
+    return file_url if isinstance(file_url, str) and file_url else None
 
-    return file_url
+def video_download(file_url, output_path):
+    if not isinstance(file_url, str) or not file_url:
+        logger.warning("视频下载失败: 播放地址为空")
+        return False
 
-def video_download(file_url, cid):
-    response = requests.get(file_url, headers=headers,stream=True)
-
-    # 检查请求是否成功
-    if response.status_code == 200:
-        # 将视频保存到本地文件
-        with open(video_path + f'/{cid}.mp4', 'wb') as file:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    file.write(chunk)
-        print("视频下载完成")
-    else:
-        print(f"下载失败，状态码：{response.status_code}")
+    destination = Path(output_path)
+    part_path = destination.with_name(f"{destination.name}.part")
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with requests.get(
+            file_url, headers=headers, stream=True, timeout=60
+        ) as response:
+            response.raise_for_status()
+            with part_path.open('wb') as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        file.write(chunk)
+        os.replace(part_path, destination)
+        logger.debug(f"视频下载完成: {destination}")
+        return True
+    except (requests.RequestException, OSError) as exc:
+        logger.warning(f"视频下载失败: {exc}")
+        return False
+    finally:
+        try:
+            part_path.unlink(missing_ok=True)
+        except OSError as exc:
+            logger.warning(f"清理视频下载临时文件失败 {part_path}: {exc}")
 
 def delete_video(cid):
     # 指定要删除的文件路径
@@ -162,9 +188,9 @@ def delete_video(cid):
     if os.path.exists(file_path):
         # 删除文件
         os.remove(file_path)
-        print(f"文件 {file_path} 已被删除。")
+        logger.debug(f"文件 {file_path} 已被删除")
     else:
-        print(f"文件 {file_path} 不存在。")
+        logger.debug(f"跳过删除，不存在的文件: {file_path}")
 
 def transcode_video(input_file, output_file):
     try:

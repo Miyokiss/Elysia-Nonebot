@@ -5,6 +5,7 @@ from pathlib import Path
 from PIL import Image
 from natsort import natsorted
 from nonebot import logger
+from src.utils.async_utils import run_sync
 
 __name__ = "cliver_jm | disguise_pdf"
 
@@ -131,8 +132,7 @@ async def folder_zip(folder_path, jm_zip_path):
                         arcname = str(relative_path / file)
                         zipf.write(file_path, arcname=arcname)
 
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, sync_zip)
+        await run_sync(sync_zip)
         print(f"成功压缩文件夹到: {jm_zip_path}")
         return True
     except Exception as e:

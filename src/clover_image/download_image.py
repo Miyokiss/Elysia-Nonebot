@@ -1,4 +1,5 @@
 import os
+import asyncio
 import aiohttp
 from nonebot import logger
 
@@ -11,8 +12,13 @@ async def download_image(url,file_path):
     :param file_path:
     :return:
     """
+    if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+        logger.warning(f"跳过无效图片地址: {url!r}")
+        return False
+
     try:
-        async with aiohttp.ClientSession() as session:
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(url) as response:
                 response.raise_for_status()
                 if not os.path.exists(os.path.dirname(file_path)):
@@ -23,5 +29,7 @@ async def download_image(url,file_path):
                         if not chunk:
                             break
                         file.write(chunk)
-    except aiohttp.ClientError as e:
-        logger.error(f"下载图片时出错: {e}")
+        return True
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+        logger.warning(f"下载图片时出错: {e}")
+        return False

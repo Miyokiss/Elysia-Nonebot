@@ -1,6 +1,7 @@
-import asyncio
+import json
 import requests
 from nonebot import logger
+from src.utils.async_utils import run_sync
 
 __name__ = 'Kukufile Api'
 
@@ -20,27 +21,34 @@ class Kukufile:
 
         try:
             if method == 'post':
-                with open(file_path, 'rb') as file_data:
-                    files = {
-                        'file_1': file_data.read()
-                        }
-                    data = {
-                        'ajax': '1',
-                        'uuid': uuid,
-                        'country': 'HK',
-                        'filecnt': 1,
-                        "file_1_name" : file_name,
-                    }
-                    logger.debug(f"Request Data: {file_data}")
-                    response = requests.post(server_url, files=files, data=data)
-                
+                data = {
+                    'ajax': '1',
+                    'uuid': uuid,
+                    'country': 'HK',
+                    'filecnt': 1,
+                    "file_1_name": file_name,
+                }
+
+                def upload_post():
+                    with open(file_path, 'rb') as file_data:
+                        files = {'file_1': (file_name, file_data)}
+                        return requests.post(
+                            server_url, files=files, data=data, timeout=120
+                        )
+
+                response = await run_sync(upload_post)
+
             elif method == 'put':
-                with open(file_path, 'rb') as file_data:
-                    headers = {'Content-Type': 'application/octet-stream'}
-                    response = requests.put(server_url, data=file_data.read(), headers=headers)
+                def upload_put():
+                    with open(file_path, 'rb') as file_data:
+                        headers = {'Content-Type': 'application/octet-stream'}
+                        return requests.put(
+                            server_url, data=file_data, headers=headers, timeout=120
+                        )
+
+                response = await run_sync(upload_put)
                 
             logger.debug(f"Response Status Code: {response.status_code}")
-            logger.debug(f"Server Response: {response.text}")
             if response.status_code == 200:
                 r_msg = response.text.split("OK:")
                 r_msg[0] = "OK"
@@ -51,6 +59,9 @@ class Kukufile:
         except Exception as e:
             logger.error(f"Upload Error: {str(e)}")
             task['status'] = 'error'
+            return None
+
+    @staticmethod
     async def upload_file(file_path, file_name: str = None):
         """上传文件\n
         :param file_path: 上传文件绝对路径\n
@@ -71,7 +82,8 @@ class Kukufile:
         uploader = Kukufile()
         uploader.upload_queue.append(upload_task)
         return await uploader.start_upload(0)
-        
+
+    @staticmethod
     async def auto_delete_kukufile(status : list, time : int):
         """定时删除文件\n
         :param status: upload_file 方法返回内容 List\n
@@ -91,9 +103,37 @@ class Kukufile:
             "set_timelimit": time
         }
 
-        response = requests.request("POST", f"https://d.kuku.lu/view.php?hash={hash}", headers=headers, data=payload)
-        if response.status_code == 200:
-            logger.debug(f"Response Status Code: {response.status_code} Response: {response.text}")
-            return response.text
-        else:
-            raise Exception(f"文件设定删除失败，状态码：{response.status_code} Response: {response.text}")   
+        response = await run_sync(
+            requests.post,
+            f"https://d.kuku.lu/view.php?hash={hash}",
+            headers=headers,
+            data=payload,
+            timeout=30,
+        )
+        body = response.text.strip()
+        if response.status_code == 200 and _auto_delete_succeeded(
+            body, response.headers.get('Content-Type', '')
+        ):
+            logger.debug("Kukufile 自动删除设置成功")
+            return body
+        raise RuntimeError(
+            f"文件设定删除失败，状态码：{response.status_code}，"
+            f"响应类型：{response.headers.get('Content-Type', 'unknown')}"
+        )
+
+
+def _auto_delete_succeeded(body: str, content_type: str) -> bool:
+    if not body or "text/html" in content_type.lower():
+        return False
+    if body.upper().startswith("OK"):
+        return True
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(data, dict):
+        return False
+    return data.get("success") is True or str(data.get("status", "")).lower() in {
+        "ok",
+        "success",
+    }
