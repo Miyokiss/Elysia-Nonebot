@@ -18,15 +18,28 @@ from nonebot import logger
 __name__ = "plugins | cloud_music"
 
 unikey_cache = {'unikey': None, 'expires': 0}
+active_music_sessions = set()
 
 music = on_command("点歌", rule=to_me(), priority=10, block=True)
 @music.handle()
 async def handle_function(bot: Bot, msg: MessageEvent) -> None:
+    session = requests.Session()
+    temp_file = None
+    sent_msg = None
+    choice_matcher = None
+    future = None
+    active_session = None
+    owns_active_session = False
     try:
-        keyword = msg.get_plaintext().removeprefix("/点歌").strip()
-        session = requests.session()
+        active_session = msg.get_session_id()
+        if active_session in active_music_sessions:
+            await music.finish("当前会话已有点歌请求正在等待选择，请先完成或稍后再试。")
+        active_music_sessions.add(active_session)
+        owns_active_session = True
 
-        if not keyword or not all(keyword):
+        keyword = msg.get_plaintext().removeprefix("/点歌").strip()
+
+        if not keyword:
             await music.finish("\n请输入“/点歌+歌曲名”喔")
 
         temp_file = os.path.join(temp_path, f"{datetime.now().date()}_{uuid.uuid4().hex}.png")
@@ -46,24 +59,34 @@ async def handle_function(bot: Bot, msg: MessageEvent) -> None:
                 MessageSegment.text("\n请直接回复要听的歌曲序号哦！(1-10)")
             ])
             try:
-                sent_msg = await music.send(r_msg)
-                # 创建异步等待
-                future = asyncio.get_event_loop().create_future()
+                future = asyncio.get_running_loop().create_future()
+                session_id = active_session
 
-                # 定义临时 matcher 处理用户回复
+                def is_choice_reply(event: MessageEvent) -> bool:
+                    text = event.get_plaintext().lstrip()
+                    return (
+                        event.get_session_id() == session_id
+                        and not text.startswith("/")
+                    )
+
+                async def capture_choice(event: MessageEvent) -> None:
+                    if not future.done():
+                        future.set_result(event)
+
                 from nonebot.matcher import Matcher
                 choice_matcher = Matcher.new(
-                    rule=Rule(lambda event: event.get_user_id() == msg.get_user_id()),
-                    handlers=[lambda bot, event: future.set_result(event)],
+                    type_="message",
+                    rule=Rule(is_choice_reply),
+                    handlers=[capture_choice],
                     priority=0,
-                    block=True
+                    block=True,
                 )
+                sent_msg = await music.send(r_msg)
                 # 等待用户回复（超时30秒）
                 reply_event = await asyncio.wait_for(future, timeout=30)
                 choice = reply_event.get_plaintext().strip()
 
                 if not choice.isdigit() or int(choice) < 1 or int(choice) > len(song_lists):
-                    asyncio.create_task(delete_msg(bot=bot,message=msg,sent_msg=sent_msg,delay=0))
                     await music.finish(f"请输入1-{len(song_lists)}之间的数字")
                 idx = choice
                 song_id = None
@@ -75,45 +98,79 @@ async def handle_function(bot: Bot, msg: MessageEvent) -> None:
                             song_id = s_list["song_id"]
                             break
                 if song_id is None:
-                    asyncio.create_task(delete_msg(bot=bot,message=msg,sent_msg=sent_msg,delay=0))
                     await music.finish("\n未获取到歌曲信息可能是序号有误！")
             finally:
-                choice_matcher.destroy()
+                if choice_matcher is not None:
+                    choice_matcher.destroy()
+                if future is not None and not future.done():
+                    future.cancel()
+                if sent_msg is not None:
+                    asyncio.create_task(
+                        delete_msg(bot=bot, message=msg, sent_msg=sent_msg, delay=0)
+                    )
         else:
             song_id = song_lists[0]["song_id"]
         logger.debug(f"歌曲ID获取成功: {song_id}")
         img_task = post_netease_music_info_img(song_id, temp_file)
         music_task = post_music_download(song_id, session)
-        asyncio.create_task(delete_msg(bot=bot,message=msg,sent_msg=sent_msg,delay=0))
-        await asyncio.gather(img_task, music_task)
+        results = await asyncio.gather(img_task, music_task, return_exceptions=True)
+        for result in results:
+            if isinstance(result, BaseException):
+                raise result
     except asyncio.TimeoutError:
-        asyncio.create_task(delete_msg(bot=bot,message=msg,sent_msg=sent_msg,delay=0))
         logger.info(f"点歌选择超时 User: {msg.get_user_id()} Keyword: {keyword}")
     except Exception as e:
         if isinstance(e, (FinishedException, PausedException)):
             return
-        logger.error(f"处理点歌请求时发生错误: {e}")
+        logger.opt(exception=e).error("处理点歌请求时发生错误")
         r_msg = "未知错误，请稍后再试"
-        if hasattr(e, 'message'):
+        if getattr(e, "message", None):
             r_msg = e.message
         await music.finish(f"处理点歌请求时发生错误：{r_msg}。这绝对不是我的错，绝对不是！")
+    finally:
+        if owns_active_session:
+            active_music_sessions.discard(active_session)
+        session.close()
+        if temp_file and os.path.exists(temp_file):
+            await delete_file(temp_file)
 
 async def post_netease_music_info_img(song_id, temp_file):
-    music_info = await netease_music_info_img(song_id, temp_file)
-    if not music_info:
-        logger.error(f"歌曲信息图片生成失败 Song ID: {song_id}")
-        await music.finish("\n图片生成失败或未获取到歌曲信息")
+    try:
+        music_info = await netease_music_info_img(song_id, temp_file)
+        if not music_info:
+            logger.warning(f"歌曲信息图片生成失败 Song ID: {song_id}")
+            return False
+        await music.send(MessageSegment.file_image(Path(temp_file)))
+        return True
+    except Exception as exc:
+        logger.warning(f"歌曲信息图片生成或发送失败，将继续发送音频: {exc}")
         return False
-    await music.send(MessageSegment.file_image(Path(temp_file)))
-    await delete_file(temp_file)
+    finally:
+        if temp_file and os.path.exists(temp_file):
+            await delete_file(temp_file)
 
 async def post_music_download(song_id, session):
     output_silk_path = await music_download(song_id)
     if output_silk_path is None:
-        logger.warning(f"主下载失败，触发降级下载")
+        logger.warning("主下载失败，触发降级下载")
         output_silk_path = await netease_music_download(song_id, session=session)
         
     if output_silk_path is None or output_silk_path == -1:
         await music.send("歌曲音频获取失败了Σヽ(ﾟД ﾟ; )ﾉ，可能歌曲为付费歌曲请换首重试吧！")
-    await music.send(MessageSegment.file_audio(Path(output_silk_path)))
-    await delete_file(output_silk_path)
+        return False
+    if not isinstance(output_silk_path, (str, os.PathLike)):
+        logger.error(f"歌曲下载返回了无效路径: {output_silk_path!r}")
+        await music.send("歌曲音频生成失败了，请稍后重试。")
+        return False
+
+    output_path = Path(output_silk_path)
+    if not output_path.is_file():
+        logger.error(f"歌曲音频文件不存在: {output_path}")
+        await music.send("歌曲音频生成失败了，请稍后重试。")
+        return False
+
+    try:
+        await music.send(MessageSegment.file_audio(output_path))
+        return True
+    finally:
+        await delete_file(output_path)

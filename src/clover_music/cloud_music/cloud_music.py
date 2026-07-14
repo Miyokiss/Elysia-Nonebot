@@ -7,8 +7,8 @@ import base64
 import codecs
 import json
 import requests
-from io import BytesIO
 from datetime import datetime
+from pathlib import Path
 from Crypto.Cipher import AES
 from graiax import silkcoder
 from nonebot import get_driver
@@ -16,6 +16,7 @@ from typing import Optional
 import src.clover_music.cloud_music.agent as agent
 from src.clover_image.delete_file import delete_file
 from nonebot import logger
+from src.utils.async_utils import run_sync
 
 __name__ = "clover_music | cloud_music | cloud_music"
 
@@ -28,6 +29,7 @@ headers = {'User-Agent': agent.get_user_agents(), 'Referer': 'https://music.163.
 
 # 全局异步客户端
 async_client: Optional[httpx.AsyncClient] = None
+
 
 # 机器人启动时初始化
 @get_driver().on_startup
@@ -131,7 +133,7 @@ async def get_qr_key(session):
     Returns:
 
     """
-    url = f"https://music.163.com/weapi/login/qrcode/unikey"
+    url = "https://music.163.com/weapi/login/qrcode/unikey"
     data = {"params": login_params(None),"encSecKey": login_encSecKey()}
     response = session.post(url, headers=headers,params=data)
     result = json.loads(response.text)
@@ -160,7 +162,7 @@ async def create_qr_code(unikey):
 
 # 检查二维码状态是否被扫描
 async def check_qr_code(unikey,session):
-    token_url = f"https://music.163.com/weapi/login/qrcode/client/login?csrf_token="
+    token_url = "https://music.163.com/weapi/login/qrcode/client/login?csrf_token="
     u = str({'key': unikey, 'type': "1", 'csrf_token': ""})
     qrcode_data = session.post( token_url,data={'params': login_params(u),'encSecKey': login_encSecKey()},headers=headers).json()
     return qrcode_data.get('code')
@@ -183,10 +185,14 @@ async def netease_music_search(keyword,session):
         "offset": 0,  # 搜索结果的偏移量，可用于分页
         "sub": "false",
     }
-    response = session.get(url, headers=headers, params=params)
+    response = await run_sync(
+        session.get, url, headers=headers, params=params, timeout=15
+    )
+    response.raise_for_status()
     data = response.json()
-    if "result" in data and "songs" in data["result"]:
-        songs = data["result"]["songs"]
+    result = data.get("result") if isinstance(data, dict) else None
+    songs = result.get("songs") if isinstance(result, dict) else None
+    if isinstance(songs, list) and songs:
         song_lists = [
             {
                 "index": idx,
@@ -212,11 +218,18 @@ async def netease_music_info(id: str):
     result = get_music(id)
     data = {'params': result['encText'], 'encSecKey': result['encSecKey']}
 
-    response = requests.request("POST", "https://music.163.com/weapi/song/detail", headers=headers,data=data)
+    response = await run_sync(
+        requests.post,
+        "https://music.163.com/weapi/song/detail",
+        headers=headers,
+        data=data,
+        timeout=15,
+    )
     if response.status_code == 200:
-        response = response.json()
-        if response['songs']:
-            return response['songs']
+        response_data = response.json()
+        songs = response_data.get("songs") if isinstance(response_data, dict) else None
+        if isinstance(songs, list) and songs:
+            return songs
     return None
 
 #仅限于免费歌曲
@@ -239,7 +252,7 @@ async def netease_music_info(id: str):
 #         return None
 
 #所有歌曲都可以下载
-async def netease_music_download(song_id, session):
+async def netease_music_download(song_id, session=None):
     """
     歌曲下载
     Args:
@@ -249,45 +262,88 @@ async def netease_music_download(song_id, session):
     Returns:
 
     """
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
+    cookies = session.cookies.copy() if session is not None else None
+    return await run_sync(
+        _netease_music_download_sync,
+        song_id,
+        cookies,
+        _cancel_cleanup=_cleanup_download_result,
+    )
 
-    # 获取加密后的歌曲id信息
+
+def _cleanup_download_result(result):
+    if isinstance(result, (str, os.PathLike)):
+        _remove_download_file(result)
+
+
+def _remove_download_file(path):
+    try:
+        Path(path).unlink(missing_ok=True)
+    except OSError as exc:
+        logger.warning(f"清理音乐临时文件失败 {path}: {exc}")
+
+
+def _netease_music_download_sync(song_id, cookies=None):
+    os.makedirs(save_path, exist_ok=True)
     result = get_music(song_id)
     data = {'params': result['encText'], 'encSecKey': result['encSecKey']}
-    download_url = 'https://music.163.com/weapi/song/enhance/player/url/v1?br=999000'
-    response_data = session.post(download_url, headers=headers, data=data).json()
-    url = response_data['data'][0]['url']
-    if url is None:
-        return -1
-    # 下载歌曲
+    api_url = 'https://music.163.com/weapi/song/enhance/player/url/v1?br=999000'
+    file_path = None
+    output_silk_path = None
+    succeeded = False
     try:
-        response = requests.get(url, stream=True)
-        if response.status_code == 200:
-            file_path = os.path.join(save_path, f"{song_id}.wav")
-            file_name = os.path.basename(f"{song_id}.wav")
+        with requests.Session() as download_session:
+            if cookies:
+                download_session.cookies.update(cookies)
+            api_response = download_session.post(
+                api_url, headers=headers, data=data, timeout=15
+            )
+            api_response.raise_for_status()
+            response_data = api_response.json()
+            items = response_data.get("data") if isinstance(response_data, dict) else None
+            if not isinstance(items, list) or not items or not isinstance(items[0], dict):
+                logger.warning(f"网易云音乐接口返回了意料之外的数据: {response_data!r}")
+                return None
+            url = items[0].get("url")
+            if not isinstance(url, str) or not url:
+                return -1
 
-            with open(file_path, "wb") as file:
-                for chunk in response.iter_content(chunk_size=8192):
-                    file.write(chunk)
+            stem = f"{datetime.now().date()}-{uuid.uuid4().hex}-{song_id}"
+            file_path = os.path.join(save_path, f"{stem}.wav")
+            output_silk_path = os.path.join(save_path, f"{stem}.silk")
+            with download_session.get(url, stream=True, timeout=30) as response:
+                response.raise_for_status()
+                with open(file_path, "wb") as file:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            file.write(chunk)
 
-            output_silk_path = os.path.join(save_path, os.path.splitext(file_name)[0] + ".silk")
-            # 使用 graiax-silkcoder 进行转换
-            silkcoder.encode(file_path, output_silk_path, rate=32000, tencent=True, ios_adaptive=True)
-            # 删除临时文件
-            await delete_file(file_path)
-            return output_silk_path
-        else:
-            return None
-    except requests.RequestException as e:
+        silkcoder.encode(
+            file_path,
+            output_silk_path,
+            rate=32000,
+            tencent=True,
+            ios_adaptive=True,
+        )
+        succeeded = True
+        return output_silk_path
+    except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
+        logger.warning(f"网易云降级下载失败: {exc}")
         return None
+    finally:
+        if file_path:
+            _remove_download_file(file_path)
+        if not succeeded and output_silk_path:
+            _remove_download_file(output_silk_path)
 
 async def music_download(song_id):
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
+    os.makedirs(save_path, exist_ok=True)
+    file_path = None
+    output_silk_path = None
+    succeeded = False
     try:
         # 构造请求URL
-        url = f'http://192.168.5.31:5000/Song_V1'
+        url = 'http://192.168.5.31:5000/Song_V1'
         post_data = {
             'url': song_id,
             'level': 'lossless',
@@ -295,33 +351,54 @@ async def music_download(song_id):
         }
 
         # 获取Url内容
-        song_data = requests.request("POST", url, data=post_data)
+        song_data = await run_sync(
+            requests.post, url, data=post_data, timeout=15
+        )
         if song_data.status_code == 200:
-            logger.debug(f"获取到数据：{song_data.json()}")
+            response_data = song_data.json()
+            download_url = response_data.get("url") if isinstance(response_data, dict) else None
+            if not isinstance(download_url, str) or not download_url:
+                logger.warning(f"主下载接口返回无效数据: {response_data!r}")
+                return None
+            logger.debug(f"获取到歌曲下载地址，歌曲 ID: {song_id}")
             # 异步流式下载
-            async with async_client.stream("GET",song_data.json()["url"],follow_redirects=True) as response:
+            if async_client is None:
+                logger.warning("网易云异步客户端尚未初始化")
+                return None
+            async with async_client.stream("GET", download_url, follow_redirects=True) as response:
                 response.raise_for_status()
                 if response.status_code == 200:
-                    logger.debug(f"下载歌曲ID:{song_id}\nURL:{song_data.url}\n开始下载中...")
-                    file_path = os.path.join(save_path, f"{datetime.now().date()}-{uuid.uuid4().hex}-{song_id}.wav")
-                    file_name = os.path.basename(f"{datetime.now().date()}-{uuid.uuid4().hex}-{song_id}.wav")
+                    logger.debug(f"开始下载歌曲 ID: {song_id}")
+                    stem = f"{datetime.now().date()}-{uuid.uuid4().hex}-{song_id}"
+                    file_path = os.path.join(save_path, f"{stem}.wav")
+                    output_silk_path = os.path.join(save_path, f"{stem}.silk")
 
                     with open(file_path, "wb") as f:
                         async for chunk in response.aiter_bytes(chunk_size=8192):
                             f.write(chunk)
 
-                    output_silk_path = os.path.join(save_path, os.path.splitext(file_name)[0] + ".silk")
                     # 使用 graiax-silkcoder 进行转换
-                    silkcoder.encode(file_path, output_silk_path, rate=32000, tencent=True, ios_adaptive=True)
-                    # 删除临时文件
-                    await delete_file(file_path)
+                    await run_sync(
+                        silkcoder.encode,
+                        file_path,
+                        output_silk_path,
+                        rate=32000,
+                        tencent=True,
+                        ios_adaptive=True,
+                    )
+                    succeeded = True
                     return output_silk_path
                 else:
-                    logger.error(f"获取歌曲链接失败，状态码：{song_data.status_code}")
+                    logger.warning(f"主下载服务失败，状态码：{response.status_code}")
                     return None
         else:
-            logger.error(f"获取歌曲链接失败，状态码：{song_data.status_code}")
+            logger.warning(f"主下载服务失败，状态码：{song_data.status_code}")
             return None
     except Exception as e:
-        logger.error(e)
+        logger.warning(f"主下载服务异常，将使用降级下载: {e}")
         return None
+    finally:
+        if file_path and os.path.exists(file_path):
+            await delete_file(file_path)
+        if not succeeded and output_silk_path and os.path.exists(output_silk_path):
+            await delete_file(output_silk_path)
