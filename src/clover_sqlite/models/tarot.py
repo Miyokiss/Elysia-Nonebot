@@ -6,6 +6,7 @@ from tortoise import fields
 from typing_extensions import Self
 from nonebot_plugin_htmlrender import template_to_pic
 from src.clover_sqlite.data_init.db_connect import Model
+from src.clover_sqlite.tarot_resources import resolve_tarot_image_path
 from src.configs.path_config import tarots_img_path,temp_path
 
 
@@ -118,7 +119,7 @@ class TarotExtractLog(Model):
                 orientation=orientation,
                 name=f"{tarots.name if isinstance(tarots, MajorArcana) else f'{tarots.ranks} of {tarots.suits}'}",
                 meaning=tarots.upright_meaning if orientation == "正位" else tarots.reversed_meaning,
-                image=tarots_img_path + tarots.image,
+                image=resolve_tarot_image_path(tarots.image),
                 create_time=datetime.now().date()
             )
             return log
@@ -145,7 +146,7 @@ class TarotExtractLog(Model):
                 cards.append({
                     "name": card.name if isinstance(card, MajorArcana) else f"{card.ranks} of {card.suits}",
                     "meaning": card.upright_meaning if orientation == "正位" else card.reversed_meaning,
-                    "image": tarots_img_path + card.image,
+                    "image": resolve_tarot_image_path(card.image),
                     "orientation": orientation,
                     "position_meaning": spread_config[extract_type]["positions"][len(cards)]
                 })
@@ -529,7 +530,7 @@ Minor_arcana_initial_data = [
                  suits="Wands",
                  upright_meaning="伤痕累累的坚持者；危机应对的应急预案；防御体系的最后防线；移民申请的持久战；老兵不死的战斗精神",
                  reversed_meaning="强弩之末的崩溃边缘；安防系统的漏洞暴露；签证拒签的挫折经历；过度防御造成的社交孤立；需要战略休整的提醒",
-                 image="Nine of Wands.jpg"),
+                 image="Nine of Wands.png"),
 
     # 十号牌系列
     MinorArcana(ranks="Ten",
