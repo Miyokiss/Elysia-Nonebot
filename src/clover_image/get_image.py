@@ -1,9 +1,12 @@
 import os
 import random
+
 import aiohttp
 
 from src.configs.path_config import image_local_path
 from src.configs.api_config import smms_token,smms_image_upload_history,ju_he_token,ju_he_image_list,anosu_url,xjh_url
+from src.clover_image.image_response import parse_xjh_image_response
+
 
 """本地图片"""
 async def get_image_names():
@@ -47,7 +50,11 @@ async def get_anosu_image(keyword: str, is_r18: int, num: int, proxy: str = "i.p
 
 async def get_xjh_image():
     url = xjh_url
-    async with aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=False)) as session:
+    timeout = aiohttp.ClientTimeout(total=15)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.get(url) as response:
-            data = await response.json()
-            return f"https:{data['img']}"
+            return parse_xjh_image_response(
+                response.status,
+                await response.text(),
+                response.headers.get("Content-Type", "unknown"),
+            )
