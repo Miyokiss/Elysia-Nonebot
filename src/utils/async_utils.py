@@ -25,8 +25,16 @@ async def run_sync(function, *args, _cancel_cleanup=None, **kwargs):
             except Exception:
                 pass
         if _cancel_cleanup is not None:
+            cleanup_task = asyncio.create_task(
+                asyncio.to_thread(_cancel_cleanup, result)
+            )
             try:
-                _cancel_cleanup(result)
+                while not cleanup_task.done():
+                    try:
+                        await asyncio.shield(cleanup_task)
+                    except asyncio.CancelledError:
+                        continue
+                cleanup_task.result()
             except Exception:
                 logger.warning("取消任务后的文件清理失败", exc_info=True)
         raise
