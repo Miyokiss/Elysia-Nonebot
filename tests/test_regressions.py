@@ -1,21 +1,27 @@
 import asyncio
+import importlib
 import os
 import tempfile
 import threading
 import unittest
 import re
+import sys
+import types
 from pathlib import Path
 from unittest.mock import patch
 
 from PIL import Image
 
 from src.clover_image.rua import rua
+from src.clover_image.image_response import ImageServiceError, parse_xjh_image_response
 from src.clover_lightnovel import wenku8
 from src.clover_lightnovel.wenku8 import ProxyProviderError, parse_proxy_host
+from src.clover_music.cloud_music.song_info import build_music_card_data
 from src.clover_sqlite.tarot_resources import resolve_tarot_image_path
 from src.utils.async_utils import run_sync
 from src.utils.cache_cleanup import get_stale_files
 from src.utils.log_sanitizer import sanitize_log_record
+from src.utils.nonebot_compat import _patch_trie_rule
 
 
 class LogSanitizerTests(unittest.TestCase):
@@ -32,10 +38,420 @@ class LogSanitizerTests(unittest.TestCase):
 
         self.assertEqual(
             record["message"],
-            "QQ event parse failed: type=GROUP_MESSAGE_CREATE; raw payload omitted",
+            "QQ event parse failed: type=GROUP_MESSAGE_CREATE; "
+            "error=RuntimeError; raw payload omitted",
         )
         self.assertNotIn("secret", record["message"])
         self.assertIsNone(record["exception"])
+
+    def test_validation_location_is_kept_without_input(self):
+        class FakeValidationError(Exception):
+            def errors(self):
+                return [
+                    {
+                        "loc": ("data", "author", "id"),
+                        "type": "missing",
+                        "input": "secret-user-data",
+                    }
+                ]
+
+        record = {
+            "message": (
+                "Failed to parse event Dispatch(data={'content': 'secret'}, "
+                "type='GROUP_AT_MESSAGE_CREATE')"
+            ),
+            "exception": FakeValidationError("secret-user-data"),
+        }
+
+        sanitize_log_record(record)
+
+        self.assertIn(
+            "error=FakeValidationError[data.author.id:missing]", record["message"]
+        )
+        self.assertNotIn("secret", record["message"])
+        self.assertIsNone(record["exception"])
+
+    def test_dispatch_type_comes_from_suffix_not_user_content(self):
+        record = {
+            "message": (
+                "Failed to parse event Dispatch(data={'content': "
+                "\"type='PRIVATE_SECRET'\"}, type='GROUP_MESSAGE_CREATE')"
+            ),
+            "exception": RuntimeError("secret"),
+        }
+
+        sanitize_log_record(record)
+
+        self.assertIn("type=GROUP_MESSAGE_CREATE", record["message"])
+        self.assertNotIn("PRIVATE_SECRET", record["message"])
+
+    def test_qq_media_tokens_and_c2c_content_are_removed(self):
+        group_record = {
+            "message": (
+                "QQ | [EventType.GROUP_MESSAGE_CREATE]: "
+                "https://multimedia.nt.qq.com.cn/download?appid=1&rkey=secret-token"
+            ),
+            "exception": None,
+        }
+        c2c_record = {
+            "message": (
+                "QQ | [EventType.C2C_MESSAGE_CREATE]: Message id from user:\n"
+                "[Text(data={'text': 'private-secret'})]"
+            ),
+            "exception": None,
+        }
+
+        sanitize_log_record(group_record)
+        sanitize_log_record(c2c_record)
+
+        self.assertIn("<QQ media URL omitted>", group_record["message"])
+        self.assertNotIn("secret-token", group_record["message"])
+        self.assertEqual(
+            c2c_record["message"],
+            "QQ | [EventType.C2C_MESSAGE_CREATE]: message content omitted",
+        )
+        self.assertNotIn("private-secret", c2c_record["message"])
+
+    def test_group_content_cannot_spoof_c2c_log_prefix(self):
+        record = {
+            "message": (
+                "QQ | [EventType.GROUP_MESSAGE_CREATE]: user said "
+                "[EventType.C2C_MESSAGE_CREATE] private marker"
+            ),
+            "exception": None,
+        }
+
+        sanitize_log_record(record)
+
+        self.assertIn("GROUP_MESSAGE_CREATE", record["message"])
+        self.assertIn("private marker", record["message"])
+
+
+class ImageResponseTests(unittest.TestCase):
+    def test_protocol_relative_image_url_is_normalized(self):
+        result = parse_xjh_image_response(
+            200, '{"img": "//img.xjh.me/image.jpg"}', "application/json"
+        )
+        self.assertEqual(result, "https://img.xjh.me/image.jpg")
+
+    def test_html_error_response_is_rejected_without_body_details(self):
+        with self.assertRaisesRegex(ImageServiceError, "HTTP 502") as raised:
+            parse_xjh_image_response(502, "<html>private upstream body</html>")
+        self.assertNotIn("private upstream body", str(raised.exception))
+
+    def test_http_and_private_image_urls_are_rejected(self):
+        for url in ("http://img.xjh.me/image.jpg", "https://127.0.0.1/image"):
+            with self.subTest(url=url):
+                with self.assertRaises(ImageServiceError):
+                    parse_xjh_image_response(
+                        200, f'{{"img": "{url}"}}', "application/json"
+                    )
+
+
+class MusicInfoTests(unittest.TestCase):
+    def test_missing_high_quality_track_uses_available_quality(self):
+        data = build_music_card_data(
+            [
+                {
+                    "name": "Song",
+                    "artists": [{"name": "Artist"}],
+                    "alias": [],
+                    "album": None,
+                    "hMusic": None,
+                    "mMusic": {"playTime": 125000},
+                }
+            ],
+            None,
+        )
+
+        self.assertEqual(data["song_playTime"], "0:02:05")
+        self.assertEqual(data["song_artists"], "Artist")
+        self.assertEqual(data["song_imgurl"], "")
+        self.assertEqual(data["song_comments"], [])
+
+
+class NoneBotCompatibilityTests(unittest.TestCase):
+    def test_empty_message_initializes_command_prefix_without_indexing(self):
+        class FakeTrieRule:
+            calls = 0
+
+            @classmethod
+            def get_value(cls, bot, event, state):
+                cls.calls += 1
+                return "original"
+
+        class FakeEvent:
+            def __init__(self, message):
+                self.message = message
+
+            def get_type(self):
+                return "message"
+
+            def get_message(self):
+                return self.message
+
+        _patch_trie_rule(FakeTrieRule, "prefix")
+        state = {}
+
+        result = FakeTrieRule.get_value(None, FakeEvent([]), state)
+
+        self.assertEqual(result, state["prefix"])
+        self.assertIsNone(state["prefix"]["command"])
+        self.assertEqual(FakeTrieRule.calls, 0)
+        self.assertEqual(
+            FakeTrieRule.get_value(None, FakeEvent(["text"]), {}), "original"
+        )
+        self.assertEqual(FakeTrieRule.calls, 1)
+
+
+class KukufileProtocolTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        fake_nonebot = types.ModuleType("nonebot")
+        fake_nonebot.logger = types.SimpleNamespace(
+            warning=lambda *args, **kwargs: None,
+            debug=lambda *args, **kwargs: None,
+        )
+        module_name = "src.clover_providers.cloud_file_api.kukufile"
+        sys.modules.pop(module_name, None)
+        with patch.dict(sys.modules, {"nonebot": fake_nonebot}):
+            cls.kukufile = importlib.import_module(module_name)
+
+    def test_explicit_ok_is_accepted_even_with_html_content_type(self):
+        self.assertTrue(
+            self.kukufile._auto_delete_succeeded("OK", "text/html; charset=utf-8")
+        )
+        self.assertFalse(
+            self.kukufile._auto_delete_succeeded(
+                "OK:ERROR", "text/html; charset=utf-8"
+            )
+        )
+
+    def test_javascript_style_ok_is_accepted_with_html_content_type(self):
+        self.assertTrue(
+            self.kukufile._auto_delete_succeeded(
+                "result=OK;", "text/html; charset=utf-8"
+            )
+        )
+        self.assertFalse(
+            self.kukufile._auto_delete_succeeded(
+                "<html>result=OK;</html>", "text/html; charset=utf-8"
+            )
+        )
+
+    def test_expiration_request_matches_browser_protocol(self):
+        class FakeResponse:
+            status_code = 200
+            text = "result=OK;"
+            headers = {"Content-Type": "text/html; charset=utf-8"}
+
+        class FakeSession:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+            def post(self, *args, **kwargs):
+                self.post_args = args
+                self.post_kwargs = kwargs
+                return FakeResponse()
+
+        session = FakeSession()
+        status = ["OK", "https://d.kuku.lu/test-hash"]
+        with patch.object(self.kukufile, "_new_session", return_value=session):
+            result = self.kukufile._set_expiration(status, 600)
+
+        self.assertEqual(result, "result=OK;")
+        self.assertEqual(session.post_args, ("https://d.kuku.lu/view.php",))
+        self.assertEqual(session.post_kwargs["params"], {"hash": "test-hash"})
+        self.assertEqual(
+            session.post_kwargs["headers"]["Referer"], status[1]
+        )
+        self.assertEqual(
+            session.post_kwargs["data"],
+            {"action": "addTimelimit", "set_timelimit": 600},
+        )
+
+    def test_html_challenge_is_not_accepted(self):
+        self.assertFalse(
+            self.kukufile._auto_delete_succeeded(
+                "<html>Just a moment</html>", "text/html; charset=utf-8"
+            )
+        )
+
+    def test_upload_response_rejects_untrusted_download_host(self):
+        with self.assertRaises(self.kukufile.KukufileProtocolError):
+            self.kukufile._parse_post_upload_response(
+                "OK:https://example.com/not-a-kuku-file"
+            )
+
+    def test_non_object_server_response_is_a_protocol_error(self):
+        class FakeResponse:
+            status_code = 200
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return []
+
+        class FakeSession:
+            def post(self, *args, **kwargs):
+                return FakeResponse()
+
+        with self.assertRaises(self.kukufile.KukufileProtocolError):
+            self.kukufile._request_upload_server(FakeSession(), "probe.txt", 1)
+
+    def test_upload_server_rejects_untrusted_host(self):
+        class FakeResponse:
+            status_code = 200
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "result": "OK",
+                    "servers": [
+                        {
+                            "method": "post",
+                            "url": "https://127.0.0.1/upload.php",
+                            "file_key": "",
+                        }
+                    ],
+                }
+
+        class FakeSession:
+            def post(self, *args, **kwargs):
+                return FakeResponse()
+
+        with self.assertRaises(self.kukufile.KukufileProtocolError):
+            self.kukufile._request_upload_server(FakeSession(), "probe.txt", 1)
+
+    def test_upload_url_validator_rejects_non_strings(self):
+        for value in (None, 123, {}, []):
+            with self.subTest(value=value):
+                self.assertFalse(
+                    self.kukufile._is_allowed_upload_url(value, "post")
+                )
+
+    def test_put_upload_uses_detected_media_type(self):
+        class FakeResponse:
+            status_code = 200
+
+            def raise_for_status(self):
+                return None
+
+        class FakeSession:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+            def put(self, *args, **kwargs):
+                self.put_headers = kwargs["headers"]
+                return FakeResponse()
+
+        with tempfile.TemporaryDirectory() as directory:
+            file_path = Path(directory) / "clip.mp4"
+            file_path.write_bytes(b"video")
+            session = FakeSession()
+            with (
+                patch.object(self.kukufile, "_new_session", return_value=session),
+                patch.object(
+                    self.kukufile,
+                    "_request_upload_server",
+                    return_value={
+                        "method": "put",
+                        "url": "https://bucket.r2.cloudflarestorage.com/clip",
+                        "file_key": "clip-key",
+                    },
+                ),
+                patch.object(
+                    self.kukufile,
+                    "_register_put_upload",
+                    return_value=["OK", "https://d.kuku.lu/test-hash"],
+                ),
+            ):
+                result = self.kukufile._upload_file(file_path, "clip.mp4")
+
+        self.assertEqual(session.put_headers["Content-Type"], "video/mp4")
+        self.assertEqual(result[0], "OK")
+
+    def test_multipart_upload_stream_reads_in_bounded_chunks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file_path = Path(directory) / "upload.bin"
+            file_path.write_bytes(b"x" * (self.kukufile.UPLOAD_CHUNK_SIZE * 2 + 17))
+            stream = self.kukufile.MultipartUploadStream(
+                file_path,
+                "upload.bin",
+                "application/octet-stream",
+                {"ajax": "1"},
+            )
+
+            chunks = list(stream)
+
+        self.assertEqual(sum(map(len, chunks)), len(stream))
+        self.assertGreaterEqual(len(chunks), 5)
+        self.assertTrue(
+            all(
+                len(chunk) <= self.kukufile.UPLOAD_CHUNK_SIZE
+                for chunk in chunks[1:-1]
+            )
+        )
+
+    def test_upload_file_handles_file_removed_after_existence_check(self):
+        with (
+            patch.object(self.kukufile.Path, "is_file", return_value=True),
+            patch.object(
+                self.kukufile.Path,
+                "stat",
+                side_effect=FileNotFoundError("file removed"),
+            ),
+            patch.object(self.kukufile, "_upload_file") as upload,
+        ):
+            result = asyncio.run(
+                self.kukufile.Kukufile.upload_file("removed-file.bin")
+            )
+
+        self.assertIsNone(result)
+        upload.assert_not_called()
+
+    def test_cancelled_successful_upload_sets_remote_expiration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file_path = Path(directory) / "upload.bin"
+            file_path.write_bytes(b"test")
+            started = threading.Event()
+            release = threading.Event()
+            status = ["OK", "https://d.kuku.lu/test-hash"]
+
+            def fake_upload(path, name):
+                started.set()
+                release.wait(timeout=2)
+                return status
+
+            with (
+                patch.object(self.kukufile, "_upload_file", side_effect=fake_upload),
+                patch.object(
+                    self.kukufile, "_set_expiration", return_value="OK"
+                ) as set_expiration,
+            ):
+                async def scenario():
+                    task = asyncio.create_task(
+                        self.kukufile.Kukufile.upload_file(file_path)
+                    )
+                    while not started.is_set():
+                        await asyncio.sleep(0)
+                    task.cancel()
+                    release.set()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+
+                asyncio.run(scenario())
+
+        set_expiration.assert_called_once_with(status, 600)
 
 
 class CacheCleanupTests(unittest.TestCase):
