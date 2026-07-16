@@ -16,7 +16,9 @@ from src.utils.async_utils import run_sync
 BASE_URL = "https://d.kuku.lu"
 SERVER_ENDPOINT = f"{BASE_URL}/_server.php"
 REQUEST_TIMEOUT = (10, 30)
-UPLOAD_TIMEOUT = (15, 300)
+# urllib3 uses the connect timeout while it is still writing the request body.
+# Keep the legacy 120-second budget so large multipart uploads are not cut off.
+UPLOAD_TIMEOUT = (120, 300)
 MAX_UPLOAD_SIZE = 512 * 1024 * 1024
 UPLOAD_CHUNK_SIZE = 64 * 1024
 USER_KEY_PATTERN = re.compile(r"^[0-9a-fA-F]{32}$")
@@ -271,10 +273,29 @@ def _upload_file(file_path: Path, file_name: str) -> list[str]:
 def _describe_request_error(exc: BaseException) -> str:
     if isinstance(exc, requests.Timeout):
         return "请求超时"
+    pending = [exc]
+    seen = set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if current is not exc and isinstance(current, TimeoutError):
+            return "上传连接写入超时"
+        if isinstance(current, BaseException):
+            pending.extend(
+                item for item in current.args if isinstance(item, BaseException)
+            )
+            if current.__cause__ is not None:
+                pending.append(current.__cause__)
+            if current.__context__ is not None:
+                pending.append(current.__context__)
     if isinstance(exc, requests.exceptions.SSLError):
         return "TLS 连接失败"
     if isinstance(exc, requests.HTTPError) and exc.response is not None:
         return f"HTTP {exc.response.status_code}"
+    if isinstance(exc, requests.ConnectionError):
+        return "连接失败"
     return type(exc).__name__
 
 

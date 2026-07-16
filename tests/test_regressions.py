@@ -380,6 +380,59 @@ class KukufileProtocolTests(unittest.TestCase):
         self.assertEqual(session.put_headers["Content-Type"], "video/mp4")
         self.assertEqual(result[0], "OK")
 
+    def test_post_upload_keeps_large_file_write_timeout(self):
+        class FakeResponse:
+            status_code = 200
+            text = "OK:https://d.kuku.lu/test-hash"
+
+            def raise_for_status(self):
+                return None
+
+        class FakeSession:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+            def post(self, *args, **kwargs):
+                self.post_kwargs = kwargs
+                return FakeResponse()
+
+        with tempfile.TemporaryDirectory() as directory:
+            file_path = Path(directory) / "archive.zip"
+            file_path.write_bytes(b"archive")
+            session = FakeSession()
+            with (
+                patch.object(self.kukufile, "_new_session", return_value=session),
+                patch.object(
+                    self.kukufile,
+                    "_request_upload_server",
+                    return_value={
+                        "method": "post",
+                        "url": "https://tdc1-d.kuku.lu/upload.php",
+                        "file_key": "",
+                    },
+                ),
+            ):
+                result = self.kukufile._upload_file(file_path, "archive.zip")
+
+        self.assertEqual(result[0], "OK")
+        self.assertEqual(session.post_kwargs["timeout"], (120, 300))
+
+    def test_wrapped_write_timeout_has_actionable_description(self):
+        protocol_error = (
+            self.kukufile.requests.packages.urllib3.exceptions.ProtocolError(
+                "connection aborted", TimeoutError("write timed out")
+            )
+        )
+        error = self.kukufile.requests.ConnectionError(protocol_error)
+
+        self.assertEqual(
+            self.kukufile._describe_request_error(error),
+            "上传连接写入超时",
+        )
+
     def test_multipart_upload_stream_reads_in_bounded_chunks(self):
         with tempfile.TemporaryDirectory() as directory:
             file_path = Path(directory) / "upload.bin"
