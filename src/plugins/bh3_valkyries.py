@@ -115,15 +115,11 @@ async def handle_function(bot: Bot, message: MessageEvent):
     logger.debug(f"用户助理数据: {user_assistant.__dict__ if user_assistant else '无'}")
     
     if cmd[0] == "/今日助理":
-        # 获取用户数据
-        user_assistant = await BH3_User_Assistant.get_user_data(user_id)
-
         if len(cmd) >= 2:
             if cmd[1] == "<女武神名称/ID>" or len(cmd) > 2:
                 await bh3_valkyries.finish("指令有误 \nTips: 指令：/今日助理 <角色关键字/ID> \n例：/今日助理 979 来设定今日助理哦~!")
             
             # 设定指定女武神为助理
-            user_all_valkyries = await BH3_User_Valkyries.get_user_all_valkyries(user_id)
             if not user_all_valkyries:
                 await bh3_valkyries.finish("您还没有任何女武神数据，请先获取今日助理！")
             

@@ -125,7 +125,7 @@ class BH3_User_Assistant(Model):
         try:
             return await cls.get(user_id=user_id)
         except DoesNotExist:
-            logger.warning(f"用户 {user_id} 的数据不存在，返回 None")
+            logger.debug(f"用户 {user_id} 的数据不存在，返回 None")
             return None
         except Exception as e:
             logger.error(f"获取用户数据失败: {e}")
