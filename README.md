@@ -279,6 +279,27 @@ proxy_api_enabled = True  # False 时 Wenku8 直接连接，不请求代理 API
 proxy_api = "<KEY>"
 ```
 
+#### JM 下载域名
+
+`src/configs/jm_config.yml` 默认使用 `jmcomic` 的 API 自动域名模式：
+
+```yaml
+client:
+  impl: api
+  domain: []
+  retry_times: 3
+```
+
+保持 `domain` 为空时，客户端会从官方域名服务获取最新 API 域名。若自动获取不可用，也可以手动填写多个已验证的 API 根域名；不要附加协议、尾斜杠或 `/setting`：
+
+```yaml
+client:
+  impl: api
+  domain:
+    - api-domain-1.example
+    - api-domain-2.example
+```
+
 <b>🚫注意：</b>
 将你的 `app_id` 和 `smms_token` 替换为实际值（可以根据自身需求选填），然后将文件重命名为 **api_config.py**。
 

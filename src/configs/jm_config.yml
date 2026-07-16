@@ -1,4 +1,8 @@
 log: false
+client:
+  impl: api
+  domain: []
+  retry_times: 3
 download:
   cache: true
   image:
