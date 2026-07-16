@@ -14,7 +14,7 @@ class DataApi():
         '''
         获取热评
         '''
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(
                 f"https://music.163.com/weapi/v1/resource/hotcomments/R_SO_4_{song_id}?csrf_token=",
                 data={
@@ -25,6 +25,7 @@ class DataApi():
                 headers=self.headers,
                 cookies=self.cookies
             )
+            r.raise_for_status()
         jsonified_r = r.json()
         if "hotComments" not in jsonified_r:
             raise APINotWorkingException(r.text)

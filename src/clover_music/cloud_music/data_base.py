@@ -5,6 +5,7 @@ from nonebot_plugin_htmlrender import template_to_pic
 from playwright.async_api import async_playwright
 from src.clover_music.cloud_music.cloud_music import netease_music_info
 from src.clover_music.cloud_music.data_comments import DataGet
+from src.clover_music.cloud_music.song_info import build_music_card_data
 
 
 __name__ = "cloud_music | data_base"
@@ -59,32 +60,16 @@ async def netease_music_info_img(song_id, temp_file: str):
         """
         Data_get = DataGet()
         song_info = await netease_music_info(song_id)
-        song_comments = await Data_get.song_comments(song_id)
-        if song_info is None:
+        try:
+            song_comments = await Data_get.song_comments(song_id)
+        except Exception as exc:
+            logger.warning(
+                f"歌曲热评获取失败，继续生成基础信息卡片: {type(exc).__name__}"
+            )
+            song_comments = []
+        data = build_music_card_data(song_info, song_comments)
+        if data is None:
             return None
-        artists = song_info[0]['artists']
-        artists_name = []
-        for i in range(len(artists)):
-            artist = artists[i]
-            if isinstance(artist, dict) and 'name' in artist:
-                artists_name.append(artist['name'])
-        playTime = song_info[0]['hMusic']['playTime']
-        seconds = playTime // 1000
-        minutes = seconds // 60
-        hours = minutes // 60
-        playTime_str = f"{hours}:{minutes % 60}:{seconds % 60}"
-
-        song_name = song_info[0]['name']
-        song_artists = "、".join(artists_name)
-
-        data = {
-             "song_name" : song_name,
-             "song_alias" : " - "+song_info[0]['alias'][0] if len(song_info[0]['alias']) > 0 else "",
-             "song_artists" : song_artists,
-             "song_imgurl" : song_info[0]['album']['blurPicUrl'],
-             "song_playTime" : playTime_str,
-             "song_comments": song_comments,
-        }
         logger.debug(f"data：{data}")
         async with async_playwright() as p:
             browser = await p.chromium.launch()
