@@ -10,12 +10,16 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from src.configs.path_config import log_path,temp_path,video_path,yuc_wiki_path
 from src.utils.cache_cleanup import get_stale_files
 from src.utils.log_sanitizer import sanitize_log_record
+from src.utils.nonebot_compat import patch_empty_message_command_parsing
 
 # 禁用第三方库日志
 for lib in ["websockets", "httpx", "httpcore", "hpack", "asyncio","aiosqlite","tortoise","urllib3","tzlocal"]:
     logging.getLogger(lib).setLevel(logging.WARNING)
 
 __name__ = "Bot"
+
+# NoneBot 2.5.0 and current main index message[0] without an empty-message guard.
+patch_empty_message_command_parsing()
 
 # 记录 PID 到文件
 with open("bot.pid", "w") as f:
