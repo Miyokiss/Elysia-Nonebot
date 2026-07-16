@@ -11,6 +11,7 @@ from nonebot import on_command
 from nonebot.rule import Rule, to_me
 from nonebot.exception import FinishedException, PausedException
 from nonebot.adapters.qq import MessageSegment, MessageEvent, Message, Bot
+from nonebot.adapters.qq.exception import ActionFailed
 from src.clover_image.delete_file import delete_file
 from src.utils.Message import delete_msg
 from nonebot import logger
@@ -119,14 +120,23 @@ async def handle_function(bot: Bot, msg: MessageEvent) -> None:
                 raise result
     except asyncio.TimeoutError:
         logger.info(f"点歌选择超时 User: {msg.get_user_id()} Keyword: {keyword}")
+    except (FinishedException, PausedException):
+        return
+    except ActionFailed as exc:
+        logger.warning(
+            f"点歌消息发送失败，不再尝试发送错误提示: "
+            f"code={exc.code}, message={exc.message}"
+        )
+        return
     except Exception as e:
-        if isinstance(e, (FinishedException, PausedException)):
-            return
         logger.opt(exception=e).error("处理点歌请求时发生错误")
-        r_msg = "未知错误，请稍后再试"
-        if getattr(e, "message", None):
-            r_msg = e.message
-        await music.finish(f"处理点歌请求时发生错误：{r_msg}。这绝对不是我的错，绝对不是！")
+        try:
+            await music.finish("处理点歌请求时发生错误，请稍后重试。")
+        except ActionFailed as send_exc:
+            logger.warning(
+                f"点歌错误提示发送失败: "
+                f"code={send_exc.code}, message={send_exc.message}"
+            )
     finally:
         if owns_active_session:
             active_music_sessions.discard(active_session)

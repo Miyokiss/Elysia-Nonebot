@@ -25,6 +25,7 @@ from nonebot.plugin import on_command, on_keyword, on_fullmatch
 from nonebot.exception import FinishedException, PausedException
 from src.clover_providers.cloud_file_api.rustfs import rustfs_api
 from nonebot.adapters.qq import MessageSegment, MessageEvent, Message, Bot
+from nonebot.adapters.qq.exception import ActionFailed
 from nonebot.matcher import Matcher
 from src.providers.waf.llm_waf import LLMWAF
 from src.configs.path_config import temp_path, image_local_qq_image_path, AUDIO_PATH
@@ -550,10 +551,17 @@ get_help = on_command("help", rule=to_me(), priority=10, block=True)
 @get_help.handle()
 async def send_help_list():
     temp_file = os.path.join(temp_path, f"{datetime.now().date()}_{uuid.uuid4().hex}.png")
-    if await help_info_img(send_menu, temp_file):
-        await get_help.finish(MessageSegment.file_image(Path(temp_file)))
-    else:
-        await get_help.finish("获取帮助失败")
+    try:
+        if await help_info_img(send_menu, temp_file):
+            await get_help.finish(MessageSegment.file_image(Path(temp_file)))
+        else:
+            await get_help.finish("获取帮助失败")
+    except ActionFailed as exc:
+        logger.warning(
+            f"帮助消息发送失败: code={exc.code}, message={exc.message}"
+        )
+    finally:
+        await delete_file(temp_file)
 
 restart = on_command("重启", rule=to_me(), priority=10, block=True)
 @restart.handle()

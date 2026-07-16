@@ -1,6 +1,5 @@
 # https://api.bilibili.com/x/web-interface/search/type?keyword=av28465342&search_type=video&page=1
 
-import nonebot.adapters.qq.exception
 import src.clover_videos.billibili.biliVideos as biliVideos
 import uuid
 import requests
@@ -16,7 +15,39 @@ from src.configs.api_config import qrserver_url,qrserver_size
 from src.utils.async_utils import run_sync
 from nonebot import logger
 from nonebot.exception import FinishedException
+from nonebot.adapters.qq.exception import ActionFailed
 import asyncio
+
+
+VIDEO_FALLBACK_BLOCKED_CODES = {
+    304103,
+    40034005,
+    40034006,
+    40054002,
+    40054005,
+    50015014,
+}
+
+
+def _can_use_video_fallback(exc: ActionFailed) -> bool:
+    try:
+        code = int(exc.code)
+    except (TypeError, ValueError):
+        return True
+    return code not in VIDEO_FALLBACK_BLOCKED_CODES
+
+
+async def _finish_bv_safely(message: str) -> None:
+    try:
+        await bili_bv_search.finish(message)
+    except FinishedException:
+        raise
+    except ActionFailed as exc:
+        logger.warning(
+            f"BV 搜索提示发送失败: code={exc.code}, message={exc.message}"
+        )
+    except Exception as exc:
+        logger.warning(f"BV 搜索提示发送失败: {type(exc).__name__}")
 
 bili_vid = on_command("B站搜索",rule=to_me(), priority=10)
 @bili_vid.handle()
@@ -55,6 +86,59 @@ async def get_bili_vid_info(message: MessageEvent):
 
 
 bili_bv_search = on_command("BV搜索", rule=to_me(), priority=10)
+
+
+async def _send_video_or_fallback(vid_title, video_url, cid) -> None:
+    try:
+        await bili_bv_search.send(MessageSegment.video(video_url))
+        return
+    except ActionFailed as exc:
+        if not _can_use_video_fallback(exc):
+            logger.warning(
+                f"QQ 视频发送失败，不启动云盘降级: "
+                f"code={exc.code}, message={exc.message}"
+            )
+            await _finish_bv_safely("QQ 视频服务暂时不可用，请稍后重试。")
+            return
+    except Exception as exc:
+        logger.warning(f"QQ 视频发送失败: {type(exc).__name__}")
+        await _finish_bv_safely("QQ 视频服务暂时不可用，请稍后重试。")
+        return
+
+    qr_path = None
+    try:
+        qr_url = await post_video_kuku_file(vid_title, video_url, cid)
+        if not qr_url:
+            await _finish_bv_safely("发送失败了，视频下载或上传服务异常")
+            return
+
+        qr_path = Path(temp_path) / f"qr_{cid}_{uuid.uuid4().hex}.png"
+        if not await download_image(qr_url, qr_path):
+            await _finish_bv_safely("二维码生成失败，请稍后重试")
+            return
+        r_msg = Message([
+            MessageSegment.file_image(qr_path),
+            MessageSegment.text(
+                "由于QQ的限制，官方bot无法发送文件大于10M（实际更低）。"
+                "\n此二维码有效时间为10分钟。"
+                "\n可尝试扫码下载或在线观看视频哦~!"
+            ),
+        ])
+        await bili_bv_search.send(r_msg)
+    except FinishedException:
+        raise
+    except ActionFailed as exc:
+        logger.warning(
+            f"BV 搜索消息发送失败: code={exc.code}, message={exc.message}"
+        )
+    except Exception as exc:
+        logger.opt(exception=exc).error("BV 搜索降级处理失败")
+        await _finish_bv_safely("发送失败了，请稍后再试")
+    finally:
+        if qr_path is not None:
+            await delete_file(qr_path)
+
+
 @bili_bv_search.handle()
 async def get_video_file(message: MessageEvent):
     keyword = message.get_plaintext().replace("/BV搜索", "").strip().split()
@@ -99,30 +183,7 @@ async def get_video_file(message: MessageEvent):
             if not video_url:
                 await bili_bv_search.finish("获取视频播放地址失败，请稍后重试。")
 
-            try:
-                await bili_bv_search.send(MessageSegment.video(video_url))
-            except nonebot.adapters.qq.exception.ActionFailed:
-                qr_url = await post_video_kuku_file(vid_title, video_url, cid)
-                if not qr_url:
-                    await bili_bv_search.finish("发送失败了，视频下载或上传服务异常")
-                qr_path = Path(temp_path) / f"qr_{cid}_{uuid.uuid4().hex}.png"
-                try:
-                    if not await download_image(qr_url, qr_path):
-                        await bili_bv_search.finish("二维码生成失败，请稍后重试")
-                    r_msg = Message([
-                        MessageSegment.file_image(qr_path),
-                        MessageSegment.text("由于QQ的限制，官方bot无法发送文件大于10M（实际更低）。"
-                                            +"\n此二维码有效时间为10分钟。"
-                                            +"\n可尝试扫码下载或在线观看视频哦~!")
-                    ])
-                    await bili_bv_search.send(r_msg)
-                finally:
-                    await delete_file(qr_path)
-            except FinishedException:
-                raise
-            except Exception as e:
-                logger.error(f'{e}')
-                await bili_bv_search.finish("发送失败了，请稍后再试")
+            await _send_video_or_fallback(vid_title, video_url, cid)
     elif len(keyword) >= 2:
 
         try:
@@ -153,30 +214,7 @@ async def get_video_file(message: MessageEvent):
         if not video_url:
             await bili_bv_search.finish("获取视频播放地址失败，请稍后重试。")
 
-        try:
-            await bili_bv_search.send(MessageSegment.video(video_url))
-        except nonebot.adapters.qq.exception.ActionFailed:
-            qr_url = await post_video_kuku_file(vid_title, video_url, cid)
-            if not qr_url:
-                await bili_bv_search.finish("发送失败了，视频下载或上传服务异常")
-            qr_path = Path(temp_path) / f"qr_{cid}_{uuid.uuid4().hex}.png"
-            try:
-                if not await download_image(qr_url, qr_path):
-                    await bili_bv_search.finish("二维码生成失败，请稍后重试")
-                r_msg = Message([
-                    MessageSegment.file_image(qr_path),
-                    MessageSegment.text("由于QQ的限制，官方bot无法发送文件大于10M（实际更低）。"
-                                        +"\n此二维码有效时间为10分钟。"
-                                        +"\n可尝试扫码下载或在线观看视频哦~!")
-                ])
-                await bili_bv_search.send(r_msg)
-            finally:
-                await delete_file(qr_path)
-        except FinishedException:
-            raise
-        except Exception as e:
-            logger.error(f'{e}')
-            await bili_bv_search.finish("发送失败了，请稍后再试")
+        await _send_video_or_fallback(vid_title, video_url, cid)
     await bili_bv_search.finish()
 
 async def post_video_kuku_file(vid_title, video_url, cid):

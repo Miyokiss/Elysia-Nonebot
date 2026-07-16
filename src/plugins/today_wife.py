@@ -105,7 +105,8 @@ async def post_wife_function(member_openid, wife_id, bot, message) -> None:
             keyboard=Keyboard_mate,
             size=size,
         )
-        asyncio.create_task(delete_msg(bot, message, sent_msg))
+        if sent_msg is not None:
+            asyncio.create_task(delete_msg(bot, message, sent_msg))
         await today_group_wife.finish()
     finally:
         await delete_file(local_image_path)
@@ -138,7 +139,21 @@ async def send_avatar_card(matcher, local_image_path, object_key, content, keybo
                     f"code={exc.code}, message={exc.message}"
                 )
 
-    return await matcher.send(MessageSegment.file_image(Path(local_image_path)))
+    try:
+        return await matcher.send(MessageSegment.file_image(Path(local_image_path)))
+    except ActionFailed as exc:
+        logger.warning(
+            f"普通头像图片发送失败: code={exc.code}, message={exc.message}"
+        )
+        if str(exc.code) == "40034006":
+            try:
+                return await matcher.send("头像图片未通过平台审核，暂时无法展示。")
+            except ActionFailed as text_exc:
+                logger.warning(
+                    f"头像降级提示发送失败: "
+                    f"code={text_exc.code}, message={text_exc.message}"
+                )
+        return None
 
 today_wife = on_command("今日老婆", rule=to_me(), priority=10)
 @today_wife.handle()
@@ -160,7 +175,8 @@ async def handle_today_wife(bot: Bot, message: MessageEvent):
               keyboard=Keyboard_fortune,
               size=size,
           )
-          asyncio.create_task(delete_msg(bot, message, sent_msg))
+          if sent_msg is not None:
+              asyncio.create_task(delete_msg(bot, message, sent_msg))
           await today_wife.finish()
       finally:
           await delete_file(qq_user_img_path)
