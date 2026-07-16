@@ -17,47 +17,52 @@ from src.configs.path_config import temp_path
 from playwright.async_api import async_playwright
 
 
+RETRYABLE_HTTP_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+
+
+def _is_retryable_request_error(exc: BaseException) -> bool:
+    if isinstance(exc, (TimeoutException, ConnectError)):
+        return True
+    if isinstance(exc, HTTPStatusError):
+        return exc.response.status_code in RETRYABLE_HTTP_STATUS_CODES
+    return False
+
+
 class AsyncHttpx:
     @classmethod
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_fixed(1),
-        retry=(
-            tenacity.retry_if_exception_type(
-                (TimeoutException, ConnectError, HTTPStatusError)
-            )
-        ),
+        retry=tenacity.retry_if_exception(_is_retryable_request_error),
     )
-    async def get(cls, url: str) -> Response:
-        async with httpx.AsyncClient() as client:
+    async def get(
+        cls, url: str, headers: dict[str, str] | None = None
+    ) -> Response:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
             try:
-                response = await client.get(url)
+                response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 return response
             except (TimeoutException, ConnectError, HTTPStatusError) as e:
-                logger.error(f"Request to {url} failed due to: {e}")
+                logger.warning(f"Request to {url} failed due to: {e}")
                 raise
 
     @classmethod
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_fixed(1),
-        retry=(
-            tenacity.retry_if_exception_type(
-                (TimeoutException, ConnectError, HTTPStatusError)
-            )
-        ),
+        retry=tenacity.retry_if_exception(_is_retryable_request_error),
     )
     async def post(
         cls, url: str, data: dict[str, str], headers: dict[str, str]
     ) -> Response:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
             try:
                 response = await client.post(url, data=data, headers=headers)
                 response.raise_for_status()
                 return response
             except (TimeoutException, ConnectError, HTTPStatusError) as e:
-                logger.error(f"Request to {url} failed due to: {e}")
+                logger.warning(f"Request to {url} failed due to: {e}")
                 raise
 
 
@@ -157,7 +162,17 @@ class Report:
     @classmethod
     async def get_bili(cls) -> list[str]:
         """获取哔哩哔哩热搜"""
-        res = await AsyncHttpx.get(cls.bili_url)
+        res = await AsyncHttpx.get(
+            cls.bili_url,
+            headers={
+                "Accept": "application/json, text/plain, */*",
+                "Referer": "https://www.bilibili.com/",
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 Chrome/126.0 Safari/537.36"
+                ),
+            },
+        )
         data = res.json()
         return [item["keyword"] for item in data["list"]]
 
