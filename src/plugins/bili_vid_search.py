@@ -8,9 +8,18 @@ from src.clover_image.download_image import download_image
 from src.clover_image.delete_file import delete_file
 from nonebot import on_command
 from nonebot.rule import to_me
-from nonebot.adapters.qq import   MessageSegment,MessageEvent, Message
+from nonebot.adapters.qq import (
+    Bot,
+    C2CMessageCreateEvent,
+    DirectMessageCreateEvent,
+    GroupMessageCreateEvent,
+    GuildMessageEvent,
+    Message,
+    MessageEvent,
+    MessageSegment,
+)
 from src.configs.path_config import video_path, temp_path
-from src.clover_providers.cloud_file_api.kukufile import Kukufile
+from src.clover_providers.cloud_file_api.kukufile import Kukufile, MAX_UPLOAD_SIZE
 from src.configs.api_config import qrserver_url,qrserver_size
 from src.utils.async_utils import run_sync
 from nonebot import logger
@@ -27,6 +36,7 @@ VIDEO_FALLBACK_BLOCKED_CODES = {
     40054005,
     50015014,
 }
+QQ_REMOTE_VIDEO_LIMIT = 10 * 1024 * 1024
 
 
 def _can_use_video_fallback(exc: ActionFailed) -> bool:
@@ -48,6 +58,40 @@ async def _finish_bv_safely(message: str) -> None:
         )
     except Exception as exc:
         logger.warning(f"BV 搜索提示发送失败: {type(exc).__name__}")
+
+
+def _should_use_video_fallback(video_size) -> bool:
+    return (
+        isinstance(video_size, int)
+        and not isinstance(video_size, bool)
+        and video_size > QQ_REMOTE_VIDEO_LIMIT
+    )
+
+
+async def _send_delayed_message(bot: Bot, event: MessageEvent, message) -> None:
+    if isinstance(event, GroupMessageCreateEvent):
+        await bot.send_to_group(group_openid=event.group_openid, message=message)
+    elif isinstance(event, C2CMessageCreateEvent):
+        await bot.send_to_c2c(openid=event.author.id, message=message)
+    elif isinstance(event, DirectMessageCreateEvent):
+        await bot.send_to_dms(guild_id=event.guild_id, message=message)
+    elif isinstance(event, GuildMessageEvent):
+        await bot.send_to_channel(channel_id=event.channel_id, message=message)
+    else:
+        await bili_bv_search.send(message)
+
+
+async def _send_delayed_safely(bot: Bot, event: MessageEvent, message) -> bool:
+    try:
+        await _send_delayed_message(bot, event, message)
+        return True
+    except ActionFailed as exc:
+        logger.warning(
+            f"BV 搜索延迟消息发送失败: code={exc.code}, message={exc.message}"
+        )
+    except Exception as exc:
+        logger.warning(f"BV 搜索延迟消息发送失败: {type(exc).__name__}")
+    return False
 
 bili_vid = on_command("B站搜索",rule=to_me(), priority=10)
 @bili_vid.handle()
@@ -88,33 +132,44 @@ async def get_bili_vid_info(message: MessageEvent):
 bili_bv_search = on_command("BV搜索", rule=to_me(), priority=10)
 
 
-async def _send_video_or_fallback(vid_title, video_url, cid) -> None:
-    try:
-        await bili_bv_search.send(MessageSegment.video(video_url))
-        return
-    except ActionFailed as exc:
-        if not _can_use_video_fallback(exc):
-            logger.warning(
-                f"QQ 视频发送失败，不启动云盘降级: "
-                f"code={exc.code}, message={exc.message}"
-            )
+async def _send_video_or_fallback(
+    vid_title, video_url, cid, bot: Bot, event: MessageEvent, video_size=None
+) -> None:
+    if _should_use_video_fallback(video_size):
+        logger.info(
+            f"视频大小 {video_size} bytes 超过 QQ 直发阈值，直接使用云盘降级"
+        )
+    else:
+        try:
+            await bili_bv_search.send(MessageSegment.video(video_url))
+            return
+        except ActionFailed as exc:
+            if not _can_use_video_fallback(exc):
+                logger.warning(
+                    f"QQ 视频发送失败，不启动云盘降级: "
+                    f"code={exc.code}, message={exc.message}"
+                )
+                await _finish_bv_safely("QQ 视频服务暂时不可用，请稍后重试。")
+                return
+        except Exception as exc:
+            logger.warning(f"QQ 视频发送失败: {type(exc).__name__}")
             await _finish_bv_safely("QQ 视频服务暂时不可用，请稍后重试。")
             return
-    except Exception as exc:
-        logger.warning(f"QQ 视频发送失败: {type(exc).__name__}")
-        await _finish_bv_safely("QQ 视频服务暂时不可用，请稍后重试。")
-        return
 
     qr_path = None
     try:
-        qr_url = await post_video_kuku_file(vid_title, video_url, cid)
+        qr_url = await post_video_kuku_file(
+            vid_title, video_url, cid, video_size=video_size
+        )
         if not qr_url:
-            await _finish_bv_safely("发送失败了，视频下载或上传服务异常")
+            await _send_delayed_safely(
+                bot, event, "发送失败了，视频下载或上传服务异常"
+            )
             return
 
         qr_path = Path(temp_path) / f"qr_{cid}_{uuid.uuid4().hex}.png"
         if not await download_image(qr_url, qr_path):
-            await _finish_bv_safely("二维码生成失败，请稍后重试")
+            await _send_delayed_safely(bot, event, "二维码生成失败，请稍后重试")
             return
         r_msg = Message([
             MessageSegment.file_image(qr_path),
@@ -124,7 +179,7 @@ async def _send_video_or_fallback(vid_title, video_url, cid) -> None:
                 "\n可尝试扫码下载或在线观看视频哦~!"
             ),
         ])
-        await bili_bv_search.send(r_msg)
+        await _send_delayed_message(bot, event, r_msg)
     except FinishedException:
         raise
     except ActionFailed as exc:
@@ -133,14 +188,14 @@ async def _send_video_or_fallback(vid_title, video_url, cid) -> None:
         )
     except Exception as exc:
         logger.opt(exception=exc).error("BV 搜索降级处理失败")
-        await _finish_bv_safely("发送失败了，请稍后再试")
+        await _send_delayed_safely(bot, event, "发送失败了，请稍后再试")
     finally:
         if qr_path is not None:
             await delete_file(qr_path)
 
 
 @bili_bv_search.handle()
-async def get_video_file(message: MessageEvent):
+async def get_video_file(message: MessageEvent, bot: Bot):
     keyword = message.get_plaintext().replace("/BV搜索", "").strip().split()
     if len(keyword) == 0:
         await bili_bv_search.finish("请输入BV号\n指令格式：\n/BV搜索 BV号\n/BV搜索 BV号 分P序号(数字)")
@@ -174,16 +229,23 @@ async def get_video_file(message: MessageEvent):
 
             cid = pages[0]['cid']
             try:
-                video_url = await run_sync(
-                    biliVideos.get_video_file_url, keyword[0], cid
+                video_info = await run_sync(
+                    biliVideos.get_video_file_info, keyword[0], cid
                 )
             except requests.RequestException as exc:
                 logger.warning(f"B站播放地址接口请求失败: {exc}")
                 await bili_bv_search.finish("B站接口暂时不可用，请稍后重试。")
-            if not video_url:
+            if not video_info:
                 await bili_bv_search.finish("获取视频播放地址失败，请稍后重试。")
 
-            await _send_video_or_fallback(vid_title, video_url, cid)
+            await _send_video_or_fallback(
+                vid_title,
+                video_info["url"],
+                cid,
+                bot,
+                message,
+                video_size=video_info.get("size"),
+            )
     elif len(keyword) >= 2:
 
         try:
@@ -205,19 +267,26 @@ async def get_video_file(message: MessageEvent):
 
         cid = pages[page_num - 1]['cid']
         try:
-            video_url = await run_sync(
-                biliVideos.get_video_file_url, keyword[0], cid
+            video_info = await run_sync(
+                biliVideos.get_video_file_info, keyword[0], cid
             )
         except requests.RequestException as exc:
             logger.warning(f"B站播放地址接口请求失败: {exc}")
             await bili_bv_search.finish("B站接口暂时不可用，请稍后重试。")
-        if not video_url:
+        if not video_info:
             await bili_bv_search.finish("获取视频播放地址失败，请稍后重试。")
 
-        await _send_video_or_fallback(vid_title, video_url, cid)
+        await _send_video_or_fallback(
+            vid_title,
+            video_info["url"],
+            cid,
+            bot,
+            message,
+            video_size=video_info.get("size"),
+        )
     await bili_bv_search.finish()
 
-async def post_video_kuku_file(vid_title, video_url, cid):
+async def post_video_kuku_file(vid_title, video_url, cid, video_size=None):
     """
     上传视频（异步处理）
     :param vid_title: 视频标题
@@ -227,14 +296,31 @@ async def post_video_kuku_file(vid_title, video_url, cid):
     """
     temp_file = Path(video_path) / f"{cid}_{uuid.uuid4().hex}.mp4"
     try:
+        if (
+            isinstance(video_size, int)
+            and not isinstance(video_size, bool)
+            and video_size > MAX_UPLOAD_SIZE
+        ):
+            logger.warning(
+                f"视频大小 {video_size} bytes 超过 Kukufile 上传限制"
+            )
+            return False
+
         downloaded = await run_sync(
-            biliVideos.video_download, video_url, temp_file
+            biliVideos.video_download,
+            video_url,
+            temp_file,
+            max_size=MAX_UPLOAD_SIZE,
+            expected_size=video_size,
         )
         if not downloaded or not temp_file.is_file():
             logger.warning(f"视频下载失败或文件不存在: {temp_file}")
             return False
 
-        post_msg = await Kukufile.upload_file(temp_file, file_name=vid_title)
+        display_name = str(vid_title).strip() or str(cid)
+        if not display_name.lower().endswith(".mp4"):
+            display_name += ".mp4"
+        post_msg = await Kukufile.upload_file(temp_file, file_name=display_name)
 
         if isinstance(post_msg, (list, tuple)) and len(post_msg) > 1 and post_msg[0] == "OK":
             video_page_url = post_msg[1].strip()

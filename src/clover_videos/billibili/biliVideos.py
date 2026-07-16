@@ -125,7 +125,17 @@ def get_video_pages_cid(vid_pages_info_list, num):
     cid = vid_pages_info_list[num - 1]['cid']
     return cid
 
-def get_video_file_url(bvid, cid):
+def _positive_int(value):
+    if isinstance(value, bool):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def get_video_file_info(bvid, cid):
     params = {
         'bvid': bvid,
         'cid': cid,
@@ -148,12 +158,47 @@ def get_video_file_url(bvid, cid):
     if not isinstance(durl, list) or not durl or not isinstance(durl[0], dict):
         logger.warning(f"B站播放地址接口返回异常: {response!r}")
         return None
-    file_url = durl[0].get('url')
-    return file_url if isinstance(file_url, str) and file_url else None
 
-def video_download(file_url, output_path):
+    if len(durl) != 1:
+        logger.warning(f"B站播放地址包含 {len(durl)} 个分段，暂不支持合并")
+        return None
+
+    file_data = durl[0]
+    file_url = file_data.get('url')
+    if not isinstance(file_url, str) or not file_url:
+        logger.warning(f"B站播放地址接口未返回有效 URL: {response!r}")
+        return None
+
+    backup_urls = file_data.get('backup_url') or []
+    if not isinstance(backup_urls, list):
+        backup_urls = []
+    return {
+        "url": file_url,
+        "backup_urls": [url for url in backup_urls if isinstance(url, str) and url],
+        "size": _positive_int(file_data.get('size')),
+        "length": _positive_int(file_data.get('length')),
+        "format": data.get('format') if isinstance(data.get('format'), str) else None,
+    }
+
+
+def get_video_file_url(bvid, cid):
+    file_info = get_video_file_info(bvid, cid)
+    return file_info["url"] if file_info else None
+
+
+def video_download(
+    file_url, output_path, *, max_size=None, expected_size=None
+):
     if not isinstance(file_url, str) or not file_url:
         logger.warning("视频下载失败: 播放地址为空")
+        return False
+
+    max_size = _positive_int(max_size)
+    expected_size = _positive_int(expected_size)
+    if max_size is not None and expected_size is not None and expected_size > max_size:
+        logger.warning(
+            f"视频下载已拒绝: 预期大小 {expected_size} bytes 超过限制 {max_size} bytes"
+        )
         return False
 
     destination = Path(output_path)
@@ -164,10 +209,30 @@ def video_download(file_url, output_path):
             file_url, headers=headers, stream=True, timeout=60
         ) as response:
             response.raise_for_status()
+            content_length = _positive_int(response.headers.get("Content-Length"))
+            if max_size is not None and content_length is not None and content_length > max_size:
+                logger.warning(
+                    f"视频下载已拒绝: 响应大小 {content_length} bytes 超过限制 {max_size} bytes"
+                )
+                return False
+
+            downloaded_size = 0
             with part_path.open('wb') as file:
-                for chunk in response.iter_content(chunk_size=8192):
+                for chunk in response.iter_content(chunk_size=64 * 1024):
                     if chunk:
+                        downloaded_size += len(chunk)
+                        if max_size is not None and downloaded_size > max_size:
+                            logger.warning(
+                                f"视频下载已中止: 已接收数据超过限制 {max_size} bytes"
+                            )
+                            return False
                         file.write(chunk)
+
+            if expected_size is not None and downloaded_size != expected_size:
+                logger.warning(
+                    f"视频下载失败: 预期 {expected_size} bytes，实际 {downloaded_size} bytes"
+                )
+                return False
         os.replace(part_path, destination)
         logger.debug(f"视频下载完成: {destination}")
         return True
