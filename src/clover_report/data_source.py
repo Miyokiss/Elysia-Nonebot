@@ -3,9 +3,8 @@ import os
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from os import getcwd
-from pathlib import Path
 import httpx
-from httpx import ConnectError, HTTPStatusError, Response, TimeoutException
+from httpx import HTTPStatusError, Response, TransportError
 from nonebot.log import logger
 from nonebot_plugin_htmlrender import template_to_pic
 import tenacity
@@ -15,13 +14,15 @@ from .config import Anime, Hitokoto, SixData
 from .date import get_festivals_dates
 from src.configs.path_config import temp_path
 from playwright.async_api import async_playwright
+from .bili_hotwords import BILI_HOTWORD_URLS, fetch_bili_hotwords
 
 
 RETRYABLE_HTTP_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+REPORT_IMAGE_LOCK = asyncio.Lock()
 
 
 def _is_retryable_request_error(exc: BaseException) -> bool:
-    if isinstance(exc, (TimeoutException, ConnectError)):
+    if isinstance(exc, TransportError):
         return True
     if isinstance(exc, HTTPStatusError):
         return exc.response.status_code in RETRYABLE_HTTP_STATUS_CODES
@@ -43,7 +44,7 @@ class AsyncHttpx:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 return response
-            except (TimeoutException, ConnectError, HTTPStatusError) as e:
+            except (TransportError, HTTPStatusError) as e:
                 logger.warning(f"Request to {url} failed due to: {e}")
                 raise
 
@@ -61,7 +62,7 @@ class AsyncHttpx:
                 response = await client.post(url, data=data, headers=headers)
                 response.raise_for_status()
                 return response
-            except (TimeoutException, ConnectError, HTTPStatusError) as e:
+            except (TransportError, HTTPStatusError) as e:
                 logger.warning(f"Request to {url} failed due to: {e}")
                 raise
 
@@ -84,7 +85,8 @@ class Report:
     alapi_token = "48x3u7iqryztowlnwbnrwjucebzieu"
     six_url = "https://60s.viki.moe/?v2=1"
     game_url = "https://www.4gamers.com.tw/rss/latest-news"
-    bili_url = "https://s.search.bilibili.com/main/hotword"
+    bili_url = BILI_HOTWORD_URLS[0]
+    bili_fallback_url = BILI_HOTWORD_URLS[1]
     it_url = "https://www.ithome.com/rss/"
     anime_url = "https://api.bgm.tv/calendar"
 
@@ -101,6 +103,11 @@ class Report:
 
     @classmethod
     async def get_report_image(cls) -> bytes:
+        async with REPORT_IMAGE_LOCK:
+            return await cls._generate_report_image()
+
+    @classmethod
+    async def _generate_report_image(cls) -> bytes:
         """获取数据"""
         now = datetime.now()
         file = os.path.join(temp_path,f"{now.date()}日报.png")
@@ -116,6 +123,7 @@ class Report:
             cls.get_it(),
             return_exceptions=True
         )
+        bili_failed = isinstance(result[1], Exception)
 
         def handle_result(res, default):
             if isinstance(res, Exception):
@@ -148,7 +156,8 @@ class Report:
             },
             wait=2,
         )
-        await save_img(image_bytes)
+        if not bili_failed:
+            await save_img(image_bytes)
         await browser.close()
         return image_bytes
 
@@ -162,19 +171,10 @@ class Report:
     @classmethod
     async def get_bili(cls) -> list[str]:
         """获取哔哩哔哩热搜"""
-        res = await AsyncHttpx.get(
-            cls.bili_url,
-            headers={
-                "Accept": "application/json, text/plain, */*",
-                "Referer": "https://www.bilibili.com/",
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 Chrome/126.0 Safari/537.36"
-                ),
-            },
+        return await fetch_bili_hotwords(
+            AsyncHttpx.get,
+            urls=(cls.bili_url, cls.bili_fallback_url),
         )
-        data = res.json()
-        return [item["keyword"] for item in data["list"]]
 
     @classmethod
     async def get_alapi_data(cls) -> list[str]:
