@@ -45,3 +45,4 @@ bot.pid
 logging.conf
 src/providers/waf/Banned.txt
 src/providers/waf/Non_replying.txt
+.vscode
