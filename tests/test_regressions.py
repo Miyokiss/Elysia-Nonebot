@@ -7,6 +7,7 @@ import unittest
 import re
 import sys
 import types
+from collections import namedtuple
 from pathlib import Path
 from unittest.mock import patch
 
@@ -75,7 +76,8 @@ class LogSanitizerTests(unittest.TestCase):
         record = {
             "message": (
                 "Failed to parse event Dispatch(data={'content': "
-                "\"type='PRIVATE_SECRET'\"}, type='GROUP_MESSAGE_CREATE')"
+                "\"type='PRIVATE_SECRET'\"}, sequence=1, "
+                "type='GROUP_MESSAGE_CREATE', id='event-id')"
             ),
             "exception": RuntimeError("secret"),
         }
@@ -85,7 +87,7 @@ class LogSanitizerTests(unittest.TestCase):
         self.assertIn("type=GROUP_MESSAGE_CREATE", record["message"])
         self.assertNotIn("PRIVATE_SECRET", record["message"])
 
-    def test_qq_media_tokens_and_c2c_content_are_removed(self):
+    def test_qq_message_events_are_fully_removed(self):
         group_record = {
             "message": (
                 "QQ | [EventType.GROUP_MESSAGE_CREATE]: "
@@ -104,7 +106,10 @@ class LogSanitizerTests(unittest.TestCase):
         sanitize_log_record(group_record)
         sanitize_log_record(c2c_record)
 
-        self.assertIn("<QQ media URL omitted>", group_record["message"])
+        self.assertEqual(
+            group_record["message"],
+            "QQ | [EventType.GROUP_MESSAGE_CREATE]: message content omitted",
+        )
         self.assertNotIn("secret-token", group_record["message"])
         self.assertEqual(
             c2c_record["message"],
@@ -123,8 +128,78 @@ class LogSanitizerTests(unittest.TestCase):
 
         sanitize_log_record(record)
 
-        self.assertIn("GROUP_MESSAGE_CREATE", record["message"])
-        self.assertIn("private marker", record["message"])
+        self.assertEqual(
+            record["message"],
+            "QQ | [EventType.GROUP_MESSAGE_CREATE]: message content omitted",
+        )
+        self.assertNotIn("private marker", record["message"])
+
+    def test_openids_and_labeled_user_content_are_removed(self):
+        record = {
+            "message": (
+                "点歌选择超时 User: 0123456789ABCDEF0123456789ABCDEF "
+                "Keyword: private song"
+            ),
+            "exception": None,
+        }
+
+        sanitize_log_record(record)
+
+        self.assertEqual(
+            record["message"],
+            "点歌选择超时 User: <openid omitted> Keyword: <text omitted>",
+        )
+
+    def test_multiline_labeled_content_is_removed(self):
+        record = {
+            "message": "回复等待超时 Content: first line\nprivate second line",
+            "exception": None,
+        }
+
+        sanitize_log_record(record)
+
+        self.assertEqual(
+            record["message"],
+            "回复等待超时 Content: <text omitted>",
+        )
+
+    def test_chat_and_credential_labels_are_removed(self):
+        messages = [
+            "Dify processed. Input: private prompt, Output: private answer",
+            "Generating TTS\ntext：private speech",
+            "request token: private-token",
+            "生成超管注册密钥: private-admin-key",
+            "code=500, message=private upstream body",
+        ]
+
+        for message in messages:
+            with self.subTest(message=message):
+                record = {"message": message, "exception": None}
+
+                sanitize_log_record(record)
+
+                self.assertNotIn("private", record["message"])
+                self.assertIn("<text omitted>", record["message"])
+
+    def test_exception_value_is_replaced_with_safe_summary(self):
+        ExceptionRecord = namedtuple("ExceptionRecord", ("type", "value", "traceback"))
+        secret = "0123456789ABCDEF0123456789ABCDEF"
+        record = {
+            "message": "operation failed",
+            "exception": ExceptionRecord(
+                RuntimeError,
+                RuntimeError(f"private {secret}"),
+                object(),
+            ),
+        }
+
+        sanitize_log_record(record)
+
+        self.assertEqual(
+            str(record["exception"].value),
+            "RuntimeError: details omitted",
+        )
+        self.assertNotIn(secret, str(record["exception"].value))
 
 
 class ImageResponseTests(unittest.TestCase):

@@ -75,7 +75,7 @@ class BLChatRole(Model):
                 logger.warning(f"检测到重复记录，已清理用户 {user_id} 的 {len(delete_ids)} 条重复数据")
                 return keep_record
         except DoesNotExist:
-            logger.info(f"No chat role found for user_id: {user_id}")
+            logger.info("No AliBL chat role found")
             return None
         except Exception as e:
             logger.error(f"Unexpected error occurred while fetching chat role: {e}")

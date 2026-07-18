@@ -294,7 +294,7 @@ async def handle_function(bot: Bot, message: MessageEvent):
     if group_openid != "C2C":
         permission_check = await ChatAdminHandler.check_chat_permission(user_id, group_openid)
         if not permission_check["allowed"]:
-            logger.info(f"群聊 {group_openid} 权限检查未通过: {permission_check['reason']}")
+            logger.info("群聊 AI 权限检查未通过")
             return
     else:
         # 检查私聊权限
@@ -368,7 +368,7 @@ async def handle_Elysia_response(bot: Bot, message: MessageEvent, on_tts: bool =
                                      +"\n如果爱莉记住了些奇怪的东西可以使用：/爱莉希雅 新的记忆")
                     content = "你好呀"
             except asyncio.TimeoutError:
-                logger.info(f"check | 回复等待超时 User: {user_id} Content: {content}")
+                logger.info("AI 服务协议回复等待超时")
                 return
             finally:
                 # 清理临时 matcher
@@ -385,7 +385,7 @@ async def handle_Elysia_response(bot: Bot, message: MessageEvent, on_tts: bool =
             await check.finish(f"您的AI Chat已被封禁：{ban_info}\n请联使用 /help 指令咨询管理员了解详情")
         is_k, is_i = await waf.process(user_id, content)
         if is_k:
-            logger.info(f"用户：{user_id} {is_i} content：{content}")
+            logger.info("AI 对话输入被 WAF 拒绝")
             return
 
     async def _Elysia_Chat_task(bot, message):

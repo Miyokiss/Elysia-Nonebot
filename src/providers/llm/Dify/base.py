@@ -86,10 +86,7 @@ async def on_chat(user_id: str, content: str) -> Optional[str]:
         else:
             r_msg = await _handle_existing_user(user_id, content, user_msg)
             
-        logger.info(
-            f"User {user_id} chat processed successfully. "
-            f"Input: {content}, Output: {r_msg}"
-        )
+        logger.info("Dify 对话处理成功")
         return r_msg
         
     except Exception as e:

@@ -4,10 +4,23 @@ import re
 QQ_MEDIA_URL_PATTERN = re.compile(
     r"https://(?:multimedia\.nt\.qq\.com\.cn|qqbot\.ugcimg\.cn)/[^'\"\s)]+"
 )
-C2C_EVENT_PREFIX = re.compile(
-    r"^QQ\b[^|\r\n]*\|\s*\[EventType\.C2C_MESSAGE_CREATE\]:"
+MESSAGE_EVENT_PREFIX = re.compile(
+    r"^(QQ\b[^|\r\n]*\|\s*"
+    r"\[EventType\.[A-Z0-9_]*MESSAGE_CREATE\]:)"
 )
-DISPATCH_TYPE_SUFFIX = re.compile(r"\btype='([A-Z][A-Z0-9_]*)'\)\s*$")
+DISPATCH_TYPE_SUFFIX = re.compile(
+    r",\s*type='([A-Z][A-Z0-9_]*)'"
+    r"(?:,\s*id=(?:None|'[^'\r\n]*'))?\)\s*$"
+)
+OPENID_PATTERN = re.compile(r"(?<![A-Fa-f0-9])[A-Fa-f0-9]{32}(?![A-Fa-f0-9])")
+LABELED_CONTENT_PATTERN = re.compile(
+    r"((?:\b(?:keyword|content|input|output|text|prompt|query|messages?|"
+    r"completion|reply|answer|values?|token|secret|password|error|response|"
+    r"body|data)\b|\berror[_ -]?message\b|"
+    r"\bapi[_ -]?key\b|\bkey\b|(?:密钥|用户回复|回复参数|文本|内容))"
+    r"\s*[:：=]\s*).*$",
+    flags=re.IGNORECASE | re.DOTALL,
+)
 
 
 def _safe_exception_summary(exception) -> str:
@@ -32,32 +45,51 @@ def _safe_exception_summary(exception) -> str:
         location = error.get("loc", ())
         if not isinstance(location, (list, tuple)):
             location = (location,)
-        safe_location = ".".join(
-            re.sub(r"[^A-Za-z0-9_-]", "?", str(part))[:40]
-            for part in location
-        ) or "unknown"
-        error_type = re.sub(
-            r"[^A-Za-z0-9_.-]", "?", str(error.get("type", "unknown"))
-        )[:60]
+        safe_location = (
+            ".".join(
+                re.sub(r"[^A-Za-z0-9_-]", "?", str(part))[:40] for part in location
+            )
+            or "unknown"
+        )
+        error_type = re.sub(r"[^A-Za-z0-9_.-]", "?", str(error.get("type", "unknown")))[
+            :60
+        ]
         issues.append(f"{safe_location}:{error_type}")
     return f"{name}[{','.join(issues)}]" if issues else name
+
+
+def _sanitize_record_exception(record) -> None:
+    exception = record.get("exception")
+    value = getattr(exception, "value", None)
+    if value is None:
+        return
+
+    safe_value = RuntimeError(f"{type(value).__name__}: details omitted")
+    replace = getattr(exception, "_replace", None)
+    if callable(replace):
+        record["exception"] = replace(value=safe_value)
+    else:
+        record["exception"] = safe_value
 
 
 def sanitize_log_record(record) -> None:
     message = record["message"]
     message = QQ_MEDIA_URL_PATTERN.sub("<QQ media URL omitted>", message)
-    if match := C2C_EVENT_PREFIX.match(message):
-        message = f"{message[:match.end()]} message content omitted"
-    record["message"] = message
+    if match := MESSAGE_EVENT_PREFIX.match(message):
+        message = f"{message[: match.end()]} message content omitted"
 
-    if "Failed to parse event Dispatch(" not in message:
+    if "Failed to parse event Dispatch(" in message:
+        event_type = DISPATCH_TYPE_SUFFIX.search(message)
+        type_name = event_type.group(1) if event_type else "unknown"
+        error_summary = _safe_exception_summary(record.get("exception"))
+        record["message"] = (
+            f"QQ event parse failed: type={type_name}; error={error_summary}; "
+            "raw payload omitted"
+        )
+        record["exception"] = None
         return
 
-    event_type = DISPATCH_TYPE_SUFFIX.search(message)
-    type_name = event_type.group(1) if event_type else "unknown"
-    error_summary = _safe_exception_summary(record.get("exception"))
-    record["message"] = (
-        f"QQ event parse failed: type={type_name}; error={error_summary}; "
-        "raw payload omitted"
-    )
-    record["exception"] = None
+    message = OPENID_PATTERN.sub("<openid omitted>", message)
+    message = LABELED_CONTENT_PATTERN.sub(r"\1<text omitted>", message)
+    record["message"] = message
+    _sanitize_record_exception(record)

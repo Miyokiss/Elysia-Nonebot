@@ -119,7 +119,7 @@ async def handle_function(bot: Bot, msg: MessageEvent) -> None:
             if isinstance(result, BaseException):
                 raise result
     except asyncio.TimeoutError:
-        logger.info(f"点歌选择超时 User: {msg.get_user_id()} Keyword: {keyword}")
+        logger.info("点歌选择超时，用户标识和关键词已省略")
     except (FinishedException, PausedException):
         return
     except ActionFailed as exc:

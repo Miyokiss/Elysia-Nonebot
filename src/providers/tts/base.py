@@ -33,7 +33,7 @@ class TTSProviderBase(ABC):
         """
         tmp_file = self.generate_fileinfo()["file_path"]
         file_name = self.generate_fileinfo()["file_name"]
-        logger.info(f"Generating TTS :\ntext：{text}tmp_file：:{tmp_file}file_name：{file_name}")
+        logger.info(f"开始生成 TTS 文件: {file_name}")
         try:
             max_repeat_time = 5
             text = MarkdownCleaner.clean_markdown(text)
@@ -44,7 +44,7 @@ class TTSProviderBase(ABC):
                     logger.error(f"语音生成失败: {text}:{tmp_file}，再试{max_repeat_time}次")
 
             if max_repeat_time > 0:
-                logger.info(f"语音生成成功: {text}:{tmp_file}，重试{5 - max_repeat_time}次")
+                logger.info(f"语音生成成功，已重试 {5 - max_repeat_time} 次")
 
             return {
                 "file_path": tmp_file,

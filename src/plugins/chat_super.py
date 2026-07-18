@@ -360,8 +360,12 @@ async def handle_chat_admin_register(message: MessageEvent):
     
     try:
         info_key = str(uuid.uuid4())
-        logger.info(f"生成超管注册密钥: {info_key}，请提供给管理员使用。")
-        await ChatAdminRegister.send(f"请提供控制台输出的注册密钥和管理员名称。\n有效时间：120秒，回复格式：<密钥> <管理员名称>")
+        print(f"超管注册密钥（120 秒有效）: {info_key}", flush=True)
+        logger.info("已生成一次性超管注册密钥，有效期 120 秒")
+        await ChatAdminRegister.send(
+            "请提供控制台输出的注册密钥和管理员名称。"
+            "\n有效时间：120秒，回复格式：<密钥> <管理员名称>"
+        )
         # 等待用户回复（超时120秒）
         r_content = await asyncio.wait_for(future, timeout=120)
         # 显式获取消息内容
