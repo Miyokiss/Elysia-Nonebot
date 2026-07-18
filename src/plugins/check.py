@@ -35,8 +35,8 @@ from src.providers.chat_admin.handler import ChatAdminHandler
 
 waf = LLMWAF()
 
-menu = ["/今日运势","/今日塔罗","/今日助理","/我的助理","/今日超能力"
-        "/图","/随机图",
+menu = ["/今日运势","/今日塔罗","/今日助理","/我的助理","/今日超能力",
+        "/图","/随机图","/生图","/生图助手",
         "/搜番",
         "/日报",
         "/点歌",
@@ -219,6 +219,14 @@ send_menu = [
             {
                 "command": "/随机图",
                 "description": "Tips:获取一张随机图片！~",
+            },
+            {
+                "command": "/生图 [分辨率] 提示词",
+                "description": "Tips:支持自定义尺寸、参考图与自拍模式！~",
+            },
+            {
+                "command": "/生图助手",
+                "description": "Tips:支持描述、参考图或两者组合！~",
             }
         ]
     },

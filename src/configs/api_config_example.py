@@ -27,6 +27,38 @@ xjh_url = "https://img.xjh.me/random_img.php?return=json"
 
 # 搜番/acg api
 animetrace_url = "https://api.animetrace.com/v1/search"
+
+"""
+生图 API 配置
+"""
+# 生产环境应使用 HTTPS；HTTP 仅适用于完全可信的本地或内网服务。
+# GPT 生图、Seedream 生图和生图助手可以指向不同的兼容端点并使用独立密钥。
+image_generation_gpt_base_url = "http://127.0.0.1:3000"
+image_generation_gpt_api_key = "<KEY>"
+image_generation_gpt_model = "gpt-image-2"
+
+image_generation_seedream_base_url = "http://127.0.0.1:3000"
+image_generation_seedream_api_key = "<KEY>"
+image_generation_seedream_model = "doubao-seedream-5-0-260128"
+
+# 用户未指定单次分辨率时使用：GPT 支持 auto 或有效的 WxH
+image_generation_size = "1024x1024"
+# Seedream 支持 auto、1K、2K、4K 或宽高均不超过 4096px 的 WxH
+image_generation_seedream_size = "2K"
+image_generation_timeout = 300.0
+image_generation_max_concurrency = 2
+image_generation_user_cooldown = 60.0
+image_generation_daily_user_limit = 10
+
+image_prompt_assistant_base_url = "http://127.0.0.1:3000"
+image_prompt_assistant_api_key = "<KEY>"
+image_prompt_assistant_model = "gpt-5.6-terra"
+# 安全判定和提示词生成两个阶段共享的总时间预算；瞬时故障会在预算内重试一次。
+image_prompt_assistant_timeout = 120.0
+image_prompt_assistant_max_concurrency = 3
+image_prompt_assistant_user_cooldown = 15.0
+image_prompt_assistant_daily_user_limit = 20
+
 """
 AI
 """

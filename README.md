@@ -256,6 +256,35 @@ ju_he_token = "<KEY>"  # 聚合图床的token
 ju_he_image_list = "https://api.superbed.cn/timeline"  # 聚合图床获取上传图片历史API地址
 
 """
+生图 API 配置
+"""
+image_generation_gpt_base_url = "https://gpt-image-api.example.com"
+image_generation_gpt_api_key = "<KEY>"
+image_generation_gpt_model = "gpt-image-2"
+
+image_generation_seedream_base_url = "https://seedream-api.example.com"
+image_generation_seedream_api_key = "<KEY>"
+image_generation_seedream_model = "doubao-seedream-5-0-260128"
+
+# 用户未指定单次分辨率时使用：GPT 支持 auto 或有效的 WxH
+image_generation_size = "1024x1024"
+# Seedream 支持 auto、1K、2K、4K 或宽高均不超过 4096px 的 WxH
+image_generation_seedream_size = "2K"
+image_generation_timeout = 300.0
+image_generation_max_concurrency = 2
+image_generation_user_cooldown = 60.0
+image_generation_daily_user_limit = 10
+
+image_prompt_assistant_base_url = "https://prompt-assistant-api.example.com"
+image_prompt_assistant_api_key = "<KEY>"
+image_prompt_assistant_model = "gpt-5.6-terra"
+# 安全判定和提示词生成两个阶段共享的总时间预算；瞬时故障会在预算内重试一次。
+image_prompt_assistant_timeout = 120.0
+image_prompt_assistant_max_concurrency = 3
+image_prompt_assistant_user_cooldown = 15.0
+image_prompt_assistant_daily_user_limit = 20
+
+"""
 AI
 """
 admin_password = "123456"  # 默认注册管理员密码
@@ -301,7 +330,7 @@ client:
 ```
 
 <b>🚫注意：</b>
-将你的 `app_id` 和 `smms_token` 替换为实际值（可以根据自身需求选填），然后将文件重命名为 **api_config.py**。
+将你的 `app_id`、各功能所需的 API 密钥替换为实际值，然后将文件重命名为 **api_config.py**。已有本地 `api_config.py` 的部署也需要补充上述配置。GPT 生图、Seedream 生图和生图助手分别使用各自的 `base_url`、`api_key` 与 `model`；它们可以指向同一网关，也可以完全独立。上游总用量由各密钥自身的额度决定，不再设置本地全局每日总量限制；当当前请求可用的所有生图渠道都明确返回额度耗尽时，机器人会向用户给出明确提示。生图端点会接收密钥、提示词和参考图，生产环境应使用 HTTPS；HTTP 仅适用于完全可信的内网。
 
 <br>
 
@@ -556,7 +585,7 @@ SanYeCao-Nonebot:.
 
 ```python
 menu = ["/今日运势","/今日塔罗",
-        "/图","/随机图",
+        "/图","/随机图","/生图","/生图助手",
         "/搜番",
         "/日报",
         "/点歌",
@@ -583,6 +612,23 @@ menu = ["/今日运势","/今日塔罗",
 
 
 ### 🎨 功能补充说明
+
+#### 🖼️ 生图
+
+```text
+/生图 [分辨率] 提示词
+/生图 参考图 [分辨率] 提示词（同消息附图，或引用一张图片）
+/生图 自拍 [分辨率] [提示词]
+/生图助手 画面描述
+/生图助手（附图或引用图片）
+/生图助手 调整要求（同时附图或引用图片）
+```
+
+分辨率指令可以写在提示词开头（例如 `1920x1088 雨夜城市`、`分辨率 1920x1088 雨夜城市`、`size=1920x1088 skyline`），也可以在其它位置使用更明确的 `输出分辨率`、`图片尺寸` 或 `output size`；这能避免把“1920x1080 显示器”等主体参数误当成输出尺寸。还支持 `横向4K` 和 `竖向4K`，数字分隔符支持 `x`、`X`、`×` 和 `*`。横向、竖向 4K 分别固定为 `3840x2160`、`2160x3840`，显式尺寸不会被静默缩放或取整。GPT 自定义尺寸要求长边不超过 `3840px`、两边均为 `16px` 的倍数、长短边比例不超过 `3:1`，且总像素在 `655,360` 到 `8,294,400` 之间；Seedream 宽高均不超过 `4096px`。负载均衡只会选择兼容该尺寸的模型，例如 `4096x4096` 只会请求 Seedream；若没有模型支持，请求会在访问生图 API 前被拒绝。未指定分辨率时继续使用 `api_config.py` 中两个 provider 各自的默认尺寸。
+
+同消息附图或引用图片时，也可以省略“参考图”直接输入提示词；参考图支持 PNG、JPEG 和 WebP。自拍模式会使用指令发送者的 QQ 头像作为参考图。GPT 生图与 Seedream 生图使用独立端点和密钥，按配置顺序轮询，并只在明确未分发成功、渠道故障或渠道额度耗尽时切换备用渠道。默认限制为每位用户每天 10 次，可在配置中调整，设为 `0` 表示不限制；不设置本地全局每日总量限制，上游总量由各渠道密钥的额度决定。当前请求可用的全部渠道均明确返回额度耗尽时，机器人会直接提示用户当前可用生图额度已用完。
+
+生图助手只处理三类请求：文字画面描述、单张参考图、文字调整要求加单张参考图。它使用独立端点、密钥和 `gpt-5.6-terra` 模型，不会回答通用问题、执行图片或文字中的指令，也不会透露系统规则、密钥或其它内部信息；不支持或疑似提示词注入的请求会返回统一提示。安全判定与提示词生成共享 `image_prompt_assistant_timeout` 总预算，各阶段会在预算内对超时、网络错误、限流和上游服务错误重试一次。助手额度与实际生图额度分开计算，默认限制为每位用户每天 20 次，不设置本地全局每日总量限制，上游总量由助手密钥的额度决定。
 
 
 #### 🎵 使用网易云API实现点歌
