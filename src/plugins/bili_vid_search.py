@@ -10,10 +10,6 @@ from nonebot import on_command
 from nonebot.rule import to_me
 from nonebot.adapters.qq import (
     Bot,
-    C2CMessageCreateEvent,
-    DirectMessageCreateEvent,
-    GroupMessageCreateEvent,
-    GuildMessageEvent,
     Message,
     MessageEvent,
     MessageSegment,
@@ -34,9 +30,11 @@ VIDEO_FALLBACK_BLOCKED_CODES = {
     40034006,
     40054002,
     40054005,
-    50015014,
 }
 QQ_REMOTE_VIDEO_LIMIT = 10 * 1024 * 1024
+CLOUD_FALLBACK_TIMEOUT_SECONDS = 180
+VIDEO_PIPELINE_SEMAPHORE = asyncio.Semaphore(2)
+_background_uploads: set[asyncio.Task] = set()
 
 
 def _can_use_video_fallback(exc: ActionFailed) -> bool:
@@ -68,17 +66,69 @@ def _should_use_video_fallback(video_size) -> bool:
     )
 
 
+async def _send_search_result(message: Message, text_fallback: str) -> bool:
+    try:
+        await bili_vid.send(message)
+        return True
+    except ActionFailed as exc:
+        logger.warning(
+            f"B站搜索图片结果发送失败，尝试文本降级: "
+            f"code={exc.code}, message={exc.message}"
+        )
+    except Exception as exc:
+        logger.warning(f"B站搜索图片结果发送失败: {type(exc).__name__}")
+
+    try:
+        await bili_vid.send(text_fallback)
+        return True
+    except ActionFailed as exc:
+        logger.warning(
+            f"B站搜索文本结果发送失败: code={exc.code}, message={exc.message}"
+        )
+    except Exception as exc:
+        logger.warning(f"B站搜索文本结果发送失败: {type(exc).__name__}")
+    return False
+
+
 async def _send_delayed_message(bot: Bot, event: MessageEvent, message) -> None:
-    if isinstance(event, GroupMessageCreateEvent):
-        await bot.send_to_group(group_openid=event.group_openid, message=message)
-    elif isinstance(event, C2CMessageCreateEvent):
-        await bot.send_to_c2c(openid=event.author.id, message=message)
-    elif isinstance(event, DirectMessageCreateEvent):
-        await bot.send_to_dms(guild_id=event.guild_id, message=message)
-    elif isinstance(event, GuildMessageEvent):
-        await bot.send_to_channel(channel_id=event.channel_id, message=message)
-    else:
-        await bili_bv_search.send(message)
+    # Bot.send preserves msg_id/msg_seq from the original event, so QQ treats the
+    # result as a passive reply instead of an unauthorized proactive message.
+    await bot.send(event=event, message=message)
+
+
+def _finish_background_upload(task: asyncio.Task) -> None:
+    _background_uploads.discard(task)
+    if task.cancelled():
+        return
+    try:
+        task.result()
+    except Exception as exc:
+        logger.warning(f"超时后的云盘任务失败: {type(exc).__name__}")
+
+
+def _track_background_upload(task: asyncio.Task) -> None:
+    _background_uploads.add(task)
+    task.add_done_callback(_finish_background_upload)
+
+
+async def _post_video_with_deadline(*args, **kwargs) -> tuple[bool, str | bool | None]:
+    task = asyncio.create_task(post_video_kuku_file(*args, **kwargs))
+    try:
+        done, _ = await asyncio.wait(
+            {task}, timeout=CLOUD_FALLBACK_TIMEOUT_SECONDS
+        )
+    except asyncio.CancelledError:
+        task.cancel()
+        _track_background_upload(task)
+        raise
+    if not done:
+        task.cancel()
+        _track_background_upload(task)
+        logger.warning(
+            f"视频云盘降级超过 {CLOUD_FALLBACK_TIMEOUT_SECONDS} 秒，停止等待结果"
+        )
+        return False, None
+    return True, task.result()
 
 
 async def _send_delayed_safely(bot: Bot, event: MessageEvent, message) -> bool:
@@ -109,13 +159,9 @@ async def get_bili_vid_info(message: MessageEvent):
         await bili_vid.finish(message)
     search_result = response.get('data', {}).get('result') or []
 
-    i = 0
-    for vid_info in search_result:
-        i += 1
-        if i >= 4:
-            break
+    sent_count = 0
+    for vid_info in search_result[:3]:
         pic = "https:" + str(vid_info['pic'])
-        # print(pic)
         description = ("\n标题: " + str(vid_info['title']).replace('<em class="keyword">', "").replace('</em>', "") +
                        "\nup主: " + vid_info['author'] +
                        "\n" + vid_info['bvid'])
@@ -123,10 +169,13 @@ async def get_bili_vid_info(message: MessageEvent):
             MessageSegment.image(pic),
             MessageSegment.text(description),
         ])
-        await bili_vid.send(msg)
-        await asyncio.sleep(0.5)
+        if await _send_search_result(msg, description):
+            sent_count += 1
+            await asyncio.sleep(0.5)
 
-    await bili_vid.finish(f"展示{len(search_result)}条结果中的前3条。")
+    if sent_count:
+        await bili_vid.finish(f"已展示 {sent_count} 条结果。")
+    await bili_vid.finish("搜索结果发送失败，请稍后重试。")
 
 
 bili_bv_search = on_command("BV搜索", rule=to_me(), priority=10)
@@ -158,9 +207,14 @@ async def _send_video_or_fallback(
 
     qr_path = None
     try:
-        qr_url = await post_video_kuku_file(
+        completed, qr_url = await _post_video_with_deadline(
             vid_title, video_url, cid, video_size=video_size
         )
+        if not completed:
+            await _send_delayed_safely(
+                bot, event, "视频处理超时，请稍后重试"
+            )
+            return
         if not qr_url:
             await _send_delayed_safely(
                 bot, event, "发送失败了，视频下载或上传服务异常"
@@ -250,7 +304,7 @@ async def get_video_file(message: MessageEvent, bot: Bot):
 
         try:
             page_num = int(keyword[1])
-        except:
+        except (TypeError, ValueError):
             await bili_bv_search.finish("输入有误\n请确认是否为 /BV搜索+BV号+序号(数字) ")
 
         if page_num > len(pages):
@@ -287,6 +341,11 @@ async def get_video_file(message: MessageEvent, bot: Bot):
     await bili_bv_search.finish()
 
 async def post_video_kuku_file(vid_title, video_url, cid, video_size=None):
+    async with VIDEO_PIPELINE_SEMAPHORE:
+        return await _post_video_kuku_file(vid_title, video_url, cid, video_size)
+
+
+async def _post_video_kuku_file(vid_title, video_url, cid, video_size=None):
     """
     上传视频（异步处理）
     :param vid_title: 视频标题
@@ -306,8 +365,7 @@ async def post_video_kuku_file(vid_title, video_url, cid, video_size=None):
             )
             return False
 
-        downloaded = await run_sync(
-            biliVideos.video_download,
+        downloaded = await biliVideos.video_download_async(
             video_url,
             temp_file,
             max_size=MAX_UPLOAD_SIZE,
@@ -320,22 +378,21 @@ async def post_video_kuku_file(vid_title, video_url, cid, video_size=None):
         display_name = str(vid_title).strip() or str(cid)
         if not display_name.lower().endswith(".mp4"):
             display_name += ".mp4"
-        post_msg = await Kukufile.upload_file(temp_file, file_name=display_name)
+        post_msg = await Kukufile.upload_temporary_file(
+            temp_file,
+            file_name=display_name,
+            expiration_seconds=600,
+        )
 
         if isinstance(post_msg, (list, tuple)) and len(post_msg) > 1 and post_msg[0] == "OK":
             video_page_url = post_msg[1].strip()
             logger.debug("视频临时链接生成成功")
-            try:
-                await Kukufile.auto_delete_kukufile(["OK", video_page_url], 600)
-            except Exception as exc:
-                logger.error(f"设置 Kukufile 自动删除失败，拒绝发布无过期链接: {exc}")
-                return False
             return f"{qrserver_url}?size={qrserver_size}&data={video_page_url}"
         else:
-            logger.error("Kukufile 上传接口返回失败状态")
+            logger.warning("Kukufile 上传接口未返回可用链接")
             return False
-    except Exception as e:
-        logger.error(f"后台任务异常: {str(e)}")
+    except Exception as exc:
+        logger.error(f"后台任务异常: {type(exc).__name__}")
         return False
     finally:
         if temp_file.is_file():

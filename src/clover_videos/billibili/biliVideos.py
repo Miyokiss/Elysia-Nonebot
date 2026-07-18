@@ -1,5 +1,8 @@
 import os
 import pickle
+import asyncio
+import aiofiles
+import aiohttp
 from nonebot import logger
 import ffmpeg
 import requests
@@ -238,6 +241,70 @@ def video_download(
         return True
     except (requests.RequestException, OSError) as exc:
         logger.warning(f"视频下载失败: {exc}")
+        return False
+    finally:
+        try:
+            part_path.unlink(missing_ok=True)
+        except OSError as exc:
+            logger.warning(f"清理视频下载临时文件失败 {part_path}: {exc}")
+
+
+async def video_download_async(
+    file_url, output_path, *, max_size=None, expected_size=None
+):
+    if not isinstance(file_url, str) or not file_url:
+        logger.warning("视频下载失败: 播放地址为空")
+        return False
+
+    max_size = _positive_int(max_size)
+    expected_size = _positive_int(expected_size)
+    if max_size is not None and expected_size is not None and expected_size > max_size:
+        logger.warning(
+            f"视频下载已拒绝: 预期大小 {expected_size} bytes 超过限制 {max_size} bytes"
+        )
+        return False
+
+    destination = Path(output_path)
+    part_path = destination.with_name(f"{destination.name}.part")
+    timeout = aiohttp.ClientTimeout(connect=10, sock_read=30)
+    try:
+        await asyncio.to_thread(destination.parent.mkdir, parents=True, exist_ok=True)
+        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
+            async with session.get(file_url) as response:
+                response.raise_for_status()
+                content_length = _positive_int(response.headers.get("Content-Length"))
+                if (
+                    max_size is not None
+                    and content_length is not None
+                    and content_length > max_size
+                ):
+                    logger.warning(
+                        f"视频下载已拒绝: 响应大小 {content_length} bytes 超过限制 {max_size} bytes"
+                    )
+                    return False
+
+                downloaded_size = 0
+                async with aiofiles.open(part_path, "wb") as file:
+                    async for chunk in response.content.iter_chunked(64 * 1024):
+                        downloaded_size += len(chunk)
+                        if max_size is not None and downloaded_size > max_size:
+                            logger.warning(
+                                f"视频下载已中止: 已接收数据超过限制 {max_size} bytes"
+                            )
+                            return False
+                        await file.write(chunk)
+
+                if expected_size is not None and downloaded_size != expected_size:
+                    logger.warning(
+                        f"视频下载失败: 预期 {expected_size} bytes，实际 {downloaded_size} bytes"
+                    )
+                    return False
+
+        await asyncio.to_thread(os.replace, part_path, destination)
+        logger.debug(f"视频下载完成: {destination}")
+        return True
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:
+        logger.warning(f"视频下载失败: {type(exc).__name__}")
         return False
     finally:
         try:
