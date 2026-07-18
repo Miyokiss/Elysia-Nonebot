@@ -858,11 +858,17 @@ class TarotResourceTests(unittest.TestCase):
     def test_all_card_image_references_exist(self):
         project_root = Path(__file__).resolve().parents[1]
         model_path = project_root / "src" / "clover_sqlite" / "models" / "tarot.py"
-        image_dir = project_root / "src" / "resources" / "image" / "tarot" / "TarotImages"
-        references = set(
-            re.findall(r'image="([^\"]+\.(?:jpg|png))"', model_path.read_text(encoding="utf-8"))
+        image_dir = (
+            project_root / "src" / "resources" / "image" / "tarot" / "TarotImages"
         )
-        missing = sorted(name for name in references if not (image_dir / name).is_file())
+        references = set(
+            re.findall(
+                r'image="([^\"]+\.(?:jpg|png))"', model_path.read_text(encoding="utf-8")
+            )
+        )
+        missing = sorted(
+            name for name in references if not (image_dir / name).is_file()
+        )
         self.assertEqual(missing, [])
 
     def test_legacy_jpg_record_resolves_to_deployed_png(self):
