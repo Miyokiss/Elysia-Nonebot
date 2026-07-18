@@ -1,122 +1,179 @@
-import os
+from datetime import datetime
 from pathlib import Path
+from urllib.parse import urljoin, urlsplit, urlunsplit
+
 import requests
-from os import getcwd
 from bs4 import BeautifulSoup
-from datetime import datetime,timedelta
-from nonebot_plugin_htmlrender import template_to_pic
+from nonebot_plugin_htmlrender import get_new_page
+
 from src.configs.path_config import yuc_wiki_path
 
-base_url = "https://yuc.wiki/"
-new =  "https://yuc.wiki/new"
 
-async def get_yuc_wiki(keyword):
-    """
-    获取当季动漫
-    """
-    template_name,response = '',''
+BASE_URL = "https://yuc.wiki/"
+FORECAST_URL = "https://yuc.wiki/new"
+FONT_FAMILY = "Elysia Noto Sans SC"
+RENDER_CACHE_VERSION = "utf8-noto-v2"
+
+FONT_DIR = Path(__file__).resolve().parents[1] / "clover_html" / "res" / "font"
+REGULAR_FONT = FONT_DIR / "NotoSansSC-Regular.otf"
+BOLD_FONT = FONT_DIR / "NotoSansSC-Bold.otf"
+
+
+async def get_yuc_wiki(keyword: str) -> str | None:
+    """Fetch and render the current season or forecast anime page."""
+    if keyword == "本季新番":
+        template_name = await generate_season_url()
+        url = urljoin(BASE_URL, template_name)
+    else:
+        template_name = "forecast_anime"
+        url = FORECAST_URL
+
     try:
-        if keyword == '本季新番':
-            template_name = await generate_season_url()
-            response = requests.get(base_url + f'{template_name}')
-        else:
-            template_name = 'forecast_anime'
-            response = requests.get(new)
-
+        response = requests.get(url, timeout=20)
         if response.status_code != 200:
             return None
 
         soup = await dispose_html(response)
-        with open(yuc_wiki_path+f'{template_name}.html', 'w', encoding='utf-8') as f:
-            f.write(str(soup))
-        await get_yuc_wiki_image(template_name,568,1885)
-    except (Exception, IOError) as e:
-        print(f"Error occurred: {e}")
+        html_file = _html_file(template_name)
+        html_file.write_text(str(soup), encoding="utf-8")
+        await get_yuc_wiki_image(template_name, 568, 1885)
+        return str(_image_file(template_name))
+    except Exception as exc:
+        print(f"Error occurred: {exc}")
+        return None
 
-    return yuc_wiki_path+f'{template_name}.jpeg'
 
-async def generate_season_url():
-    """
-    获取当前季度
-    :return:
-    """
+async def generate_season_url() -> str:
+    """Return the upstream page slug for the current calendar quarter."""
     now = datetime.now()
     quarter_month = ((now.month - 1) // 3) * 3 + 1
     return f"{now.year}{quarter_month:02d}"
 
-async def dispose_html(response):
-    """
-    处理html
-    :param response:
-    :return:
-    """
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, 'html.parser')
 
-    first_table = soup.select_one('table')
+def _absolute_resource_url(value: str) -> str:
+    normalized = value.strip().replace("\\", "/")
+    if normalized.startswith("//"):
+        normalized = f"https:{normalized}"
+    else:
+        normalized = urljoin(BASE_URL, normalized)
+
+    parsed = urlsplit(normalized)
+    if parsed.scheme == "http":
+        normalized = urlunsplit(parsed._replace(scheme="https"))
+    return normalized
+
+
+def _inject_local_fonts(soup: BeautifulSoup) -> None:
+    head = soup.head
+    if head is None:
+        head = soup.new_tag("head")
+        soup.insert(0, head)
+
+    style = soup.new_tag("style", id="elysia-yuc-local-fonts")
+    style["data-render-version"] = RENDER_CACHE_VERSION
+    style.string = f"""
+@font-face {{
+  font-family: "{FONT_FAMILY}";
+  src: url("{REGULAR_FONT.resolve().as_uri()}") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+}}
+@font-face {{
+  font-family: "{FONT_FAMILY}";
+  src: url("{BOLD_FONT.resolve().as_uri()}") format("opentype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+}}
+html,
+body,
+body * {{
+  font-family: "{FONT_FAMILY}", sans-serif !important;
+}}
+"""
+    head.append(style)
+
+
+async def dispose_html(response: requests.Response) -> BeautifulSoup:
+    """Trim the upstream page and make its resources deterministic."""
+    response.raise_for_status()
+    soup = BeautifulSoup(response.content, "html.parser", from_encoding="utf-8")
+
+    first_table = soup.select_one("table")
     if first_table:
         first_table.decompose()
 
-    for tag in soup.select('header, aside'):
-        tag.decompose()
+    for selector in ("header", "aside", "script", ".toggle", "#sidebar-dimmer", ".fa"):
+        for tag in soup.select(selector):
+            tag.decompose()
 
-    hr_tags = soup.find_all('hr')
+    hr_tags = soup.find_all("hr")
     if len(hr_tags) >= 2:
-        second_hr = hr_tags[1]
-
-        next_element = second_hr.next_sibling
+        next_element = hr_tags[1].next_sibling
         while next_element:
             next_sibling = next_element.next_sibling
             next_element.extract()
             next_element = next_sibling
 
-    for tag in soup.find_all(['a', 'link', 'img', 'script', 'source']):
+    for tag in soup.find_all(["a", "link", "img", "source"]):
+        if tag.name == "img" and tag.get("data-src"):
+            tag["src"] = tag["data-src"]
+            del tag["data-src"]
 
-        if tag.name == 'img' and tag.get('data-src'):
-            tag['src'] = tag['data-src']
-            del tag['data-src']
-
-        attr = 'href' if tag.name in ['a', 'link'] else 'src'
+        attr = "href" if tag.name in {"a", "link"} else "src"
         if tag.has_attr(attr):
-            path = tag[attr].lstrip('/\\')
-            if not path.startswith(('http://', 'https://')):
-                tag[attr] = f"{base_url}{path}"
-            if path.startswith('http://'):
-                tag[attr] = path.replace('http://', 'https://', 1)
-    return  soup
+            tag[attr] = _absolute_resource_url(tag[attr])
 
-async def get_yuc_wiki_image(template_name,width,height):
+    for link in soup.select('link[rel~="stylesheet"][href]'):
+        parsed = urlsplit(link["href"])
+        if (
+            parsed.hostname == "fonts.loli.net"
+            or "/font-awesome/" in parsed.path
+        ):
+            link.decompose()
 
-    file = os.path.join(yuc_wiki_path, f"{template_name}.jpeg")
-    if os.path.exists(file):
-        with  open(file,"rb") as image_file:
-            return image_file.read()
+    _inject_local_fonts(soup)
+    return soup
 
-    image_bytes = await template_to_pic(
-        template_path=yuc_wiki_path,
-        template_name=f'{template_name}.html',
-        templates={"data": None},
-        quality=40,
-        type="jpeg",
-        pages={
-            "viewport": {"width": width, "height": height},
-            "base_url": f"file://{getcwd()}",
-        },
-        wait=2,
-    )
-    await save_img(image_bytes,template_name)
 
-async def save_img(data: bytes,template_name : str):
+def _html_file(template_name: str) -> Path:
+    return Path(yuc_wiki_path) / f"{template_name}.html"
 
-    """
-     保存yuc_wiki图片
-     :param template_name:
-     :param data:
-     :return:
-     """
-    file_path = yuc_wiki_path + f"{template_name}.jpeg"
-    with open(file_path, "wb") as file:
-        file.write(data)
+
+def _image_file(template_name: str) -> Path:
+    return Path(yuc_wiki_path) / f"{template_name}.{RENDER_CACHE_VERSION}.jpeg"
+
+
+async def get_yuc_wiki_image(
+    template_name: str,
+    width: int,
+    height: int,
+) -> bytes:
+    """Render the sanitized page after all local fonts are ready."""
+    image_file = _image_file(template_name)
+    if image_file.exists():
+        return image_file.read_bytes()
+
+    async with get_new_page(
+        device_scale_factor=2,
+        viewport={"width": width, "height": height},
+    ) as page:
+        await page.goto(
+            _html_file(template_name).resolve().as_uri(),
+            wait_until="networkidle",
+        )
+        await page.evaluate("document.fonts.ready")
+        image_bytes = await page.screenshot(
+            full_page=True,
+            type="jpeg",
+            quality=40,
+        )
+
+    await save_img(image_bytes, template_name)
+    return image_bytes
+
+
+async def save_img(data: bytes, template_name: str) -> None:
+    _image_file(template_name).write_bytes(data)
     print("保存图片完成")
-
-
