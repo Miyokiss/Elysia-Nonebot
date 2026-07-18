@@ -40,7 +40,7 @@ logger.configure(patcher=sanitize_log_record)
 log_options = {
     "format": default_format,
     "rotation": "50 MB",
-    "retention": "30 days",
+    "retention": "7 days",
     "compression": "zip",
     "encoding": "utf-8",
     "enqueue": True,
