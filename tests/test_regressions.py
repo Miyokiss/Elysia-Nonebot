@@ -9,7 +9,7 @@ import sys
 import types
 from collections import namedtuple
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from PIL import Image
 
@@ -297,9 +297,7 @@ class KukufileProtocolTests(unittest.TestCase):
             self.kukufile._auto_delete_succeeded("OK", "text/html; charset=utf-8")
         )
         self.assertFalse(
-            self.kukufile._auto_delete_succeeded(
-                "OK:ERROR", "text/html; charset=utf-8"
-            )
+            self.kukufile._auto_delete_succeeded("OK:ERROR", "text/html; charset=utf-8")
         )
 
     def test_javascript_style_ok_is_accepted_with_html_content_type(self):
@@ -340,9 +338,7 @@ class KukufileProtocolTests(unittest.TestCase):
         self.assertEqual(result, "result=OK;")
         self.assertEqual(session.post_args, ("https://d.kuku.lu/view.php",))
         self.assertEqual(session.post_kwargs["params"], {"hash": "test-hash"})
-        self.assertEqual(
-            session.post_kwargs["headers"]["Referer"], status[1]
-        )
+        self.assertEqual(session.post_kwargs["headers"]["Referer"], status[1])
         self.assertEqual(
             session.post_kwargs["data"],
             {"action": "addTimelimit", "set_timelimit": 600},
@@ -407,9 +403,7 @@ class KukufileProtocolTests(unittest.TestCase):
     def test_upload_url_validator_rejects_non_strings(self):
         for value in (None, 123, {}, []):
             with self.subTest(value=value):
-                self.assertFalse(
-                    self.kukufile._is_allowed_upload_url(value, "post")
-                )
+                self.assertFalse(self.kukufile._is_allowed_upload_url(value, "post"))
 
     def test_put_upload_uses_detected_media_type(self):
         class FakeResponse:
@@ -524,11 +518,83 @@ class KukufileProtocolTests(unittest.TestCase):
         self.assertEqual(sum(map(len, chunks)), len(stream))
         self.assertGreaterEqual(len(chunks), 5)
         self.assertTrue(
-            all(
-                len(chunk) <= self.kukufile.UPLOAD_CHUNK_SIZE
-                for chunk in chunks[1:-1]
-            )
+            all(len(chunk) <= self.kukufile.UPLOAD_CHUNK_SIZE for chunk in chunks[1:-1])
         )
+
+    def test_async_multipart_upload_streams_bounded_chunks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file_path = Path(directory) / "upload.bin"
+            file_path.write_bytes(b"x" * (self.kukufile.UPLOAD_CHUNK_SIZE * 2 + 17))
+            stream = self.kukufile.MultipartUploadStream(
+                file_path,
+                "upload.bin",
+                "application/octet-stream",
+                {"ajax": "1"},
+            )
+
+            async def collect_chunks():
+                return [
+                    chunk
+                    async for chunk in self.kukufile._iter_multipart_chunks(stream)
+                ]
+
+            chunks = asyncio.run(collect_chunks())
+
+        self.assertEqual(sum(map(len, chunks)), len(stream))
+        self.assertTrue(
+            all(len(chunk) <= self.kukufile.UPLOAD_CHUNK_SIZE for chunk in chunks[1:-1])
+        )
+
+    def test_async_post_upload_preserves_content_length(self):
+        class FakeResponse:
+            status_code = 200
+            text = "OK:https://d.kuku.lu/test-hash"
+
+            def raise_for_status(self):
+                return None
+
+        class FakeAsyncClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, *args, **kwargs):
+                self.post_kwargs = kwargs
+                self.body = b"".join([chunk async for chunk in kwargs["content"]])
+                return FakeResponse()
+
+        async def scenario(file_path, client):
+            with (
+                patch.object(
+                    self.kukufile,
+                    "_new_async_client",
+                    return_value=client,
+                ),
+                patch.object(
+                    self.kukufile,
+                    "_request_upload_server_async",
+                    new_callable=AsyncMock,
+                    return_value={
+                        "method": "post",
+                        "url": "https://tdc1-d.kuku.lu/upload.php",
+                    },
+                ),
+            ):
+                return await self.kukufile._upload_file_async(file_path, "upload.bin")
+
+        with tempfile.TemporaryDirectory() as directory:
+            file_path = Path(directory) / "upload.bin"
+            file_path.write_bytes(b"payload")
+            client = FakeAsyncClient()
+            result = asyncio.run(scenario(file_path, client))
+
+        self.assertEqual(result[0], "OK")
+        self.assertEqual(
+            len(client.body), int(client.post_kwargs["headers"]["Content-Length"])
+        )
+        self.assertIn(b"payload", client.body)
 
     def test_upload_file_handles_file_removed_after_existence_check(self):
         with (
@@ -540,12 +606,144 @@ class KukufileProtocolTests(unittest.TestCase):
             ),
             patch.object(self.kukufile, "_upload_file") as upload,
         ):
-            result = asyncio.run(
-                self.kukufile.Kukufile.upload_file("removed-file.bin")
-            )
+            result = asyncio.run(self.kukufile.Kukufile.upload_file("removed-file.bin"))
 
         self.assertIsNone(result)
         upload.assert_not_called()
+
+    def test_temporary_upload_sets_expiration_before_returning(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file_path = Path(directory) / "upload.bin"
+            file_path.write_bytes(b"test")
+            status = ["OK", "https://d.kuku.lu/test-hash"]
+            with (
+                patch.object(
+                    self.kukufile,
+                    "_upload_file_async",
+                    new_callable=AsyncMock,
+                    return_value=status,
+                ) as upload,
+                patch.object(
+                    self.kukufile,
+                    "_expire_with_retry",
+                    new_callable=AsyncMock,
+                    return_value="OK",
+                ) as expire,
+            ):
+                result = asyncio.run(
+                    self.kukufile.Kukufile.upload_temporary_file(file_path)
+                )
+
+        self.assertEqual(result, status)
+        upload.assert_awaited_once()
+        expire.assert_awaited_once_with(status, 600)
+
+    def test_cancelled_temporary_upload_compensates_remote_expiration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file_path = Path(directory) / "upload.bin"
+            file_path.write_bytes(b"test")
+            status = ["OK", "https://d.kuku.lu/test-hash"]
+            expiration_started = asyncio.Event()
+            expiration_calls = 0
+
+            async def expire(*args):
+                nonlocal expiration_calls
+                expiration_calls += 1
+                if expiration_calls == 1:
+                    expiration_started.set()
+                    await asyncio.Event().wait()
+                return "OK"
+
+            async def scenario():
+                with (
+                    patch.object(
+                        self.kukufile,
+                        "_upload_file_async",
+                        new_callable=AsyncMock,
+                        return_value=status,
+                    ),
+                    patch.object(
+                        self.kukufile,
+                        "_expire_with_retry",
+                        new_callable=AsyncMock,
+                        side_effect=expire,
+                    ),
+                ):
+                    task = asyncio.create_task(
+                        self.kukufile.Kukufile.upload_temporary_file(file_path)
+                    )
+                    await expiration_started.wait()
+                    task.cancel()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+
+            asyncio.run(scenario())
+
+        self.assertEqual(expiration_calls, 2)
+
+    def test_repeated_cancel_does_not_stop_expiration_compensation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            file_path = Path(directory) / "upload.bin"
+            file_path.write_bytes(b"test")
+            status = ["OK", "https://d.kuku.lu/test-hash"]
+
+            async def scenario():
+                initial_expiration_started = asyncio.Event()
+                cleanup_started = asyncio.Event()
+                release_cleanup = asyncio.Event()
+                cleanup_cancelled = False
+                expiration_calls = 0
+
+                async def expire(*args):
+                    nonlocal cleanup_cancelled, expiration_calls
+                    expiration_calls += 1
+                    if expiration_calls == 1:
+                        initial_expiration_started.set()
+                        await asyncio.Event().wait()
+                    cleanup_started.set()
+                    try:
+                        await release_cleanup.wait()
+                    except asyncio.CancelledError:
+                        cleanup_cancelled = True
+                        raise
+                    return "OK"
+
+                with (
+                    patch.object(
+                        self.kukufile,
+                        "_upload_file_async",
+                        new_callable=AsyncMock,
+                        return_value=status,
+                    ),
+                    patch.object(
+                        self.kukufile,
+                        "_expire_with_retry",
+                        new_callable=AsyncMock,
+                        side_effect=expire,
+                    ),
+                ):
+                    task = asyncio.create_task(
+                        self.kukufile.Kukufile.upload_temporary_file(file_path)
+                    )
+                    await initial_expiration_started.wait()
+                    task.cancel()
+                    await cleanup_started.wait()
+                    task.cancel()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+
+                    self.assertFalse(cleanup_cancelled)
+                    self.assertEqual(len(self.kukufile._expiration_cleanup_tasks), 1)
+                    release_cleanup.set()
+                    await asyncio.gather(
+                        *tuple(self.kukufile._expiration_cleanup_tasks)
+                    )
+                    await asyncio.sleep(0)
+
+                self.assertFalse(cleanup_cancelled)
+                self.assertFalse(self.kukufile._expiration_cleanup_tasks)
+
+            asyncio.run(scenario())
 
     def test_cancelled_successful_upload_sets_remote_expiration(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -566,6 +764,7 @@ class KukufileProtocolTests(unittest.TestCase):
                     self.kukufile, "_set_expiration", return_value="OK"
                 ) as set_expiration,
             ):
+
                 async def scenario():
                     task = asyncio.create_task(
                         self.kukufile.Kukufile.upload_file(file_path)
