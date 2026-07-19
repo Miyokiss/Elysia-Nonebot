@@ -1,3 +1,4 @@
+import logging
 import re
 from collections.abc import Callable
 
@@ -99,3 +100,22 @@ def sanitize_log_record(record) -> None:
 def get_log_record_patcher(debug: bool) -> Callable[[dict], None] | None:
     """Disable log sanitization in debug mode so diagnostics stay intact."""
     return None if debug else sanitize_log_record
+
+
+def is_debug_mode(config: object) -> bool:
+    """Read debug mode across NoneBot versions.
+
+    NoneBot 2.5 removed ``Config.debug``; its replacement is ``log_level``.
+    Keep the old field as a fallback so this remains compatible with earlier
+    releases too.
+    """
+    debug = getattr(config, "debug", None)
+    if debug is not None:
+        if isinstance(debug, str):
+            return debug.strip().lower() in {"1", "true", "yes", "on"}
+        return bool(debug)
+
+    log_level = getattr(config, "log_level", "INFO")
+    if isinstance(log_level, int):
+        return log_level <= logging.DEBUG
+    return str(log_level).strip().upper() in {"DEBUG", "TRACE"}

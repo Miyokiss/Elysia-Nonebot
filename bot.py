@@ -9,7 +9,7 @@ from nonebot.adapters.qq import Adapter as QQAdapter
 from apscheduler.schedulers.background import BackgroundScheduler
 from src.configs.path_config import log_path,temp_path,video_path,yuc_wiki_path
 from src.utils.cache_cleanup import get_stale_files
-from src.utils.log_sanitizer import get_log_record_patcher
+from src.utils.log_sanitizer import get_log_record_patcher, is_debug_mode
 from src.utils.nonebot_compat import patch_empty_message_command_parsing
 from src.utils.qq_event_compat import patch_qq_reply_message_parsing
 
@@ -34,7 +34,7 @@ driver.register_adapter(QQAdapter)  # 注册QQ适配器
 nonebot.load_from_toml("pyproject.toml")
 
 
-logger.configure(patcher=get_log_record_patcher(driver.config.debug))
+logger.configure(patcher=get_log_record_patcher(is_debug_mode(driver.config)))
 
 
 log_options = {
