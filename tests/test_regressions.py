@@ -21,11 +21,17 @@ from src.clover_music.cloud_music.song_info import build_music_card_data
 from src.clover_sqlite.tarot_resources import resolve_tarot_image_path
 from src.utils.async_utils import run_sync
 from src.utils.cache_cleanup import get_stale_files
-from src.utils.log_sanitizer import sanitize_log_record
+from src.utils.log_sanitizer import get_log_record_patcher, sanitize_log_record
 from src.utils.nonebot_compat import _patch_trie_rule
 
 
 class LogSanitizerTests(unittest.TestCase):
+    def test_debug_mode_disables_log_sanitization(self):
+        self.assertIsNone(get_log_record_patcher(debug=True))
+
+    def test_non_debug_mode_enables_log_sanitization(self):
+        self.assertIs(get_log_record_patcher(debug=False), sanitize_log_record)
+
     def test_failed_dispatch_payload_is_removed(self):
         record = {
             "message": (

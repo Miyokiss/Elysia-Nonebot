@@ -1,4 +1,5 @@
 import re
+from collections.abc import Callable
 
 
 QQ_MEDIA_URL_PATTERN = re.compile(
@@ -93,3 +94,8 @@ def sanitize_log_record(record) -> None:
     message = LABELED_CONTENT_PATTERN.sub(r"\1<text omitted>", message)
     record["message"] = message
     _sanitize_record_exception(record)
+
+
+def get_log_record_patcher(debug: bool) -> Callable[[dict], None] | None:
+    """Disable log sanitization in debug mode so diagnostics stay intact."""
+    return None if debug else sanitize_log_record
