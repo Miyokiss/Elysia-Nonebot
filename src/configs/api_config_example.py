@@ -60,6 +60,21 @@ image_prompt_assistant_user_cooldown = 15.0
 image_prompt_assistant_daily_user_limit = 20
 
 """
+生视频 API 配置
+"""
+# New API 兼容端点；真实密钥只应写入本地 api_config.py。
+video_generation_base_url = "http://127.0.0.1:3000"
+video_generation_api_key = "<KEY>"
+video_generation_model = "Seedance2.0"
+# Seedance 2.0 固定输出时长，支持 4-15 秒。
+video_generation_duration = 5
+video_generation_timeout = 900.0
+video_generation_poll_interval = 5.0
+video_generation_max_concurrency = 1
+video_generation_user_cooldown = 300.0
+video_generation_daily_user_limit = 3
+
+"""
 AI
 """
 admin_password= "123456" # 默认注册管理员密码
