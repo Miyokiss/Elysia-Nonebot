@@ -714,6 +714,27 @@ class PluginParsingTests(unittest.TestCase):
             ),
         )
 
+    def test_raw_referenced_context_keeps_all_nested_images(self):
+        event = types.SimpleNamespace(
+            attachments=None,
+            reply=types.SimpleNamespace(
+                attachments=[self.attachment(url="https://qq.test/preview")]
+            ),
+            _elysia_referenced_image_urls=(
+                "https://qq.test/character",
+                "https://qq.test/pose",
+            ),
+            msg_elements=None,
+        )
+
+        self.assertEqual(
+            image_plugin.find_reference_image_urls(event),
+            (
+                "https://qq.test/character",
+                "https://qq.test/pose",
+            ),
+        )
+
     def test_current_images_hide_forwarded_images(self):
         event = types.SimpleNamespace(
             attachments=[self.attachment(url="https://qq.test/current")],

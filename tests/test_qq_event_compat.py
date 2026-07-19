@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from src.utils.qq_event_compat import (
     FORWARDED_IMAGE_URLS_ATTR,
+    REFERENCED_IMAGE_URLS_ATTR,
     patch_qq_reply_message_parsing,
 )
 
@@ -92,6 +93,75 @@ class QQEventCompatibilityTests(unittest.TestCase):
             ),
         )
         self.assertEqual(payload.data["parallel_message"], parallel_message)
+
+    def test_referenced_nested_message_images_are_preserved_in_order(self):
+        payload = build_payload(
+            message_type=103,
+            msg_elements=[
+                {
+                    "content": "[聊天记录]",
+                    "msg_elements": [
+                        {
+                            "content": "[图片]",
+                            "attachments": [
+                                {
+                                    "content_type": "image/png",
+                                    "url": "https://qq.test/character",
+                                }
+                            ],
+                        },
+                        {
+                            "content": "[图片]",
+                            "attachments": [
+                                {
+                                    "content_type": "image/jpeg",
+                                    "url": "https://qq.test/pose",
+                                }
+                            ],
+                        },
+                    ],
+                }
+            ],
+        )
+
+        event = QQAdapter.payload_to_event(payload)
+
+        self.assertEqual(
+            getattr(event, REFERENCED_IMAGE_URLS_ATTR),
+            (
+                "https://qq.test/character",
+                "https://qq.test/pose",
+            ),
+        )
+
+    def test_referenced_parallel_message_images_are_preserved(self):
+        payload = build_payload(
+            message_type=103,
+            msg_elements=[
+                {
+                    "content": "[聊天记录]",
+                    "parallel_message": {
+                        "msg_nodes": [
+                            {
+                                "attachments": [
+                                    {
+                                        "content_type": "image/webp",
+                                        "url": "https://qq.test/forwarded",
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                }
+            ],
+        )
+
+        event = QQAdapter.payload_to_event(payload)
+
+        self.assertEqual(
+            getattr(event, REFERENCED_IMAGE_URLS_ATTR),
+            ("https://qq.test/forwarded",),
+        )
 
     def test_malformed_forwarded_nodes_and_non_images_are_ignored(self):
         payload = build_payload(

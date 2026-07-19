@@ -14,6 +14,9 @@ QQ_MESSAGE_EVENT_TYPES = {
 }
 REPAIRABLE_REPLY_FIELDS = {"message_type", "msg_idx"}
 FORWARDED_IMAGE_URLS_ATTR = "_elysia_forwarded_image_urls"
+REFERENCED_IMAGE_URLS_ATTR = "_elysia_referenced_image_urls"
+MAX_REFERENCED_ELEMENT_DEPTH = 8
+MAX_REFERENCED_ELEMENT_COUNT = 256
 
 _repair_counts: dict[str, int] = defaultdict(int)
 
@@ -43,44 +46,113 @@ def _http_url(value) -> str | None:
     return value
 
 
-def _forwarded_image_urls(payload) -> tuple[str, ...]:
+def _collect_image_attachments(
+    attachments,
+    *,
+    urls: list[str],
+    seen: set[str],
+) -> None:
+    if not isinstance(attachments, list):
+        return
+    for attachment in attachments:
+        if not isinstance(attachment, dict):
+            continue
+        content_type = attachment.get("content_type")
+        if not (
+            isinstance(content_type, str)
+            and content_type.lower().startswith("image/")
+        ):
+            continue
+        url = _http_url(attachment.get("url"))
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        urls.append(url)
+
+
+def _referenced_image_urls(data: dict) -> tuple[str, ...]:
+    elements = data.get("msg_elements")
+    if not isinstance(elements, list):
+        return ()
+
+    urls: list[str] = []
+    seen: set[str] = set()
+    visited_elements = 0
+
+    def visit(items: list, depth: int) -> None:
+        nonlocal visited_elements
+        if depth > MAX_REFERENCED_ELEMENT_DEPTH:
+            return
+        for element in items:
+            if visited_elements >= MAX_REFERENCED_ELEMENT_COUNT:
+                return
+            if not isinstance(element, dict):
+                continue
+            visited_elements += 1
+            _collect_image_attachments(
+                element.get("attachments"),
+                urls=urls,
+                seen=seen,
+            )
+
+            parallel_message = element.get("parallel_message")
+            if isinstance(parallel_message, dict):
+                nodes = parallel_message.get("msg_nodes")
+                if isinstance(nodes, list):
+                    for node in nodes:
+                        if not isinstance(node, dict):
+                            continue
+                        _collect_image_attachments(
+                            node.get("attachments"),
+                            urls=urls,
+                            seen=seen,
+                        )
+
+            nested = element.get("msg_elements")
+            if isinstance(nested, list):
+                visit(nested, depth + 1)
+
+    visit(elements, 1)
+    return tuple(urls)
+
+
+def _message_context_image_urls(
+    payload,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     data = getattr(payload, "data", None)
     if not isinstance(data, dict):
-        return ()
+        return (), ()
+    referenced_urls = _referenced_image_urls(data)
+
     parallel_message = data.get("parallel_message")
     if not isinstance(parallel_message, dict):
-        return ()
+        return (), referenced_urls
     nodes = parallel_message.get("msg_nodes")
     if not isinstance(nodes, list):
-        return ()
+        return (), referenced_urls
 
     urls: list[str] = []
     seen: set[str] = set()
     for node in nodes:
         if not isinstance(node, dict):
             continue
-        attachments = node.get("attachments")
-        if not isinstance(attachments, list):
-            continue
-        for attachment in attachments:
-            if not isinstance(attachment, dict):
-                continue
-            content_type = attachment.get("content_type")
-            if not (
-                isinstance(content_type, str)
-                and content_type.lower().startswith("image/")
-            ):
-                continue
-            url = _http_url(attachment.get("url"))
-            if url and url not in seen:
-                seen.add(url)
-                urls.append(url)
-    return tuple(urls)
+        _collect_image_attachments(
+            node.get("attachments"),
+            urls=urls,
+            seen=seen,
+        )
+    return tuple(urls), referenced_urls
 
 
-def _attach_forwarded_image_urls(event, urls: tuple[str, ...]):
-    if urls:
-        setattr(event, FORWARDED_IMAGE_URLS_ATTR, urls)
+def _attach_context_image_urls(
+    event,
+    forwarded_urls: tuple[str, ...],
+    referenced_urls: tuple[str, ...],
+):
+    if forwarded_urls:
+        setattr(event, FORWARDED_IMAGE_URLS_ATTR, forwarded_urls)
+    if referenced_urls:
+        setattr(event, REFERENCED_IMAGE_URLS_ATTR, referenced_urls)
     return event
 
 
@@ -171,7 +243,9 @@ def patch_qq_reply_message_parsing(adapter_class=QQAdapter) -> None:
 
     @staticmethod
     def payload_to_event(payload):
-        forwarded_image_urls = _forwarded_image_urls(payload)
+        forwarded_image_urls, referenced_image_urls = _message_context_image_urls(
+            payload
+        )
         try:
             event = original(payload)
         except TypeError:
@@ -199,7 +273,11 @@ def patch_qq_reply_message_parsing(adapter_class=QQAdapter) -> None:
                 event_type,
                 {field for values in missing.values() for field in values},
             )
-        return _attach_forwarded_image_urls(event, forwarded_image_urls)
+        return _attach_context_image_urls(
+            event,
+            forwarded_image_urls,
+            referenced_image_urls,
+        )
 
     adapter_class.payload_to_event = payload_to_event
     adapter_class._elysia_reply_compat_patched = True

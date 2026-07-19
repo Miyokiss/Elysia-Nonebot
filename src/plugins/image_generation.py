@@ -822,6 +822,10 @@ def find_reference_image_urls(event: MessageEvent) -> tuple[str, ...]:
     if current_urls:
         return current_urls
 
+    referenced_urls = getattr(event, "_elysia_referenced_image_urls", ())
+    if isinstance(referenced_urls, tuple) and referenced_urls:
+        return referenced_urls
+
     reply = getattr(event, "reply", None)
     reply_urls = _image_urls(getattr(reply, "attachments", None))
     if reply_urls:
