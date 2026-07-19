@@ -494,7 +494,10 @@ def _native_markdown_message(
     content: str,
     *,
     generation_prompt: str | None = None,
+    mention_user_id: str | None = None,
 ) -> Message:
+    if mention_user_id is not None:
+        content = f"<@{mention_user_id}>\n\n{content}"
     keyboard = (
         IMAGE_GENERATION_KEYBOARD
         if generation_prompt is None
@@ -603,6 +606,7 @@ async def _finish_native_reply_with_fallback(
     *,
     log_context: str,
     fallback_message: MessageSegment | None = None,
+    mention_user_id: str | None = None,
 ) -> None:
     try:
         await matcher.finish(message)
@@ -615,7 +619,17 @@ async def _finish_native_reply_with_fallback(
         )
         if fallback_message is not None:
             await matcher.send(fallback_message)
-        await matcher.finish(fallback_text)
+        fallback_reply = (
+            Message(
+                [
+                    MessageSegment.mention_user(mention_user_id),
+                    MessageSegment.text(f"\n{fallback_text}"),
+                ]
+            )
+            if mention_user_id is not None
+            else fallback_text
+        )
+        await matcher.finish(fallback_reply)
 
 
 def _parse_dimension_number(value: str) -> int:
@@ -1060,12 +1074,16 @@ async def handle_generate_image(
             await generate_image.send(fallback_image)
         await _finish_native_reply_with_fallback(
             generate_image,
-            _native_markdown_message(markdown_text),
+            _native_markdown_message(
+                markdown_text,
+                mention_user_id=user_id,
+            ),
             fallback_text,
             log_context="生图完成信息",
             fallback_message=(
                 fallback_image if hosted_image is not None else None
             ),
+            mention_user_id=user_id,
         )
     except FinishedException:
         raise
@@ -1192,9 +1210,11 @@ async def handle_image_prompt_helper(
             _native_markdown_message(
                 markdown_text,
                 generation_prompt=result.prompt,
+                mention_user_id=user_id,
             ),
             fallback_text,
             log_context="生图助手结果",
+            mention_user_id=user_id,
         )
     except FinishedException:
         raise

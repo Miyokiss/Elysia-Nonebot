@@ -1439,6 +1439,7 @@ class PluginHandlerTests(unittest.TestCase):
             ["markdown", "keyboard"],
         )
         markdown = completion["markdown"][0].data["markdown"].content
+        self.assertIn("<@user-openid>", markdown)
         self.assertIn("生图完成", markdown)
         self.assertIn("自拍", markdown)
         self.assertIn("9 次", markdown)
@@ -1583,9 +1584,16 @@ class PluginHandlerTests(unittest.TestCase):
             ["markdown", "keyboard"],
         )
         fallback = matcher.finish.await_args_list[1].args[0]
-        self.assertIn("版本：2", fallback)
-        self.assertNotIn("gpt-image-2", fallback)
-        self.assertIn("7 次", fallback)
+        self.assertIsInstance(fallback, Message)
+        self.assertEqual(fallback[0].type, "mention_user")
+        self.assertEqual(
+            fallback[0].data["user_id"],
+            "markdown-failure-user",
+        )
+        fallback_text = fallback.extract_plain_text()
+        self.assertIn("版本：2", fallback_text)
+        self.assertNotIn("gpt-image-2", fallback_text)
+        self.assertIn("7 次", fallback_text)
 
 
 if __name__ == "__main__":

@@ -67,6 +67,15 @@ class NativeMessageTests(unittest.TestCase):
         self.assertEqual(buttons[1]["action"]["data"], "/生图助手 ")
         self.assertFalse(buttons[0]["action"]["enter"])
 
+    def test_markdown_message_mentions_requested_user(self):
+        message = image_plugin._native_markdown_message(
+            "## 生图完成",
+            mention_user_id="user-openid",
+        )
+
+        content = message["markdown"][0].data["markdown"].content
+        self.assertEqual(content, "<@user-openid>\n\n## 生图完成")
+
     def test_dynamic_keyboards_do_not_share_prompts(self):
         first = image_plugin._native_markdown_message(
             "first",

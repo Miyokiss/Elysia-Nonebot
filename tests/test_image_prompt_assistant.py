@@ -799,6 +799,7 @@ class PromptAssistantPluginTests(unittest.TestCase):
             ["markdown", "keyboard"],
         )
         markdown = completion["markdown"][0].data["markdown"].content
+        self.assertIn("<@assistant-image-user>", markdown)
         self.assertIn("反推后的详细提示词", markdown)
         self.assertIn("图片反推", markdown)
         self.assertIn("19 次", markdown)
@@ -1072,10 +1073,17 @@ class PromptAssistantPluginTests(unittest.TestCase):
 
         self.assertEqual(matcher.finish.await_count, 2)
         fallback = matcher.finish.await_args_list[1].args[0]
-        self.assertIn("反推后的详细提示词", fallback)
-        self.assertIn("版本：5.6", fallback)
-        self.assertNotIn("gpt-5.6-terra", fallback)
-        self.assertIn("18 次", fallback)
+        self.assertIsInstance(fallback, Message)
+        self.assertEqual(fallback[0].type, "mention_user")
+        self.assertEqual(
+            fallback[0].data["user_id"],
+            "assistant-send-failure-user",
+        )
+        fallback_text = fallback.extract_plain_text()
+        self.assertIn("反推后的详细提示词", fallback_text)
+        self.assertIn("版本：5.6", fallback_text)
+        self.assertNotIn("gpt-5.6-terra", fallback_text)
+        self.assertIn("18 次", fallback_text)
 
 
 if __name__ == "__main__":
