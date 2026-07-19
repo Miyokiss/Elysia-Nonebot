@@ -19,6 +19,7 @@ from src.clover_sqlite.models.image_generation import DailyQuotaStatus
 from src.clover_videos.video_generation import (
     GeneratedVideo,
     MAX_PROMPT_LENGTH,
+    VideoGenerationHTTPError,
     VideoGenerationMode,
     VideoGenerationQuotaExhaustedError,
     VideoGenerationTimeoutError,
@@ -478,6 +479,49 @@ class VideoGenerationHandlerTests(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertIn("额度不足", finish.await_args.args[0])
+        capacity.release.assert_called_once_with()
+
+    async def test_http_401_logs_diagnostics_and_reports_auth_failure(self):
+        fake_event = event_with_media()
+        capacity = SimpleNamespace(try_acquire=Mock(return_value=True), release=Mock())
+        error = VideoGenerationHTTPError(
+            401,
+            code="invalid_token",
+            error_type="new_api_error",
+            detail="Invalid token",
+            request_id="req-401-test",
+        )
+
+        with (
+            patch.object(video_plugin, "_generation_capacity", capacity),
+            patch.object(video_plugin, "reserve_user_request", return_value=0),
+            patch.object(
+                video_plugin.ImageGenerationUsage,
+                "reserve_daily_usage",
+                AsyncMock(return_value=DailyQuotaStatus.ALLOWED),
+            ),
+            patch.object(
+                video_plugin.video_generation_client,
+                "generate",
+                AsyncMock(side_effect=error),
+            ),
+            patch.object(video_plugin.generate_video, "send", AsyncMock()),
+            patch.object(video_plugin.generate_video, "finish", AsyncMock()) as finish,
+            patch.object(video_plugin.logger, "warning", Mock()) as warning,
+        ):
+            await video_plugin.handle_generate_video(
+                fake_event,
+                object(),
+                Message("雨夜城市"),
+            )
+
+        log_message = warning.call_args.args[0]
+        self.assertIn("HTTP 401", log_message)
+        self.assertIn("code=invalid_token", log_message)
+        self.assertIn("type=new_api_error", log_message)
+        self.assertIn("detail=Invalid token", log_message)
+        self.assertIn("request_id=req-401-test", log_message)
+        self.assertIn("鉴权失败", finish.await_args.args[0])
         capacity.release.assert_called_once_with()
 
     async def test_timeout_warns_against_duplicate_submission(self):

@@ -31,6 +31,14 @@ _URL_PATTERN = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 _API_KEY_PATTERN = re.compile(
     r"(?i)\b(?:bearer\s+)?sk-[a-z0-9_-]{8,}\b"
 )
+_REQUEST_ID_PATTERN = re.compile(
+    r"(?i)\b(?:request|trace)[ _-]*id\s*[:=]\s*"
+    r"(?P<request_id>[A-Za-z0-9][A-Za-z0-9._:-]{2,127})"
+)
+_REQUEST_ID_CLAUSE_PATTERN = re.compile(
+    r"(?i)\s*\(?\b(?:request|trace)[ _-]*id\s*[:=]\s*"
+    r"[A-Za-z0-9][A-Za-z0-9._:-]{2,127}\)?"
+)
 _QUOTA_MESSAGE_PATTERN = re.compile(
     r"(?:insufficient[_\s-]*(?:quota|balance|credits?)|"
     r"(?:quota|credits?)[_\s-]*(?:exceeded|exhausted|failed)|"
@@ -52,6 +60,13 @@ _QUOTA_CODES = {
     "quota_exceeded",
     "quota_exhausted",
     "usage_limit_reached",
+}
+_AUTHENTICATION_CODES = {
+    "authentication_error",
+    "invalid_api_key",
+    "invalid_authentication",
+    "invalid_token",
+    "unauthorized",
 }
 _QUEUED_STATUSES = {"created", "pending", "queued", "submitted", "waiting"}
 _IN_PROGRESS_STATUSES = {
@@ -105,16 +120,56 @@ class VideoGenerationResponseError(VideoGenerationError):
 class VideoGenerationHTTPError(VideoGenerationError):
     """The provider returned an HTTP error without exposing its response."""
 
-    def __init__(self, status_code: int):
+    def __init__(
+        self,
+        status_code: int,
+        *,
+        code: str | None = None,
+        error_type: str | None = None,
+        detail: str | None = None,
+        request_id: str | None = None,
+    ):
         self.status_code = status_code
-        super().__init__(f"视频生成接口返回 HTTP {status_code}")
+        self.code = code
+        self.error_type = error_type
+        self.detail = detail
+        self.request_id = request_id
+        self.authentication_failed = status_code == 401 or (
+            bool(code) and code.lower() in _AUTHENTICATION_CODES
+        )
+        parts = [f"视频生成接口返回 HTTP {status_code}"]
+        if code:
+            parts.append(f"code={code}")
+        if error_type:
+            parts.append(f"type={error_type}")
+        if detail:
+            parts.append(f"detail={detail}")
+        if request_id:
+            parts.append(f"request_id={request_id}")
+        self.diagnostic_message = " | ".join(parts)
+        super().__init__(self.diagnostic_message)
 
 
 class VideoGenerationQuotaExhaustedError(VideoGenerationHTTPError):
     """The provider rejected the request because its quota is exhausted."""
 
-    def __init__(self, status_code: int):
-        self.status_code = status_code
+    def __init__(
+        self,
+        status_code: int,
+        *,
+        code: str | None = None,
+        error_type: str | None = None,
+        detail: str | None = None,
+        request_id: str | None = None,
+    ):
+        VideoGenerationHTTPError.__init__(
+            self,
+            status_code,
+            code=code,
+            error_type=error_type,
+            detail=detail,
+            request_id=request_id,
+        )
         VideoGenerationError.__init__(self, "视频生成额度不足")
 
 
@@ -256,6 +311,22 @@ class VideoTaskResult:
         if self.status is not VideoTaskStatus.COMPLETED or self.video_url is None:
             raise VideoGenerationResponseError("视频生成任务尚未返回可用结果")
         return GeneratedVideo(url=self.video_url, task_id=self.task_id, model=model)
+
+
+@dataclass(frozen=True)
+class _HTTPErrorMetadata:
+    code: str | None = None
+    error_type: str | None = None
+    detail: str | None = None
+    request_id: str | None = None
+
+    def as_kwargs(self) -> dict[str, str | None]:
+        return {
+            "code": self.code,
+            "error_type": self.error_type,
+            "detail": self.detail,
+            "request_id": self.request_id,
+        }
 
 
 def _validate_media_url(value: object, *, label: str) -> None:
@@ -490,16 +561,199 @@ def _extract_remote_error(payload: Mapping[str, Any]) -> str | None:
     return None
 
 
-def _sanitize_remote_error(value: str | None, *, api_key: str) -> str | None:
+def _sanitize_remote_error(
+    value: str | None,
+    *,
+    api_key: str,
+    sensitive_values: Sequence[str] = (),
+) -> str | None:
     if not value:
         return None
     sanitized = value.replace(api_key, "[已隐藏]")
+    for sensitive in sorted(set(sensitive_values), key=len, reverse=True):
+        if not sensitive:
+            continue
+        if len(sensitive) >= 6 or sanitized.strip() == sensitive.strip():
+            sanitized = sanitized.replace(sensitive, "[已隐藏内容]")
     sanitized = _API_KEY_PATTERN.sub("[已隐藏]", sanitized)
     sanitized = _URL_PATTERN.sub("[已隐藏地址]", sanitized)
     sanitized = " ".join(sanitized.split())
     if not sanitized:
         return None
     return sanitized[:300]
+
+
+def _sanitize_diagnostic_identifier(
+    value: object,
+    *,
+    api_key: str,
+) -> str | None:
+    if not isinstance(value, (str, int)) or isinstance(value, bool):
+        return None
+    normalized = " ".join(str(value).split())
+    if not normalized:
+        return None
+    if (
+        api_key in normalized
+        or _API_KEY_PATTERN.search(normalized)
+        or _URL_PATTERN.search(normalized)
+    ):
+        return None
+    return re.sub(r"[^A-Za-z0-9._:-]", "?", normalized)[:128]
+
+
+def _ordered_error_mappings(payload: object) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(payload, Mapping):
+        return ()
+    mappings: list[Mapping[str, Any]] = []
+    nested_error = payload.get("error")
+    if isinstance(nested_error, Mapping):
+        mappings.append(nested_error)
+    mappings.append(payload)
+    data = payload.get("data")
+    if isinstance(data, Mapping):
+        data_error = data.get("error")
+        if isinstance(data_error, Mapping):
+            mappings.append(data_error)
+        if set(data) & {
+            "code",
+            "detail",
+            "error_code",
+            "errorCode",
+            "error_message",
+            "errorMessage",
+            "message",
+            "reason",
+        }:
+            mappings.append(data)
+    return tuple(mappings)
+
+
+def _extract_diagnostic_field(
+    payload: object,
+    keys: Sequence[str],
+) -> str | None:
+    for mapping in _ordered_error_mappings(payload):
+        value = _string_value(mapping, keys)
+        if value is not None:
+            return value
+    return None
+
+
+def _extract_http_error_message(payload: object) -> str | None:
+    if not isinstance(payload, Mapping):
+        return None
+    nested_error = payload.get("error")
+    if isinstance(nested_error, str) and nested_error.strip():
+        return nested_error.strip()
+    return _extract_diagnostic_field(
+        payload,
+        (
+            "message",
+            "detail",
+            "reason",
+            "error_message",
+            "errorMessage",
+            "failure_reason",
+        ),
+    )
+
+
+def _request_sensitive_values(
+    request_json: Mapping[str, Any] | None,
+) -> tuple[str, ...]:
+    if request_json is None:
+        return ()
+    values: list[str] = []
+    prompt = request_json.get("prompt")
+    if isinstance(prompt, str) and prompt:
+        values.append(prompt)
+    for _, mapping in _iter_mappings(request_json):
+        url = mapping.get("url")
+        if isinstance(url, str) and url:
+            values.append(url)
+    return tuple(values)
+
+
+def _extract_request_id(
+    response: httpx.Response,
+    payload: object,
+    message: str | None,
+    *,
+    api_key: str,
+) -> str | None:
+    for header_name in (
+        "x-request-id",
+        "request-id",
+        "x-requestid",
+        "x-oneapi-request-id",
+        "x-new-api-request-id",
+        "x-trace-id",
+        "trace-id",
+    ):
+        request_id = _sanitize_diagnostic_identifier(
+            response.headers.get(header_name),
+            api_key=api_key,
+        )
+        if request_id:
+            return request_id
+    payload_request_id = _extract_diagnostic_field(
+        payload,
+        ("request_id", "requestId", "requestID", "trace_id", "traceId"),
+    )
+    request_id = _sanitize_diagnostic_identifier(
+        payload_request_id,
+        api_key=api_key,
+    )
+    if request_id:
+        return request_id
+    if message and (match := _REQUEST_ID_PATTERN.search(message)):
+        return _sanitize_diagnostic_identifier(
+            match.group("request_id"),
+            api_key=api_key,
+        )
+    return None
+
+
+def _http_error_metadata(
+    response: httpx.Response,
+    payload: object,
+    *,
+    api_key: str,
+    request_json: Mapping[str, Any] | None,
+) -> _HTTPErrorMetadata:
+    raw_message = _extract_http_error_message(payload)
+    request_id = _extract_request_id(
+        response,
+        payload,
+        raw_message,
+        api_key=api_key,
+    )
+    detail = _sanitize_remote_error(
+        raw_message,
+        api_key=api_key,
+        sensitive_values=_request_sensitive_values(request_json),
+    )
+    if detail and request_id:
+        detail = _REQUEST_ID_CLAUSE_PATTERN.sub("", detail).strip(" ,;|-") or None
+    return _HTTPErrorMetadata(
+        code=_sanitize_diagnostic_identifier(
+            _extract_diagnostic_field(
+                payload,
+                ("code", "error_code", "errorCode"),
+            ),
+            api_key=api_key,
+        ),
+        error_type=_sanitize_diagnostic_identifier(
+            _extract_diagnostic_field(
+                payload,
+                ("type", "error_type", "errorType"),
+            ),
+            api_key=api_key,
+        ),
+        detail=detail,
+        request_id=request_id,
+    )
 
 
 def _extract_error_codes(payload: object) -> set[str]:
@@ -627,9 +881,21 @@ class VideoGenerationClient:
             payload = None
 
         if response.status_code >= 400:
+            metadata = _http_error_metadata(
+                response,
+                payload,
+                api_key=self._api_key,
+                request_json=json,
+            )
             if _is_quota_error(response.status_code, payload):
-                raise VideoGenerationQuotaExhaustedError(response.status_code)
-            raise VideoGenerationHTTPError(response.status_code)
+                raise VideoGenerationQuotaExhaustedError(
+                    response.status_code,
+                    **metadata.as_kwargs(),
+                )
+            raise VideoGenerationHTTPError(
+                response.status_code,
+                **metadata.as_kwargs(),
+            )
         if not isinstance(payload, Mapping):
             raise VideoGenerationResponseError("视频生成接口返回了无法解析的响应")
         return payload

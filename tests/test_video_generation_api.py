@@ -17,10 +17,12 @@ def json_response(
     status_code: int = 200,
     method: str = "GET",
     url: str = API_BASE,
+    headers: dict[str, str] | None = None,
 ) -> httpx.Response:
     return httpx.Response(
         status_code,
         json=payload,
+        headers=headers,
         request=httpx.Request(method, url),
     )
 
@@ -522,7 +524,8 @@ class VideoGenerationClientTests(unittest.IsolatedAsyncioTestCase):
                 await make_client().create_task(
                     video_api.VideoGenerationRequest(prompt="http failure")
                 )
-        self.assertEqual(str(raised.exception), "视频生成接口返回 HTTP 403")
+        self.assertIn("视频生成接口返回 HTTP 403", str(raised.exception))
+        self.assertIn("detail=[已隐藏地址]", str(raised.exception))
         self.assertNotIn(API_KEY, str(raised.exception))
         self.assertNotIn(API_BASE, str(raised.exception))
 
@@ -536,6 +539,43 @@ class VideoGenerationClientTests(unittest.IsolatedAsyncioTestCase):
                     video_api.VideoGenerationRequest(prompt="network failure")
                 )
         self.assertEqual(str(raised.exception), "视频生成接口网络请求失败")
+
+    async def test_http_error_includes_safe_upstream_diagnostics(self):
+        prompt = "private prompt that must not be logged"
+        leaked_url = "https://private.test/result?token=secret"
+        fake = FakeAsyncClient(
+            [
+                json_response(
+                    {
+                        "error": {
+                            "code": "invalid_token",
+                            "type": "new_api_error",
+                            "message": (
+                                f"Invalid token for {prompt}; inspect {leaked_url} "
+                                f"with {API_KEY} (request id: req-401-test)"
+                            ),
+                        }
+                    },
+                    status_code=401,
+                )
+            ]
+        )
+        with patch.object(video_api.httpx, "AsyncClient", return_value=fake):
+            with self.assertRaises(video_api.VideoGenerationHTTPError) as raised:
+                await make_client().create_task(
+                    video_api.VideoGenerationRequest(prompt=prompt)
+                )
+
+        error = raised.exception
+        self.assertEqual(error.status_code, 401)
+        self.assertEqual(error.code, "invalid_token")
+        self.assertEqual(error.error_type, "new_api_error")
+        self.assertEqual(error.request_id, "req-401-test")
+        self.assertIn("detail=Invalid token", str(error))
+        self.assertIn("request_id=req-401-test", str(error))
+        self.assertNotIn(prompt, str(error))
+        self.assertNotIn(leaked_url, str(error))
+        self.assertNotIn(API_KEY, str(error))
 
     async def test_unknown_status_is_rejected(self):
         fake = FakeAsyncClient(

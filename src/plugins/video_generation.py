@@ -30,6 +30,7 @@ from src.clover_videos.video_generation import (
     GeneratedVideo,
     VideoGenerationConfigurationError,
     VideoGenerationError,
+    VideoGenerationHTTPError,
     VideoGenerationMode,
     VideoGenerationQuotaExhaustedError,
     VideoGenerationRequest,
@@ -466,11 +467,25 @@ async def handle_generate_video(
     except VideoGenerationConfigurationError:
         logger.error("生视频服务配置无效")
         await generate_video.finish("生视频服务尚未正确配置，请联系管理员。")
-    except VideoGenerationQuotaExhaustedError:
-        logger.warning("生视频接口额度不足")
+    except VideoGenerationQuotaExhaustedError as exc:
+        logger.warning(
+            f"生视频接口额度不足: {exc.diagnostic_message}"
+        )
         await generate_video.finish(
             "生视频额度不足，请联系管理员补充额度后再试。"
         )
+    except VideoGenerationHTTPError as exc:
+        logger.warning(f"生视频接口请求失败: {exc}")
+        if exc.status_code in {401, 403}:
+            await generate_video.finish(
+                "生视频服务鉴权失败，请联系管理员检查 API Key。"
+            )
+        elif exc.status_code == 404:
+            await generate_video.finish(
+                "生视频接口或模型不可用，请联系管理员检查配置。"
+            )
+        else:
+            await generate_video.finish("生视频服务暂时不可用，请稍后重试。")
     except VideoDeliveryError as exc:
         logger.warning(f"生成视频发送失败: {exc}")
         await generate_video.finish(
