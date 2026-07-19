@@ -464,8 +464,14 @@ class VideoGenerationClientTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(raised.exception.status_code, 403)
         self.assertEqual(str(raised.exception), "视频生成额度不足")
+        self.assertIn(
+            "code=pre_consume_token_quota_failed",
+            raised.exception.diagnostic_message,
+        )
         self.assertNotIn(secret_url, str(raised.exception))
         self.assertNotIn(API_KEY, str(raised.exception))
+        self.assertNotIn(secret_url, raised.exception.diagnostic_message)
+        self.assertNotIn(API_KEY, raised.exception.diagnostic_message)
 
     async def test_insufficient_credits_code_is_also_quota(self):
         fake = FakeAsyncClient(
@@ -576,6 +582,81 @@ class VideoGenerationClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(prompt, str(error))
         self.assertNotIn(leaked_url, str(error))
         self.assertNotIn(API_KEY, str(error))
+
+    async def test_oneapi_request_id_header_is_preferred_and_not_duplicated(self):
+        fake = FakeAsyncClient(
+            [
+                json_response(
+                    {
+                        "error": {
+                            "type": "new_api_error",
+                            "message": "Invalid token (request id: body-request-id)",
+                        }
+                    },
+                    status_code=401,
+                    headers={"x-oneapi-request-id": "header-request-id"},
+                )
+            ]
+        )
+        with patch.object(video_api.httpx, "AsyncClient", return_value=fake):
+            with self.assertRaises(video_api.VideoGenerationHTTPError) as raised:
+                await make_client().create_task(
+                    video_api.VideoGenerationRequest(prompt="auth test")
+                )
+
+        error = raised.exception
+        self.assertEqual(error.request_id, "header-request-id")
+        self.assertEqual(error.detail, "Invalid token")
+        self.assertNotIn("body-request-id", str(error))
+
+    async def test_sensitive_values_in_diagnostic_identifiers_are_omitted(self):
+        leaked_url = "https://private.test/error"
+        fake = FakeAsyncClient(
+            [
+                json_response(
+                    {
+                        "error": {
+                            "code": API_KEY,
+                            "type": leaked_url,
+                            "message": "Invalid token",
+                        }
+                    },
+                    status_code=401,
+                    headers={"x-request-id": API_KEY},
+                )
+            ]
+        )
+        with patch.object(video_api.httpx, "AsyncClient", return_value=fake):
+            with self.assertRaises(video_api.VideoGenerationHTTPError) as raised:
+                await make_client().create_task(
+                    video_api.VideoGenerationRequest(prompt="auth test")
+                )
+
+        error = raised.exception
+        self.assertIsNone(error.code)
+        self.assertIsNone(error.error_type)
+        self.assertIsNone(error.request_id)
+        self.assertNotIn(API_KEY, str(error))
+        self.assertNotIn(leaked_url, str(error))
+
+    async def test_large_http_error_keeps_status_and_header_request_id(self):
+        response = httpx.Response(
+            502,
+            content=b"x" * (video_api.MAX_RESPONSE_BYTES + 1),
+            headers={"x-oneapi-request-id": "req-large-response"},
+            request=httpx.Request("POST", API_BASE),
+        )
+        fake = FakeAsyncClient([response])
+        with patch.object(video_api.httpx, "AsyncClient", return_value=fake):
+            with self.assertRaises(video_api.VideoGenerationHTTPError) as raised:
+                await make_client().create_task(
+                    video_api.VideoGenerationRequest(prompt="large error")
+                )
+
+        error = raised.exception
+        self.assertEqual(error.status_code, 502)
+        self.assertEqual(error.request_id, "req-large-response")
+        self.assertEqual(error.detail, "错误响应体超过大小限制，已省略")
 
     async def test_unknown_status_is_rejected(self):
         fake = FakeAsyncClient(

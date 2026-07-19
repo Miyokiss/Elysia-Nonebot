@@ -475,10 +475,16 @@ async def handle_generate_video(
             "生视频额度不足，请联系管理员补充额度后再试。"
         )
     except VideoGenerationHTTPError as exc:
-        logger.warning(f"生视频接口请求失败: {exc}")
-        if exc.status_code in {401, 403}:
+        logger.warning(
+            f"生视频接口请求失败: {exc.diagnostic_message}"
+        )
+        if exc.authentication_failed:
             await generate_video.finish(
                 "生视频服务鉴权失败，请联系管理员检查 API Key。"
+            )
+        elif exc.status_code == 403:
+            await generate_video.finish(
+                "生视频接口拒绝了当前请求，请联系管理员检查权限或渠道配置。"
             )
         elif exc.status_code == 404:
             await generate_video.finish(

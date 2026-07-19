@@ -599,7 +599,12 @@ def _sanitize_diagnostic_identifier(
         or _URL_PATTERN.search(normalized)
     ):
         return None
-    return re.sub(r"[^A-Za-z0-9._:-]", "?", normalized)[:128]
+    if (
+        len(normalized) > 128
+        or re.fullmatch(r"[A-Za-z0-9._:-]+", normalized) is None
+    ):
+        return None
+    return normalized
 
 
 def _ordered_error_mappings(payload: object) -> tuple[Mapping[str, Any], ...]:
@@ -758,7 +763,7 @@ def _http_error_metadata(
 
 def _extract_error_codes(payload: object) -> set[str]:
     codes: set[str] = set()
-    for _, mapping in _iter_mappings(payload):
+    for mapping in _ordered_error_mappings(payload):
         for key in ("code", "error_code", "errorCode", "type"):
             value = mapping.get(key)
             if isinstance(value, str) and value.strip():
@@ -786,7 +791,7 @@ def _is_quota_error(status_code: int, payload: object) -> bool:
         ):
             return True
     if isinstance(payload, Mapping):
-        message = _extract_remote_error(payload)
+        message = _extract_http_error_message(payload)
         if message is not None and _QUOTA_MESSAGE_PATTERN.search(message):
             return True
     return False
@@ -873,12 +878,13 @@ class VideoGenerationClient:
         except httpx.RequestError:
             raise VideoGenerationError("视频生成接口网络请求失败") from None
 
-        if len(response.content) > MAX_RESPONSE_BYTES:
-            raise VideoGenerationResponseError("视频生成接口响应超过大小限制")
-        try:
-            payload = response.json()
-        except ValueError:
-            payload = None
+        response_too_large = len(response.content) > MAX_RESPONSE_BYTES
+        payload = None
+        if not response_too_large:
+            try:
+                payload = response.json()
+            except ValueError:
+                pass
 
         if response.status_code >= 400:
             metadata = _http_error_metadata(
@@ -887,6 +893,13 @@ class VideoGenerationClient:
                 api_key=self._api_key,
                 request_json=json,
             )
+            if response_too_large:
+                metadata = _HTTPErrorMetadata(
+                    code=metadata.code,
+                    error_type=metadata.error_type,
+                    detail="错误响应体超过大小限制，已省略",
+                    request_id=metadata.request_id,
+                )
             if _is_quota_error(response.status_code, payload):
                 raise VideoGenerationQuotaExhaustedError(
                     response.status_code,
@@ -896,6 +909,8 @@ class VideoGenerationClient:
                 response.status_code,
                 **metadata.as_kwargs(),
             )
+        if response_too_large:
+            raise VideoGenerationResponseError("视频生成接口响应超过大小限制")
         if not isinstance(payload, Mapping):
             raise VideoGenerationResponseError("视频生成接口返回了无法解析的响应")
         return payload
