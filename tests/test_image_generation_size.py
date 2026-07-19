@@ -734,7 +734,10 @@ class DimensionPluginForwardingTests(unittest.TestCase):
                 filename="generated.png",
                 model="gpt-image-test",
             )
-            matcher = types.SimpleNamespace(finish=AsyncMock())
+            matcher = types.SimpleNamespace(
+                send=AsyncMock(),
+                finish=AsyncMock(),
+            )
             event = types.SimpleNamespace(
                 attachments=None,
                 reply=None,
@@ -761,6 +764,22 @@ class DimensionPluginForwardingTests(unittest.TestCase):
                 ),
                 patch.object(
                     image_plugin,
+                    "_remaining_daily_quota_text",
+                    new_callable=AsyncMock,
+                    return_value="8 次",
+                ),
+                patch.object(
+                    image_plugin,
+                    "_host_generated_image",
+                    new_callable=AsyncMock,
+                    return_value=image_plugin.HostedGeneratedImage(
+                        "image-generation/test.png",
+                        "https://img.test/generated.png?signature=test",
+                        dimensions(3840, 2160),
+                    ),
+                ),
+                patch.object(
+                    image_plugin,
                     "_send_progress_safely",
                     new_callable=AsyncMock,
                 ),
@@ -775,15 +794,23 @@ class DimensionPluginForwardingTests(unittest.TestCase):
                     event,
                     Message("3840x2160 skyline"),
                 )
-            return generate
+            return generate, matcher
 
-        generate = asyncio.run(scenario())
+        generate, matcher = asyncio.run(scenario())
 
         generate.assert_awaited_once_with(
             "skyline",
             reference=None,
             dimensions=dimensions(3840, 2160),
         )
+        matcher.send.assert_not_awaited()
+        matcher.finish.assert_awaited_once()
+        markdown = (
+            matcher.finish.await_args.args[0]["markdown"][0]
+            .data["markdown"]
+            .content
+        )
+        self.assertIn("https://img.test/generated.png?signature=test", markdown)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,10 @@ from nonebot.adapters.qq import Adapter as QQAdapter
 from nonebot.adapters.qq.models import Dispatch
 from pydantic import ValidationError
 
-from src.utils.qq_event_compat import patch_qq_reply_message_parsing
+from src.utils.qq_event_compat import (
+    FORWARDED_IMAGE_URLS_ATTR,
+    patch_qq_reply_message_parsing,
+)
 
 
 def build_payload(**data_updates):
@@ -47,6 +50,82 @@ class QQEventCompatibilityTests(unittest.TestCase):
         self.assertEqual(event.msg_elements[0].msg_idx, "parent-index")
         self.assertNotIn("message_type", payload.data["msg_elements"][0])
         self.assertNotIn("msg_idx", payload.data["msg_elements"][0])
+
+    def test_forwarded_node_images_are_preserved_in_order(self):
+        parallel_message = {
+            "msg_nodes": [
+                {
+                    "message_type": 0,
+                    "content": "[图片]",
+                    "attachments": [
+                        {
+                            "content_type": "image/png",
+                            "url": "https://qq.test/character",
+                        }
+                    ],
+                },
+                {
+                    "message_type": 0,
+                    "content": "[图片]",
+                    "attachments": [
+                        {
+                            "content_type": "image/jpeg",
+                            "url": "qq.test/pose",
+                        }
+                    ],
+                },
+            ]
+        }
+        payload = build_payload(
+            message_type=103,
+            msg_idx="forwarded-index",
+            parallel_message=parallel_message,
+        )
+
+        event = QQAdapter.payload_to_event(payload)
+
+        self.assertEqual(
+            getattr(event, FORWARDED_IMAGE_URLS_ATTR),
+            (
+                "https://qq.test/character",
+                "https://qq.test/pose",
+            ),
+        )
+        self.assertEqual(payload.data["parallel_message"], parallel_message)
+
+    def test_malformed_forwarded_nodes_and_non_images_are_ignored(self):
+        payload = build_payload(
+            message_type=103,
+            msg_idx="forwarded-index",
+            parallel_message={
+                "msg_nodes": [
+                    None,
+                    "bad node",
+                    {"content": "https://qq.test/untrusted-text-image.png"},
+                    {
+                        "attachments": [
+                            None,
+                            {
+                                "content_type": "audio/mpeg",
+                                "url": "https://qq.test/audio",
+                            },
+                            {
+                                "content_type": "image/png",
+                                "url": "javascript:alert(1)",
+                            },
+                            {
+                                "content_type": "image/png",
+                                "url": "https://[malformed",
+                            },
+                        ]
+                    },
+                ]
+            },
+        )
+
+        event = QQAdapter.payload_to_event(payload)
+
+        self.assertFalse(hasattr(event, FORWARDED_IMAGE_URLS_ATTR))
 
     def test_unrelated_validation_errors_are_not_hidden(self):
         payload = build_payload(author={})

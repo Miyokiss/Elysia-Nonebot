@@ -764,6 +764,12 @@ class PromptAssistantPluginTests(unittest.TestCase):
                 ),
                 patch.object(
                     image_plugin,
+                    "_remaining_daily_quota_text",
+                    new_callable=AsyncMock,
+                    return_value="19 次",
+                ),
+                patch.object(
+                    image_plugin,
                     "_send_prompt_assistant_progress_safely",
                     new_callable=AsyncMock,
                 ),
@@ -787,7 +793,24 @@ class PromptAssistantPluginTests(unittest.TestCase):
             reverse.await_args.kwargs["request_id"],
             r"^[0-9a-f]{12}$",
         )
-        self.assertIn("反推后的详细提示词", matcher.finish.await_args.args[0])
+        completion = matcher.finish.await_args.args[0]
+        self.assertEqual(
+            [segment.type for segment in completion],
+            ["markdown", "keyboard"],
+        )
+        markdown = completion["markdown"][0].data["markdown"].content
+        self.assertIn("反推后的详细提示词", markdown)
+        self.assertIn("图片反推", markdown)
+        self.assertIn("19 次", markdown)
+        self.assertIn(r"**版本**：5\.6", markdown)
+        self.assertNotIn("gpt-5.6-terra", markdown)
+        keyboard = completion["keyboard"][0].data["keyboard"]
+        generate_action = keyboard.content.rows[0].buttons[0].action
+        self.assertEqual(
+            generate_action.data,
+            "/生图 反推后的详细提示词",
+        )
+        self.assertFalse(generate_action.enter)
 
     def test_safe_failure_reason_stage_and_elapsed_are_logged(self):
         async def scenario():
@@ -1023,6 +1046,12 @@ class PromptAssistantPluginTests(unittest.TestCase):
                 ),
                 patch.object(
                     image_plugin,
+                    "_remaining_daily_quota_text",
+                    new_callable=AsyncMock,
+                    return_value="18 次",
+                ),
+                patch.object(
+                    image_plugin,
                     "_send_prompt_assistant_progress_safely",
                     new_callable=AsyncMock,
                 ),
@@ -1042,7 +1071,11 @@ class PromptAssistantPluginTests(unittest.TestCase):
         matcher = asyncio.run(scenario())
 
         self.assertEqual(matcher.finish.await_count, 2)
-        self.assertIn("发送失败", matcher.finish.await_args_list[1].args[0])
+        fallback = matcher.finish.await_args_list[1].args[0]
+        self.assertIn("反推后的详细提示词", fallback)
+        self.assertIn("版本：5.6", fallback)
+        self.assertNotIn("gpt-5.6-terra", fallback)
+        self.assertIn("18 次", fallback)
 
 
 if __name__ == "__main__":

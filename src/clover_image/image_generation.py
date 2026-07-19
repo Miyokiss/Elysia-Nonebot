@@ -4,6 +4,7 @@ import asyncio
 import base64
 import binascii
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -26,6 +27,8 @@ from src.configs.api_config import (
 
 
 MAX_REFERENCE_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_REFERENCE_IMAGE_COUNT = 4
+MAX_TOTAL_REFERENCE_IMAGE_BYTES = 20 * 1024 * 1024
 MAX_GENERATED_IMAGE_BYTES = 18 * 1024 * 1024
 MAX_RESPONSE_BYTES = 30 * 1024 * 1024
 MAX_PROMPT_LENGTH = 4000
@@ -338,6 +341,37 @@ def reference_image_from_bytes(content: bytes) -> ReferenceImage:
         )
     extension = _extension_for_media_type(media_type)
     return ReferenceImage(content, media_type, f"reference.{extension}")
+
+
+def _normalize_reference_images(
+    reference: ReferenceImage | Sequence[ReferenceImage] | None,
+) -> tuple[ReferenceImage, ...]:
+    if reference is None:
+        return ()
+    if isinstance(reference, ReferenceImage):
+        candidates = (reference,)
+    else:
+        candidates = tuple(reference)
+
+    if len(candidates) > MAX_REFERENCE_IMAGE_COUNT:
+        raise UnsupportedReferenceImageError(
+            f"单次最多支持 {MAX_REFERENCE_IMAGE_COUNT} 张参考图"
+        )
+
+    references: list[ReferenceImage] = []
+    total_bytes = 0
+    for candidate in candidates:
+        if not isinstance(candidate, ReferenceImage):
+            raise UnsupportedReferenceImageError("参考图参数无效")
+        normalized = reference_image_from_bytes(candidate.content)
+        total_bytes += len(normalized.content)
+        if total_bytes > MAX_TOTAL_REFERENCE_IMAGE_BYTES:
+            max_mebibytes = MAX_TOTAL_REFERENCE_IMAGE_BYTES // (1024 * 1024)
+            raise UnsupportedReferenceImageError(
+                f"参考图总大小不能超过 {max_mebibytes} MiB"
+            )
+        references.append(normalized)
+    return tuple(references)
 
 
 async def read_reference_image(path: str | Path) -> ReferenceImage:
@@ -747,16 +781,17 @@ class ImageGenerationClient:
         *,
         provider: ImageGenerationProvider,
         prompt: str,
-        reference: ReferenceImage | None,
+        reference: ReferenceImage | Sequence[ReferenceImage] | None,
         dimensions: ImageDimensions | None = None,
     ) -> _GenerationPayload:
         model = provider.model
+        references = _normalize_reference_images(reference)
         request_size = self._request_size_for_provider(provider, dimensions)
         headers = {
             "Authorization": f"Bearer {provider.api_key}",
             "Accept": "application/json, image/*",
         }
-        if reference is None:
+        if not references:
             response = await _bounded_post(
                 client,
                 f"{provider.base_url}/v1/images/generations",
@@ -764,7 +799,11 @@ class ImageGenerationClient:
                 json={"model": model, "prompt": prompt, "size": request_size},
             )
         elif provider.kind is ImageGenerationProviderKind.SEEDREAM:
-            encoded = base64.b64encode(reference.content).decode("ascii")
+            encoded_images = [
+                f"data:{item.media_type};base64,"
+                f"{base64.b64encode(item.content).decode('ascii')}"
+                for item in references
+            ]
             response = await _bounded_post(
                 client,
                 f"{provider.base_url}/v1/images/generations",
@@ -772,23 +811,43 @@ class ImageGenerationClient:
                 json={
                     "model": model,
                     "prompt": prompt,
-                    "image": f"data:{reference.media_type};base64,{encoded}",
+                    "image": (
+                        encoded_images[0]
+                        if len(encoded_images) == 1
+                        else encoded_images
+                    ),
                     "size": request_size,
                 },
             )
         else:
+            if len(references) == 1:
+                item = references[0]
+                files = {
+                    "image": (
+                        item.filename,
+                        item.content,
+                        item.media_type,
+                    )
+                }
+            else:
+                files = [
+                    (
+                        "image[]",
+                        (
+                            f"reference-{index}."
+                            f"{_extension_for_media_type(item.media_type)}",
+                            item.content,
+                            item.media_type,
+                        ),
+                    )
+                    for index, item in enumerate(references, start=1)
+                ]
             response = await _bounded_post(
                 client,
                 f"{provider.base_url}/v1/images/edits",
                 headers=headers,
                 data={"model": model, "prompt": prompt, "size": request_size},
-                files={
-                    "image": (
-                        reference.filename,
-                        reference.content,
-                        reference.media_type,
-                    )
-                },
+                files=files,
             )
 
         try:
@@ -828,7 +887,7 @@ class ImageGenerationClient:
         self,
         prompt: str,
         *,
-        reference: ReferenceImage | None,
+        reference: ReferenceImage | Sequence[ReferenceImage] | None,
         dimensions: ImageDimensions | None,
     ) -> GeneratedImage:
         ordered_providers = tuple(
@@ -927,7 +986,7 @@ class ImageGenerationClient:
         self,
         prompt: str,
         *,
-        reference: ReferenceImage | None = None,
+        reference: ReferenceImage | Sequence[ReferenceImage] | None = None,
         dimensions: ImageDimensions | None = None,
     ) -> GeneratedImage:
         self.validate_request(dimensions)
@@ -936,14 +995,13 @@ class ImageGenerationClient:
             raise ImageGenerationError("提示词不能为空")
         if len(prompt) > MAX_PROMPT_LENGTH:
             raise ImageGenerationError("提示词过长")
-        if reference is not None:
-            reference = reference_image_from_bytes(reference.content)
+        references = _normalize_reference_images(reference)
 
         try:
             return await asyncio.wait_for(
                 self._generate_remote(
                     prompt,
-                    reference=reference,
+                    reference=references,
                     dimensions=dimensions,
                 ),
                 timeout=self.timeout_seconds,

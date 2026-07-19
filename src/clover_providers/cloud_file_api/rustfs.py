@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 import boto3
 from nonebot import logger
@@ -49,6 +50,43 @@ class RustFSAPI:
             logger.error(f"RustFS Upload Error: {e}")
             return False
 
+    async def upload_bytes(
+        self,
+        content: bytes,
+        object_key: str,
+        content_type: str | None = None,
+        bucket: str = None,
+    ) -> bool:
+        bucket = bucket or self.bucket_name
+        if self.s3 is None:
+            logger.error("RustFS client is not initialized")
+            return False
+        if not isinstance(content, bytes) or not content or not object_key:
+            logger.warning("跳过 RustFS 上传，无效字节内容或对象名")
+            return False
+
+        parameters = {
+            "Bucket": bucket,
+            "Key": object_key,
+            "Body": content,
+        }
+        if content_type:
+            parameters["ContentType"] = content_type
+        try:
+            await run_sync(
+                self.s3.put_object,
+                **parameters,
+                _cancel_cleanup=lambda _: self.s3.delete_object(
+                    Bucket=bucket,
+                    Key=object_key,
+                ),
+            )
+            logger.debug(f"Uploaded bytes to s3://{bucket}/{object_key}")
+            return True
+        except Exception as e:
+            logger.error(f"RustFS Upload Error: {e}")
+            return False
+
     async def download_file(self, object_key: str, local_path: str, bucket: str = None) -> bool:
         bucket = bucket or self.bucket_name
         if self.s3 is None:
@@ -80,6 +118,23 @@ class RustFSAPI:
         except Exception as e:
             logger.error(f"RustFS Delete Error: {e}")
             return False
+
+    async def delayed_delete_file(
+        self,
+        object_key: str,
+        delay: int,
+        bucket: str = None,
+        attempts: int = 3,
+        retry_delay: int = 30,
+    ) -> bool:
+        await asyncio.sleep(max(0, int(delay)))
+        attempts = max(1, int(attempts))
+        for attempt in range(attempts):
+            if await self.delete_file(object_key, bucket=bucket):
+                return True
+            if attempt + 1 < attempts:
+                await asyncio.sleep(max(0, int(retry_delay)))
+        return False
 
     async def get_download_url(self, object_key: str, bucket: str = None, expires_in: int = 3600) -> str:
         bucket = bucket or self.bucket_name

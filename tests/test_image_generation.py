@@ -19,7 +19,7 @@ except ValueError:
     nonebot.init(log_level="WARNING")
 
 from nonebot.adapters.qq import Message
-from nonebot.adapters.qq.exception import ActionFailed
+from nonebot.adapters.qq.exception import ActionFailed, NetworkError
 from nonebot.internal.driver import Response
 
 from src.clover_image import image_generation as image_api
@@ -130,6 +130,36 @@ class ImageRequestTests(unittest.TestCase):
 
         asyncio.run(scenario())
 
+    def test_gpt_multiple_references_use_ordered_multipart_parts(self):
+        async def scenario():
+            service = self.make_client()
+            fake = FakePostClient()
+            first = image_api.reference_image_from_bytes(PNG_BYTES + b"-first")
+            second = image_api.reference_image_from_bytes(PNG_BYTES + b"-second")
+            await service._request_model(
+                fake,
+                provider=service.providers_by_model["gpt-image-2"],
+                prompt="use the first character with the second pose",
+                reference=(first, second),
+            )
+            return fake.calls[0], first, second
+
+        (url, kwargs), first, second = asyncio.run(scenario())
+
+        self.assertTrue(url.endswith("/v1/images/edits"))
+        self.assertEqual(
+            [field_name for field_name, _ in kwargs["files"]],
+            ["image[]", "image[]"],
+        )
+        self.assertEqual(
+            [part[1] for _, part in kwargs["files"]],
+            [first.content, second.content],
+        )
+        self.assertEqual(
+            [part[0] for _, part in kwargs["files"]],
+            ["reference-1.png", "reference-2.png"],
+        )
+
     def test_seedream_reference_uses_generation_image_data_url(self):
         async def scenario():
             service = self.make_client()
@@ -146,6 +176,77 @@ class ImageRequestTests(unittest.TestCase):
             self.assertNotIn("files", kwargs)
 
         asyncio.run(scenario())
+
+    def test_seedream_multiple_references_use_ordered_image_array(self):
+        async def scenario():
+            service = self.make_client()
+            fake = FakePostClient()
+            first = image_api.reference_image_from_bytes(PNG_BYTES + b"-first")
+            second = image_api.reference_image_from_bytes(PNG_BYTES + b"-second")
+            await service._request_model(
+                fake,
+                provider=service.providers_by_model["doubao-seedream-test"],
+                prompt="use the first character with the second pose",
+                reference=(first, second),
+            )
+            return fake.calls[0][1]["json"]["image"], first, second
+
+        encoded_images, first, second = asyncio.run(scenario())
+
+        self.assertIsInstance(encoded_images, list)
+        self.assertEqual(
+            [
+                base64.b64decode(value.split(",", maxsplit=1)[1])
+                for value in encoded_images
+            ],
+            [first.content, second.content],
+        )
+
+    def test_reference_count_limit_is_checked_before_http_request(self):
+        async def scenario():
+            service = self.make_client()
+            references = (self.reference,) * (
+                image_api.MAX_REFERENCE_IMAGE_COUNT + 1
+            )
+            with patch.object(image_api.httpx, "AsyncClient") as constructor:
+                with self.assertRaisesRegex(
+                    image_api.UnsupportedReferenceImageError,
+                    "单次最多支持",
+                ):
+                    await service.generate("prompt", reference=references)
+            return constructor
+
+        constructor = asyncio.run(scenario())
+
+        constructor.assert_not_called()
+
+    def test_reference_total_size_limit_is_checked_before_http_request(self):
+        async def scenario():
+            service = self.make_client()
+            first = image_api.reference_image_from_bytes(PNG_BYTES + b"-first")
+            second = image_api.reference_image_from_bytes(PNG_BYTES + b"-second")
+            total_limit = len(first.content) + len(second.content) - 1
+            with (
+                patch.object(
+                    image_api,
+                    "MAX_TOTAL_REFERENCE_IMAGE_BYTES",
+                    total_limit,
+                ),
+                patch.object(image_api.httpx, "AsyncClient") as constructor,
+            ):
+                with self.assertRaisesRegex(
+                    image_api.UnsupportedReferenceImageError,
+                    "总大小不能超过",
+                ):
+                    await service.generate(
+                        "prompt",
+                        reference=(first, second),
+                    )
+            return constructor
+
+        constructor = asyncio.run(scenario())
+
+        constructor.assert_not_called()
 
     def test_independent_provider_urls_and_keys_do_not_mix(self):
         async def scenario():
@@ -523,6 +624,128 @@ class PluginParsingTests(unittest.TestCase):
             "https://qq.test/current",
         )
 
+    def test_current_multiple_images_keep_order_and_hide_quoted_images(self):
+        event = types.SimpleNamespace(
+            attachments=[
+                self.attachment("audio/mpeg", "https://qq.test/audio"),
+                self.attachment(url="https://qq.test/character"),
+                self.attachment(url="https://qq.test/pose"),
+            ],
+            reply=types.SimpleNamespace(
+                attachments=[self.attachment(url="https://qq.test/reply")]
+            ),
+            msg_elements=None,
+        )
+
+        self.assertEqual(
+            image_plugin.find_reference_image_urls(event),
+            (
+                "https://qq.test/character",
+                "https://qq.test/pose",
+            ),
+        )
+
+    def test_quoted_multiple_images_keep_order_without_duplicates(self):
+        reply = types.SimpleNamespace(
+            attachments=[
+                self.attachment(url="https://qq.test/character"),
+                self.attachment(url="https://qq.test/character"),
+                self.attachment(url="https://qq.test/pose"),
+            ]
+        )
+        event = types.SimpleNamespace(
+            attachments=[self.attachment("audio/mpeg", "https://qq.test/audio")],
+            reply=reply,
+            msg_elements=[reply],
+        )
+
+        self.assertEqual(
+            image_plugin.find_reference_image_urls(event),
+            (
+                "https://qq.test/character",
+                "https://qq.test/pose",
+            ),
+        )
+
+    def test_msg_elements_multiple_images_keep_order_without_reply_alias(self):
+        event = types.SimpleNamespace(
+            attachments=None,
+            reply=None,
+            msg_elements=[
+                types.SimpleNamespace(
+                    attachments=[
+                        self.attachment(url="https://qq.test/character"),
+                        self.attachment(url="https://qq.test/pose"),
+                    ]
+                )
+            ],
+        )
+
+        self.assertEqual(
+            image_plugin.find_reference_image_urls(event),
+            (
+                "https://qq.test/character",
+                "https://qq.test/pose",
+            ),
+        )
+
+    def test_forwarded_images_have_priority_over_msg_elements(self):
+        event = types.SimpleNamespace(
+            attachments=None,
+            reply=None,
+            _elysia_forwarded_image_urls=(
+                "https://qq.test/forwarded-character",
+                "https://qq.test/forwarded-pose",
+            ),
+            msg_elements=[
+                types.SimpleNamespace(
+                    attachments=[
+                        self.attachment(url="https://qq.test/msg-element")
+                    ]
+                )
+            ],
+        )
+
+        self.assertEqual(
+            image_plugin.find_reference_image_urls(event),
+            (
+                "https://qq.test/forwarded-character",
+                "https://qq.test/forwarded-pose",
+            ),
+        )
+
+    def test_current_images_hide_forwarded_images(self):
+        event = types.SimpleNamespace(
+            attachments=[self.attachment(url="https://qq.test/current")],
+            reply=None,
+            _elysia_forwarded_image_urls=("https://qq.test/forwarded",),
+            msg_elements=None,
+        )
+
+        self.assertEqual(
+            image_plugin.find_reference_image_urls(event),
+            ("https://qq.test/current",),
+        )
+
+    def test_non_action_multi_image_prompt_uses_neutral_roles(self):
+        prompt = image_plugin._prompt_with_ordered_reference_roles(
+            "融合两张图的色彩和氛围",
+            2,
+        )
+
+        self.assertIsNotNone(prompt)
+        self.assertIn("以参考图 1 为主要参考", prompt)
+        self.assertIn("其余图片按顺序作为补充参考", prompt)
+        self.assertNotIn("参考图 2 作为动作", prompt)
+
+    def test_multi_image_prompt_over_limit_is_rejected_explicitly(self):
+        prompt = image_plugin._prompt_with_ordered_reference_roles(
+            "动作" + "画" * image_api.MAX_PROMPT_LENGTH,
+            2,
+        )
+
+        self.assertIsNone(prompt)
+
     def test_quoted_image_is_found_and_non_images_are_ignored(self):
         event = types.SimpleNamespace(
             attachments=[self.attachment("audio/mpeg", "https://qq.test/audio")],
@@ -697,6 +920,398 @@ class UsageLimitTests(unittest.TestCase):
 
 
 class PluginHandlerTests(unittest.TestCase):
+    def test_multiple_images_keep_order_and_add_reference_roles(self):
+        async def scenario():
+            first = image_api.reference_image_from_bytes(PNG_BYTES + b"-character")
+            second = image_api.reference_image_from_bytes(PNG_BYTES + b"-pose")
+            result = image_api.GeneratedImage(
+                content=PNG_BYTES,
+                media_type="image/png",
+                filename="generated.png",
+                model="gpt-image-2",
+            )
+            matcher = types.SimpleNamespace(
+                send=AsyncMock(),
+                finish=AsyncMock(),
+            )
+            event = types.SimpleNamespace(
+                attachments=[
+                    types.SimpleNamespace(
+                        content_type="image/png",
+                        url="https://qq.test/character",
+                    ),
+                    types.SimpleNamespace(
+                        content_type="image/png",
+                        url="https://qq.test/pose",
+                    ),
+                ],
+                reply=types.SimpleNamespace(
+                    attachments=[
+                        types.SimpleNamespace(
+                            content_type="image/png",
+                            url="https://qq.test/ignored-reply",
+                        )
+                    ]
+                ),
+                msg_elements=None,
+                get_user_id=lambda: "multi-image-user",
+            )
+            with (
+                patch.object(image_plugin, "generate_image", matcher),
+                patch.object(
+                    image_plugin,
+                    "_generation_capacity",
+                    image_plugin.GenerationCapacity(1),
+                ),
+                patch.object(image_plugin, "reserve_user_request", return_value=0),
+                patch.object(
+                    image_plugin,
+                    "download_reference_image",
+                    new_callable=AsyncMock,
+                    side_effect=[first, second],
+                ) as download,
+                patch.object(
+                    image_plugin,
+                    "reserve_daily_generation_usage",
+                    new_callable=AsyncMock,
+                    return_value=DailyQuotaStatus.ALLOWED,
+                ),
+                patch.object(
+                    image_plugin.image_generation_client,
+                    "generate",
+                    new_callable=AsyncMock,
+                    return_value=result,
+                ) as generate,
+                patch.object(
+                    image_plugin,
+                    "_send_progress_safely",
+                    new_callable=AsyncMock,
+                ),
+                patch.object(
+                    image_plugin,
+                    "_remaining_daily_quota_text",
+                    new_callable=AsyncMock,
+                    return_value="8 次",
+                ),
+                patch.object(
+                    image_plugin,
+                    "_host_generated_image",
+                    new_callable=AsyncMock,
+                    return_value=image_plugin.HostedGeneratedImage(
+                        "image-generation/test.png",
+                        "https://img.test/generated.png?signature=test",
+                        image_api.ImageDimensions(1024, 1024),
+                    ),
+                ),
+                patch.object(image_plugin, "_schedule_hosted_image_cleanup"),
+            ):
+                await image_plugin.handle_generate_image(
+                    event,
+                    Message("让这个图做出这个图的动作"),
+                )
+            return first, second, download, generate, matcher
+
+        first, second, download, generate, matcher = asyncio.run(scenario())
+
+        self.assertEqual(
+            [item.args[0] for item in download.await_args_list],
+            ["https://qq.test/character", "https://qq.test/pose"],
+        )
+        prompt = generate.await_args.args[0]
+        subject_role = "参考图 1 作为主体、角色身份和外观参考"
+        action_role = "参考图 2 作为动作、姿势和构图参考"
+        self.assertIn(subject_role, prompt)
+        self.assertIn(action_role, prompt)
+        self.assertLess(prompt.index(subject_role), prompt.index(action_role))
+        self.assertIn("让这个图做出这个图的动作", prompt)
+        self.assertEqual(
+            generate.await_args.kwargs["reference"],
+            (first, second),
+        )
+        matcher.finish.assert_awaited_once()
+
+    def test_single_reference_keeps_original_prompt_and_object_shape(self):
+        async def scenario():
+            reference = image_api.reference_image_from_bytes(PNG_BYTES + b"-single")
+            result = image_api.GeneratedImage(
+                content=PNG_BYTES,
+                media_type="image/png",
+                filename="generated.png",
+                model="gpt-image-2",
+            )
+            matcher = types.SimpleNamespace(
+                send=AsyncMock(),
+                finish=AsyncMock(),
+            )
+            event = types.SimpleNamespace(
+                attachments=[
+                    types.SimpleNamespace(
+                        content_type="image/png",
+                        url="https://qq.test/single",
+                    )
+                ],
+                reply=None,
+                msg_elements=None,
+                get_user_id=lambda: "single-reference-user",
+            )
+            with (
+                patch.object(image_plugin, "generate_image", matcher),
+                patch.object(
+                    image_plugin,
+                    "_generation_capacity",
+                    image_plugin.GenerationCapacity(1),
+                ),
+                patch.object(image_plugin, "reserve_user_request", return_value=0),
+                patch.object(
+                    image_plugin,
+                    "download_reference_image",
+                    new_callable=AsyncMock,
+                    return_value=reference,
+                ),
+                patch.object(
+                    image_plugin,
+                    "reserve_daily_generation_usage",
+                    new_callable=AsyncMock,
+                    return_value=DailyQuotaStatus.ALLOWED,
+                ),
+                patch.object(
+                    image_plugin.image_generation_client,
+                    "generate",
+                    new_callable=AsyncMock,
+                    return_value=result,
+                ) as generate,
+                patch.object(
+                    image_plugin,
+                    "_send_progress_safely",
+                    new_callable=AsyncMock,
+                ),
+                patch.object(
+                    image_plugin,
+                    "_remaining_daily_quota_text",
+                    new_callable=AsyncMock,
+                    return_value="8 次",
+                ),
+                patch.object(
+                    image_plugin,
+                    "_host_generated_image",
+                    new_callable=AsyncMock,
+                    return_value=None,
+                ),
+            ):
+                await image_plugin.handle_generate_image(
+                    event,
+                    Message("改成夜景"),
+                )
+            return reference, generate
+
+        reference, generate = asyncio.run(scenario())
+
+        self.assertEqual(generate.await_args.args[0], "改成夜景")
+        self.assertIs(generate.await_args.kwargs["reference"], reference)
+
+    def test_reference_total_size_failure_does_not_reserve_quota(self):
+        async def scenario():
+            first = image_api.reference_image_from_bytes(PNG_BYTES + b"-first")
+            second = image_api.reference_image_from_bytes(PNG_BYTES + b"-second")
+            matcher = types.SimpleNamespace(
+                send=AsyncMock(),
+                finish=AsyncMock(),
+            )
+            event = types.SimpleNamespace(
+                attachments=[
+                    types.SimpleNamespace(
+                        content_type="image/png",
+                        url="https://qq.test/first",
+                    ),
+                    types.SimpleNamespace(
+                        content_type="image/png",
+                        url="https://qq.test/second",
+                    ),
+                ],
+                reply=None,
+                msg_elements=None,
+                get_user_id=lambda: "oversized-multi-image-user",
+            )
+            total_limit = len(first.content) + len(second.content) - 1
+            with (
+                patch.object(image_plugin, "generate_image", matcher),
+                patch.object(
+                    image_plugin,
+                    "_generation_capacity",
+                    image_plugin.GenerationCapacity(1),
+                ),
+                patch.object(image_plugin, "reserve_user_request", return_value=0),
+                patch.object(
+                    image_plugin,
+                    "MAX_TOTAL_REFERENCE_IMAGE_BYTES",
+                    total_limit,
+                ),
+                patch.object(
+                    image_plugin,
+                    "download_reference_image",
+                    new_callable=AsyncMock,
+                    side_effect=[first, second],
+                ),
+                patch.object(
+                    image_plugin,
+                    "reserve_daily_generation_usage",
+                    new_callable=AsyncMock,
+                ) as reserve_quota,
+                patch.object(
+                    image_plugin.image_generation_client,
+                    "generate",
+                    new_callable=AsyncMock,
+                ) as generate,
+            ):
+                await image_plugin.handle_generate_image(event, Message("修改画面"))
+            return matcher, reserve_quota, generate
+
+        matcher, reserve_quota, generate = asyncio.run(scenario())
+
+        reserve_quota.assert_not_awaited()
+        generate.assert_not_awaited()
+        self.assertIn("参考图总大小不能超过", matcher.finish.await_args.args[0])
+
+    def test_too_many_reference_images_are_rejected_before_reservation(self):
+        async def scenario():
+            matcher = types.SimpleNamespace(finish=AsyncMock())
+            event = types.SimpleNamespace(
+                attachments=[
+                    types.SimpleNamespace(
+                        content_type="image/png",
+                        url=f"https://qq.test/image-{index}",
+                    )
+                    for index in range(image_api.MAX_REFERENCE_IMAGE_COUNT + 1)
+                ],
+                reply=None,
+                msg_elements=None,
+            )
+            with (
+                patch.object(image_plugin, "generate_image", matcher),
+                patch.object(
+                    image_plugin.image_generation_client,
+                    "validate_request",
+                ),
+                patch.object(
+                    image_plugin._generation_capacity,
+                    "try_acquire",
+                ) as acquire,
+                patch.object(image_plugin, "reserve_user_request") as reserve,
+                patch.object(
+                    image_plugin,
+                    "download_reference_image",
+                    new_callable=AsyncMock,
+                ) as download,
+            ):
+                await image_plugin.handle_generate_image(event, Message("修改画面"))
+            return matcher, acquire, reserve, download
+
+        matcher, acquire, reserve, download = asyncio.run(scenario())
+
+        self.assertIn("单次最多支持 4 张", matcher.finish.await_args.args[0])
+        acquire.assert_not_called()
+        reserve.assert_not_called()
+        download.assert_not_awaited()
+
+    def test_too_many_forwarded_images_are_rejected_before_reservation(self):
+        async def scenario():
+            matcher = types.SimpleNamespace(finish=AsyncMock())
+            event = types.SimpleNamespace(
+                attachments=None,
+                reply=None,
+                _elysia_forwarded_image_urls=tuple(
+                    f"https://qq.test/forwarded-{index}"
+                    for index in range(image_api.MAX_REFERENCE_IMAGE_COUNT + 1)
+                ),
+                msg_elements=None,
+            )
+            with (
+                patch.object(image_plugin, "generate_image", matcher),
+                patch.object(
+                    image_plugin.image_generation_client,
+                    "validate_request",
+                ),
+                patch.object(
+                    image_plugin._generation_capacity,
+                    "try_acquire",
+                ) as acquire,
+                patch.object(image_plugin, "reserve_user_request") as reserve,
+                patch.object(
+                    image_plugin,
+                    "download_reference_image",
+                    new_callable=AsyncMock,
+                ) as download,
+            ):
+                await image_plugin.handle_generate_image(event, Message("修改画面"))
+            return matcher, acquire, reserve, download
+
+        matcher, acquire, reserve, download = asyncio.run(scenario())
+
+        self.assertIn("单次最多支持 4 张", matcher.finish.await_args.args[0])
+        acquire.assert_not_called()
+        reserve.assert_not_called()
+        download.assert_not_awaited()
+
+    def test_second_reference_download_failure_aborts_the_whole_request(self):
+        async def scenario():
+            first = image_api.reference_image_from_bytes(PNG_BYTES + b"-first")
+            matcher = types.SimpleNamespace(
+                send=AsyncMock(),
+                finish=AsyncMock(),
+            )
+            event = types.SimpleNamespace(
+                attachments=[
+                    types.SimpleNamespace(
+                        content_type="image/png",
+                        url="https://qq.test/first",
+                    ),
+                    types.SimpleNamespace(
+                        content_type="image/png",
+                        url="https://qq.test/second",
+                    ),
+                ],
+                reply=None,
+                msg_elements=None,
+                get_user_id=lambda: "failed-multi-image-user",
+            )
+            with (
+                patch.object(image_plugin, "generate_image", matcher),
+                patch.object(
+                    image_plugin,
+                    "_generation_capacity",
+                    image_plugin.GenerationCapacity(1),
+                ),
+                patch.object(image_plugin, "reserve_user_request", return_value=0),
+                patch.object(
+                    image_plugin,
+                    "download_reference_image",
+                    new_callable=AsyncMock,
+                    side_effect=[
+                        first,
+                        image_api.ImageGenerationError("参考图下载失败"),
+                    ],
+                ) as download,
+                patch.object(
+                    image_plugin,
+                    "reserve_daily_generation_usage",
+                    new_callable=AsyncMock,
+                ) as reserve_quota,
+                patch.object(
+                    image_plugin.image_generation_client,
+                    "generate",
+                    new_callable=AsyncMock,
+                ) as generate,
+            ):
+                await image_plugin.handle_generate_image(event, Message("修改画面"))
+            return matcher, download, reserve_quota, generate
+
+        matcher, download, reserve_quota, generate = asyncio.run(scenario())
+
+        self.assertEqual(download.await_count, 2)
+        reserve_quota.assert_not_awaited()
+        generate.assert_not_awaited()
+        self.assertIn("第 2 张参考图处理失败", matcher.finish.await_args.args[0])
+
     def test_selfie_mode_uses_sender_avatar_and_cleans_it_up(self):
         async def scenario():
             reference = image_api.reference_image_from_bytes(PNG_BYTES)
@@ -706,9 +1321,18 @@ class PluginHandlerTests(unittest.TestCase):
                 filename="generated.png",
                 model="gpt-image-2",
             )
-            matcher = types.SimpleNamespace(finish=AsyncMock())
+            matcher = types.SimpleNamespace(
+                send=AsyncMock(),
+                finish=AsyncMock(),
+            )
             event = types.SimpleNamespace(
-                attachments=None,
+                attachments=[
+                    types.SimpleNamespace(
+                        content_type="image/png",
+                        url=f"https://qq.test/ignored-selfie-{index}",
+                    )
+                    for index in range(image_api.MAX_REFERENCE_IMAGE_COUNT + 1)
+                ],
                 reply=None,
                 msg_elements=None,
                 get_user_id=lambda: "user-openid",
@@ -746,6 +1370,26 @@ class PluginHandlerTests(unittest.TestCase):
                 ),
                 patch.object(
                     image_plugin,
+                    "_remaining_daily_quota_text",
+                    new_callable=AsyncMock,
+                    return_value="9 次",
+                ),
+                patch.object(
+                    image_plugin,
+                    "_host_generated_image",
+                    new_callable=AsyncMock,
+                    return_value=image_plugin.HostedGeneratedImage(
+                        "image-generation/test.png",
+                        "https://img.test/generated.png?signature=test",
+                        image_api.ImageDimensions(1024, 1024),
+                    ),
+                ),
+                patch.object(
+                    image_plugin,
+                    "_schedule_hosted_image_cleanup",
+                ) as schedule_cleanup,
+                patch.object(
+                    image_plugin,
                     "delete_file",
                     new_callable=AsyncMock,
                 ) as delete,
@@ -754,9 +1398,11 @@ class PluginHandlerTests(unittest.TestCase):
                     event,
                     Message("自拍"),
                 )
-            return download_avatar, generate, delete, matcher
+            return download_avatar, generate, delete, matcher, schedule_cleanup
 
-        download_avatar, generate, delete, matcher = asyncio.run(scenario())
+        download_avatar, generate, delete, matcher, schedule_cleanup = asyncio.run(
+            scenario()
+        )
 
         download_avatar.assert_awaited_once_with("user-openid", size=640)
         prompt = generate.await_args.args[0]
@@ -764,7 +1410,21 @@ class PluginHandlerTests(unittest.TestCase):
         self.assertIn(image_plugin.DEFAULT_SELFIE_PROMPT, prompt)
         self.assertEqual(generate.await_args.kwargs["reference"].content, PNG_BYTES)
         delete.assert_awaited_once_with("avatar.jpg")
+        matcher.send.assert_not_awaited()
         matcher.finish.assert_awaited_once()
+        completion = matcher.finish.await_args.args[0]
+        self.assertEqual(
+            [segment.type for segment in completion],
+            ["markdown", "keyboard"],
+        )
+        markdown = completion["markdown"][0].data["markdown"].content
+        self.assertIn("生图完成", markdown)
+        self.assertIn("自拍", markdown)
+        self.assertIn("9 次", markdown)
+        self.assertIn("https://img.test/generated.png?signature=test", markdown)
+        self.assertIn("**版本**：2", markdown)
+        self.assertNotIn("gpt-image-2", markdown)
+        schedule_cleanup.assert_called_once_with("image-generation/test.png")
 
     def test_image_send_failure_gets_text_fallback(self):
         async def scenario():
@@ -781,7 +1441,8 @@ class PluginHandlerTests(unittest.TestCase):
                 )
             )
             matcher = types.SimpleNamespace(
-                finish=AsyncMock(side_effect=[send_failure, None])
+                send=AsyncMock(side_effect=send_failure),
+                finish=AsyncMock(),
             )
             event = types.SimpleNamespace(
                 attachments=None,
@@ -808,14 +1469,102 @@ class PluginHandlerTests(unittest.TestCase):
                     new_callable=AsyncMock,
                     return_value=DailyQuotaStatus.ALLOWED,
                 ),
+                patch.object(
+                    image_plugin,
+                    "_host_generated_image",
+                    new_callable=AsyncMock,
+                    return_value=None,
+                ),
+                patch.object(
+                    image_plugin,
+                    "_remaining_daily_quota_text",
+                    new_callable=AsyncMock,
+                    return_value="6 次",
+                ),
             ):
                 await image_plugin.handle_generate_image(event, Message("landscape"))
             return matcher
 
         matcher = asyncio.run(scenario())
 
+        matcher.send.assert_awaited_once()
+        matcher.finish.assert_awaited_once()
+        self.assertIn("发送失败", matcher.finish.await_args.args[0])
+
+    def test_generation_markdown_network_failure_falls_back_to_result(self):
+        async def scenario():
+            result = image_api.GeneratedImage(
+                content=PNG_BYTES,
+                media_type="image/png",
+                filename="generated.png",
+                model="gpt-image-2",
+            )
+            markdown_failure = NetworkError("connection lost")
+            matcher = types.SimpleNamespace(
+                send=AsyncMock(),
+                finish=AsyncMock(side_effect=[markdown_failure, None]),
+            )
+            event = types.SimpleNamespace(
+                attachments=None,
+                reply=None,
+                msg_elements=None,
+                get_user_id=lambda: "markdown-failure-user",
+            )
+            with (
+                patch.object(image_plugin, "generate_image", matcher),
+                patch.object(
+                    image_plugin.image_generation_client,
+                    "generate",
+                    new_callable=AsyncMock,
+                    return_value=result,
+                ),
+                patch.object(
+                    image_plugin,
+                    "_send_progress_safely",
+                    new_callable=AsyncMock,
+                ),
+                patch.object(
+                    image_plugin,
+                    "reserve_daily_generation_usage",
+                    new_callable=AsyncMock,
+                    return_value=DailyQuotaStatus.ALLOWED,
+                ),
+                patch.object(
+                    image_plugin,
+                    "_remaining_daily_quota_text",
+                    new_callable=AsyncMock,
+                    return_value="7 次",
+                ),
+                patch.object(
+                    image_plugin,
+                    "_host_generated_image",
+                    new_callable=AsyncMock,
+                    return_value=image_plugin.HostedGeneratedImage(
+                        "image-generation/test.png",
+                        "https://img.test/generated.png?signature=test",
+                        image_api.ImageDimensions(1024, 1024),
+                    ),
+                ),
+            ):
+                await image_plugin.handle_generate_image(
+                    event,
+                    Message("landscape"),
+                )
+            return matcher
+
+        matcher = asyncio.run(scenario())
+
+        matcher.send.assert_awaited_once()
         self.assertEqual(matcher.finish.await_count, 2)
-        self.assertIn("发送失败", matcher.finish.await_args_list[1].args[0])
+        native_reply = matcher.finish.await_args_list[0].args[0]
+        self.assertEqual(
+            [segment.type for segment in native_reply],
+            ["markdown", "keyboard"],
+        )
+        fallback = matcher.finish.await_args_list[1].args[0]
+        self.assertIn("版本：2", fallback)
+        self.assertNotIn("gpt-image-2", fallback)
+        self.assertIn("7 次", fallback)
 
 
 if __name__ == "__main__":
